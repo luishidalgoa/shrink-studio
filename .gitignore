@@ -1,0 +1,10 @@
+# Ignorar todo por defecto (esta carpeta puede tener otras utilidades sueltas)...
+/*
+
+# ...salvo los archivos de esta herramienta:
+!/.gitignore
+!/README.md
+!/LICENSE
+!/Shrink-Video.ps1
+!/Shrink-Video-GUI.ps1
+!/Comprimir vídeos.cmd
