@@ -19,6 +19,8 @@ public partial class MainWindow : Window
     private readonly string _previewDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_preview");
     private readonly System.Windows.Threading.DispatcherTimer _scrubTimer = new() { Interval = TimeSpan.FromMilliseconds(220) };
     private CancellationTokenSource? _scrubCts;
+    private CancellationTokenSource? _previewCts;
+    private object? _previewBtnContent;
     private CancellationTokenSource? _cts;
     private bool _running;
     private bool _paused;
@@ -30,6 +32,7 @@ public partial class MainWindow : Window
         Directory.CreateDirectory(_thumbDir);
         lst.ItemsSource = _rows;
         lblVersion.Text = "v" + Updater.Current;
+        _previewBtnContent = btnPreview.Content;   // para restaurar tras "Cancelar"
 
         // barra de título propia
         btnMin.Click += (_, _) => WindowState = WindowState.Minimized;
@@ -324,28 +327,49 @@ public partial class MainWindow : Window
     // ---------- previsualización de 10 s ----------
     private async Task OnPreviewAsync()
     {
+        if (_previewCts != null) { _previewCts.Cancel(); return; }   // ya generando → el botón cancela
         if (lst.SelectedItem is not VideoRow r || !r.Probed)
         {
             MessageBox.Show(this, "Selecciona un vídeo analizado.", "Previsualizar", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        btnPreview.IsEnabled = false;
+        _previewCts = new CancellationTokenSource();
+        btnPreview.Content = "■  Cancelar previsualización";
+        progRow.Visibility = Visibility.Visible; bar.Value = 0;
         lblProg.Text = "Generando previsualización (10 s)…";
         try
         {
             Directory.CreateDirectory(_previewDir);
-            foreach (var old in Directory.GetFiles(_previewDir)) { try { File.Delete(old); } catch { } }  // borra la anterior
+            foreach (var old in Directory.GetFiles(_previewDir)) TryDelete(old);   // borra la anterior
             var dest = Path.Combine(_previewDir, $"preview_{Guid.NewGuid():N}.mkv");
-            var path = await _engine.PreviewAsync(r.Path, BuildOptions(), (int)sldPreview.Value, dest, CancellationToken.None);
+            var path = await _engine.PreviewAsync(r.Path, BuildOptions(), (int)sldPreview.Value, dest,
+                                                  new PreviewReporter(this), _previewCts.Token);
             if (path != null)
             {
-                lblProg.Text = "Previsualización lista (se borra sola al cerrar la app o al generar otra).";
+                lblProg.Text = "Previsualización lista (se borra sola).";
                 Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             }
             else lblProg.Text = "No se pudo generar la previsualización.";
         }
+        catch (OperationCanceledException) { lblProg.Text = "Previsualización cancelada."; }
         catch (Exception ex) { lblProg.Text = "Error en la previsualización: " + ex.Message; }
-        finally { btnPreview.IsEnabled = true; }
+        finally
+        {
+            progRow.Visibility = Visibility.Collapsed;
+            _previewCts?.Dispose(); _previewCts = null;
+            btnPreview.Content = _previewBtnContent;
+        }
+    }
+
+    // reportero de progreso para la preview (actualiza la barra)
+    private sealed class PreviewReporter : IEngineReporter
+    {
+        private readonly MainWindow _w;
+        public PreviewReporter(MainWindow w) => _w = w;
+        public void Log(string l) { }
+        public void FileStart(int i, int t, string n, double d) { }
+        public void FileProgress(double f, string raw) => _w.Dispatcher.BeginInvoke(() => _w.bar.Value = f);
+        public void FileDone(FileResult r) { }
     }
 
     // ---------- eliminar (papelera) ----------

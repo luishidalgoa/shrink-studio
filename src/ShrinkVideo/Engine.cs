@@ -154,40 +154,43 @@ public sealed class Engine
     }
 
     // ---------- previsualización de 10 s con los ajustes actuales ----------
-    private sealed class NullReporter : IEngineReporter
+
+    /// <summary>Args de codificación para la preview: mismo códec, pero preset lo MÁS rápido posible
+    /// (es solo una vista de la calidad; no vale la pena esperar minutos con un encoder de software).</summary>
+    private static List<string> PreviewEncoderArgs(string encoder, int quality) => encoder switch
     {
-        public static readonly NullReporter Instance = new();
-        public void Log(string l) { }
-        public void FileStart(int i, int t, string n, double d) { }
-        public void FileProgress(double f, string r) { }
-        public void FileDone(FileResult r) { }
-    }
+        "libx264" or "libx265" => new() { "-c:v", encoder, "-crf", $"{quality}", "-preset", "ultrafast" },
+        "libsvtav1" => new() { "-c:v", "libsvtav1", "-crf", $"{quality}", "-preset", "12" },
+        "libaom-av1" => new() { "-c:v", "libaom-av1", "-crf", $"{quality}", "-b:v", "0", "-cpu-used", "8", "-usage", "realtime" },
+        "libvpx-vp9" => new() { "-c:v", "libvpx-vp9", "-crf", $"{quality}", "-b:v", "0", "-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1" },
+        _ => EncoderArgs(encoder, quality),   // hardware ya es rápido
+    };
 
     /// <summary>
-    /// Renderiza 10 s desde `startSec` con el códec/calidad/resolución elegidos, a un archivo
-    /// temporal, para que el usuario compruebe el resultado antes de comprimir. El audio se pasa
-    /// a AAC para que se reproduzca en cualquier reproductor. Devuelve la ruta o null si falla.
+    /// Renderiza 10 s desde `startSec` con el códec/calidad/resolución elegidos (preset rápido),
+    /// a un archivo temporal, para comprobar el resultado antes de comprimir. Devuelve la ruta o null.
     /// </summary>
-    public async Task<string?> PreviewAsync(string input, EncodeOptions opt, int startSec, string dest, CancellationToken ct)
+    public async Task<string?> PreviewAsync(string input, EncodeOptions opt, int startSec, string dest, IEngineReporter rep, CancellationToken ct)
     {
-        var encoder = await SelectEncoderAsync(opt.VideoCodec);
+        string vcodec = opt.Container == "webm" ? "vp9" : opt.VideoCodec;
+        var encoder = await SelectEncoderAsync(vcodec);
         int quality = opt.Quality > 0 ? opt.Quality : (IsHardware(encoder) ? 27 : 23);
         var pr = await ProbeFullAsync(input);
         var video = pr?.Streams.FirstOrDefault(s => s.CodecType == "video" && !CoverCodecs.Contains(s.CodecName));
 
         var a = new List<string>
         {
-            "-hide_banner", "-loglevel", "error", "-y",
+            "-hide_banner", "-loglevel", "warning", "-stats", "-y",
             "-ss", startSec.ToString(), "-t", "10", "-i", input,
             "-map", "0:v:0", "-map", "0:a:0?",
         };
         if (opt.MaxHeight > 0 && (video?.Height ?? 0) > opt.MaxHeight)
             a.AddRange(new[] { "-vf", $"scale=-2:{opt.MaxHeight}" });
-        a.AddRange(EncoderArgs(encoder, quality));
+        a.AddRange(PreviewEncoderArgs(encoder, quality));
         int abr = opt.AudioBitrate > 0 ? opt.AudioBitrate : 192;
         a.AddRange(new[] { "-c:a", "aac", "-b:a", $"{abr}k", dest });
 
-        int code = await RunFfmpegAsync(a, 10, NullReporter.Instance, ct);
+        int code = await RunFfmpegAsync(a, 10, rep, ct);
         return code == 0 && File.Exists(dest) ? dest : null;
     }
 
