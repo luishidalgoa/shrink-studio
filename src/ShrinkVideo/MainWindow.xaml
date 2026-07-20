@@ -91,7 +91,7 @@
       <TextBlock Text="Origen" VerticalAlignment="Center" Foreground="#8A93A0" Margin="0,0,8,0"/>
       <TextBox x:Name="txtSrc" Grid.Column="1"/>
       <Button x:Name="btnSrc" Grid.Column="2" Content="📂" Margin="6,0,14,0" Padding="10,6" ToolTip="Elegir carpeta"/>
-      <Button x:Name="btnSrcFile" Grid.Column="3" Content="🎬" Margin="0,0,14,0" Padding="10,6" ToolTip="Elegir un archivo suelto"/>
+      <Button x:Name="btnSrcFile" Grid.Column="3" Content="🎬" Margin="0,0,14,0" Padding="10,6" ToolTip="Añadir uno o varios archivos sueltos a la lista"/>
       <TextBlock Text="Destino" Grid.Column="4" VerticalAlignment="Center" Foreground="#8A93A0" Margin="0,0,8,0"/>
       <TextBox x:Name="txtOut" Grid.Column="5" ToolTip="Vacío = subcarpeta 'comprimido' junto al origen"/>
       <Button x:Name="btnOut" Grid.Column="6" Content="📂" Margin="6,0,0,0" Padding="10,6" ToolTip="Elegir destino"/>

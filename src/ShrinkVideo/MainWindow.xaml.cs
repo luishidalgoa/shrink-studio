@@ -25,7 +25,7 @@ public partial class MainWindow : Window
 
         btnSrc.Click += (_, _) => PickFolder(txtSrc);
         btnOut.Click += (_, _) => PickFolder(txtOut);
-        btnSrcFile.Click += (_, _) => PickFile();
+        btnSrcFile.Click += async (_, _) => await AddFilesDialogAsync();
         btnOpen.Click += (_, _) => OpenDestination();
         btnScan.Click += async (_, _) => await ScanAsync();
         btnRun.Click += async (_, _) => await RunAsync();
@@ -53,13 +53,39 @@ public partial class MainWindow : Window
         var d = new OpenFolderDialog { Title = "Elige la carpeta" };
         if (d.ShowDialog(this) == true) target.Text = d.FolderName;
     }
-    private void PickFile()
+    private async Task AddFilesDialogAsync()
     {
         var d = new OpenFileDialog
         {
-            Filter = "Vídeos|*.mkv;*.mp4;*.avi;*.m4v;*.mov;*.wmv;*.ts;*.webm|Todos|*.*"
+            Multiselect = true,
+            Title = "Elige uno o varios vídeos (Ctrl/Shift para seleccionar varios)",
+            Filter = "Vídeos|*.mkv;*.mp4;*.avi;*.m4v;*.mov;*.wmv;*.webm;*.mpg;*.mpeg;*.flv|Todos|*.*"
         };
-        if (d.ShowDialog(this) == true) txtSrc.Text = d.FileName;
+        if (d.ShowDialog(this) == true) await AddFilesAsync(d.FileNames);
+    }
+
+    /// <summary>Añade archivos sueltos a la lista (sin reemplazarla) y analiza los nuevos.</summary>
+    private async Task AddFilesAsync(IEnumerable<string> paths)
+    {
+        var nuevos = new List<VideoRow>();
+        foreach (var f in paths.Where(File.Exists))
+        {
+            if (_rows.Any(r => string.Equals(r.Path, f, StringComparison.OrdinalIgnoreCase))) continue;
+            var fi = new FileInfo(f);
+            var row = new VideoRow
+            {
+                Name = fi.Name,
+                Dir = fi.Directory?.Name ?? "",
+                Path = fi.FullName,
+                Bytes = fi.Length,
+                SizeMB = $"{fi.Length / 1048576.0:n0} MB",
+            };
+            _rows.Add(row);
+            nuevos.Add(row);
+        }
+        if (nuevos.Count == 0) return;
+        lblLangHint.Text = " detectando…";
+        await ProbeRowsAsync(nuevos);
     }
     private string EffectiveOutput()
     {
@@ -120,9 +146,14 @@ public partial class MainWindow : Window
         lblProg.Text = $"{_rows.Count} vídeo(s) encontrados. Leyendo pistas…";
         if (_rows.Count == 0) { lblLangHint.Text = "(nada que analizar)"; return; }
 
-        var seenA = new HashSet<string>();
-        var seenS = new HashSet<string>();
-        foreach (var row in _rows.ToList())
+        await ProbeRowsAsync(_rows.ToList());
+        lblLangHint.Text = pnlSLang.Children.Count == 0 ? "(sin subtítulos detectados)" : "";
+    }
+
+    /// <summary>Lee las pistas de cada fila con ffprobe y va poblando los idiomas detectados.</summary>
+    private async Task ProbeRowsAsync(IReadOnlyList<VideoRow> rows)
+    {
+        foreach (var row in rows)
         {
             var info = await _engine.ProbeAsync(row.Path);
             row.Codec = info.Codec;
@@ -130,11 +161,16 @@ public partial class MainWindow : Window
             row.Audio = string.Join("+", info.AudioLangs);
             row.Subs = string.Join("+", info.SubLangs);
             row.Estado = "listo";
-            foreach (var l in info.AudioLangs) if (l != "?" && seenA.Add(l)) AddLangChip(pnlALang, l);
-            foreach (var l in info.SubLangs) if (l != "?" && seenS.Add(l)) AddLangChip(pnlSLang, l);
+            foreach (var l in info.AudioLangs) if (l != "?") EnsureLangChip(pnlALang, l);
+            foreach (var l in info.SubLangs) if (l != "?") EnsureLangChip(pnlSLang, l);
         }
-        lblLangHint.Text = pnlSLang.Children.Count == 0 ? "(sin subtítulos detectados)" : "";
-        lblProg.Text = $"{_rows.Count} vídeo(s) analizados.";
+        lblProg.Text = $"{_rows.Count} vídeo(s) en la lista.";
+    }
+
+    private void EnsureLangChip(WrapPanel panel, string code)
+    {
+        if (panel.Children.OfType<CheckBox>().Any(c => (string)c.Content == code)) return;
+        AddLangChip(panel, code);
     }
 
     private static void AddLangChip(WrapPanel panel, string code)

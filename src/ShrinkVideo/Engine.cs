@@ -65,8 +65,10 @@ public sealed class Engine
 {
     private static readonly string[] LossyAudio = { "aac", "opus", "mp3", "vorbis" };
     private static readonly string[] CoverCodecs = { "png", "mjpeg", "bmp", "gif" };
+    // Nota: .ts (MPEG-TS) se omite a propósito: colisiona con TypeScript y llenaría
+    // la lista de archivos de código en carpetas de desarrollo.
     public static readonly string[] VideoExtensions =
-        { ".mkv", ".mp4", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".webm" };
+        { ".mkv", ".mp4", ".avi", ".m4v", ".mov", ".wmv", ".webm", ".mpg", ".mpeg", ".flv" };
 
     private string? _cachedEncoder;
 
