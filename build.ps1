@@ -18,6 +18,11 @@ Write-Host "== Comprimir vídeos · versión $Version ==" -ForegroundColor Cyan
 # 1) icono
 Write-Host "`n[1/3] Icono..." -ForegroundColor Yellow
 pwsh -NoProfile -File (Join-Path $root "make-icon.ps1")
+if ($LASTEXITCODE -ne 0) {
+    if (Test-Path (Join-Path $root "src\ShrinkVideo\Assets\app.ico")) {
+        Write-Host "  make-icon falló; uso el app.ico ya versionado." -ForegroundColor DarkYellow
+    } else { throw "make-icon falló y no existe app.ico" }
+}
 
 # 2) publish self-contained (un solo .exe, sin dependencias del runtime)
 Write-Host "`n[2/3] Publicando el ejecutable..." -ForegroundColor Yellow

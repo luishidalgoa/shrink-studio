@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly string _thumbDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_thumbs");
     private CancellationTokenSource? _cts;
     private bool _running;
+    private bool _paused;
 
     public MainWindow()
     {
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
         btnScan.Click += async (_, _) => await ScanAsync();
         btnRun.Click += async (_, _) => await RunAsync();
         btnCancel.Click += (_, _) => _cts?.Cancel();
+        btnPause.Click += (_, _) => TogglePause();
         btnMarkAll.Click += (_, _) => { foreach (var r in _rows) r.Sel = true; };
         btnMarkNone.Click += (_, _) => { foreach (var r in _rows) r.Sel = false; };
         btnDelSel.Click += (_, _) => DeleteSelected();
@@ -344,7 +346,8 @@ public partial class MainWindow : Window
         var opt = BuildOptions();
         _cts = new CancellationTokenSource();
         _running = true;
-        btnRun.IsEnabled = false; btnCancel.IsEnabled = true;
+        btnRun.IsEnabled = false; btnCancel.IsEnabled = true; btnPause.IsEnabled = true;
+        _paused = false; btnPause.Content = "Pausar";
         progRow.Visibility = Visibility.Visible; bar.Value = 0;
         tglLog.IsChecked = true;
         txtLog.Clear();
@@ -368,11 +371,20 @@ public partial class MainWindow : Window
         catch (Exception ex) { lblProg.Text = "Error: " + ex.Message; AppendLog("ERROR: " + ex); }
         finally
         {
-            _running = false;
+            _running = false; _paused = false;
             btnRun.IsEnabled = true; btnCancel.IsEnabled = false;
+            btnPause.IsEnabled = false; btnPause.Content = "Pausar";
             progRow.Visibility = Visibility.Collapsed;
             _cts?.Dispose(); _cts = null;
         }
+    }
+
+    private void TogglePause()
+    {
+        if (!_running) return;
+        _paused = !_paused;
+        if (_paused) { _engine.Pause(); btnPause.Content = "Reanudar"; lblProg.Text = "En pausa — FFmpeg suspendido"; }
+        else { _engine.Resume(); btnPause.Content = "Pausar"; lblProg.Text = "Reanudado…"; }
     }
 
     private void AppendLog(string line)

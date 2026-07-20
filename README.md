@@ -55,11 +55,16 @@ pwsh -File build.ps1
 # -> installer/Output/ShrinkVideo-Setup-<version>.exe
 ```
 
-Publicar una versión nueva (dispara el auto-update en los usuarios):
+Publicar una versión nueva (dispara el auto-update en los usuarios) — **en la nube, sin dependencias locales**:
 
 1. Sube el número en `<Version>` de [`src/ShrinkVideo/ShrinkVideo.csproj`](src/ShrinkVideo/ShrinkVideo.csproj).
-2. `pwsh -File build.ps1`
-3. `gh release create vX.Y.Z installer/Output/ShrinkVideo-Setup-X.Y.Z.exe --title "vX.Y.Z" --notes "..."`
+2. `git commit -am "vX.Y.Z" && git tag vX.Y.Z && git push --follow-tags`
+3. **GitHub Actions** ([`.github/workflows/build.yml`](.github/workflows/build.yml)) compila el instalador en un runner de Windows y lo **adjunta al Release automáticamente**.
+
+En local sigue disponible `pwsh -File build.ps1` (requiere .NET SDK e Inno Setup) por si quieres compilar sin CI.
+
+> **Solo Windows.** La app usa **WPF**, que existe únicamente en Windows. Para Linux/macOS habría que
+> migrar la interfaz a **Avalonia** (el motor `Engine`/`Estimator` ya es portable). Ver ROADMAP.
 
 ### Estructura
 

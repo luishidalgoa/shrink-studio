@@ -1,6 +1,17 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace ShrinkVideo;
+
+/// <summary>Suspender/reanudar un proceso (para pausar FFmpeg sin perder el progreso).</summary>
+internal static class ProcessControl
+{
+    [DllImport("ntdll.dll")] private static extern int NtSuspendProcess(IntPtr handle);
+    [DllImport("ntdll.dll")] private static extern int NtResumeProcess(IntPtr handle);
+
+    public static void Suspend(Process p) { try { NtSuspendProcess(p.Handle); } catch { } }
+    public static void Resume(Process p) { try { NtResumeProcess(p.Handle); } catch { } }
+}
 
 /// <summary>Enviar archivos/carpetas a la Papelera de reciclaje (sin dependencia de VisualBasic).</summary>
 internal static class RecycleBin

@@ -68,9 +68,9 @@ public interface IEngineReporter
 }
 
 /// <summary>
-/// Motor de compresión. Espejo fiel de Shrink-Video.ps1: recodifica a HEVC con
-/// aceleración por hardware, conserva los idiomas de audio elegidos con el preferido
-/// por defecto, y nunca toca los originales.
+/// Motor de compresión: recodifica a HEVC/H.264/AV1 con aceleración por hardware,
+/// conserva los idiomas de audio elegidos con el preferido por defecto, permite
+/// pausar/reanudar y detener limpiamente, y nunca toca los originales.
 /// </summary>
 public sealed class Engine
 {
@@ -334,43 +334,56 @@ public sealed class Engine
             string tmp = outPath + ".tmp.mkv";
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
 
-            int code = await RunFfmpegAsync(BuildArgs(true).Append(tmp).ToList(), durSec, rep, ct);
+            try
+            {
+                int code = await RunFfmpegAsync(BuildArgs(true).Append(tmp).ToList(), durSec, rep, ct);
 
-            // reintento sin subtítulos (algunos formatos no se copian a MKV)
-            if (code != 0 && subs.Count > 0 && !ct.IsCancellationRequested)
-            {
-                rep.Log("    reintentando sin subtítulos…");
-                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
-                code = await RunFfmpegAsync(BuildArgs(false).Append(tmp).ToList(), durSec, rep, ct);
-            }
+                // reintento sin subtítulos (algunos formatos no se copian a MKV)
+                if (code != 0 && subs.Count > 0 && !ct.IsCancellationRequested)
+                {
+                    rep.Log("    reintentando sin subtítulos…");
+                    try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                    code = await RunFfmpegAsync(BuildArgs(false).Append(tmp).ToList(), durSec, rep, ct);
+                }
 
-            if (code == 0 && File.Exists(tmp))
-            {
-                try { if (File.Exists(outPath)) File.Delete(outPath); } catch { }
-                File.Move(tmp, outPath);
-                long inB = fi.Length, outB = new FileInfo(outPath).Length;
-                int pct = (int)Math.Round(100 - (outB / (double)Math.Max(inB, 1) * 100));
-                rep.Log($"    OK  {inB / 1048576} MB → {outB / 1048576} MB  (-{pct}%)");
-                var r = new FileResult { Name = name, InBytes = inB, OutBytes = outB, Status = $"-{pct}%" };
-                results.Add(r); rep.FileDone(r);
+                if (code == 0 && File.Exists(tmp))
+                {
+                    try { if (File.Exists(outPath)) File.Delete(outPath); } catch { }
+                    File.Move(tmp, outPath);
+                    long inB = fi.Length, outB = new FileInfo(outPath).Length;
+                    int pct = (int)Math.Round(100 - (outB / (double)Math.Max(inB, 1) * 100));
+                    rep.Log($"    OK  {inB / 1048576} MB → {outB / 1048576} MB  (-{pct}%)");
+                    var r = new FileResult { Name = name, InBytes = inB, OutBytes = outB, Status = $"-{pct}%" };
+                    results.Add(r); rep.FileDone(r);
+                }
+                else
+                {
+                    try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                    rep.Log($"    ERROR al codificar (código {code})");
+                    var r = new FileResult { Name = name, InBytes = fi.Length, OutBytes = null, Status = "ERROR" };
+                    results.Add(r); rep.FileDone(r);
+                }
             }
-            else
+            catch (OperationCanceledException)
             {
-                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
-                if (ct.IsCancellationRequested) { rep.Log("    cancelado."); throw new OperationCanceledException(); }
-                rep.Log($"    ERROR al codificar (código {code})");
-                var r = new FileResult { Name = name, InBytes = fi.Length, OutBytes = null, Status = "ERROR" };
-                results.Add(r); rep.FileDone(r);
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }   // al detener no dejamos el temporal a medias
+                rep.Log("    detenido; temporal eliminado.");
+                throw;
             }
         }
         return results;
     }
 
+    // ---------- pausa / reanudación del FFmpeg en curso ----------
+    private Process? _active;
+    public void Pause()  { var p = _active; if (p is { HasExited: false }) ProcessControl.Suspend(p); }
+    public void Resume() { var p = _active; if (p is { HasExited: false }) ProcessControl.Resume(p); }
+
     // ---------- ejecutar ffmpeg con progreso + cancelación ----------
     private static readonly Regex TimeRx =
         new(@"time=(\d+):(\d+):(\d+)\.(\d+)", RegexOptions.Compiled);
 
-    private static async Task<int> RunFfmpegAsync(
+    private async Task<int> RunFfmpegAsync(
         List<string> args, double durSec, IEngineReporter rep, CancellationToken ct)
     {
         var psi = new ProcessStartInfo(Ffmpeg)
@@ -385,37 +398,42 @@ public sealed class Engine
 
         using var proc = new Process { StartInfo = psi };
         proc.Start();
-
-        var stderrTask = Task.Run(async () =>
-        {
-            string? line;
-            while ((line = await proc.StandardError.ReadLineAsync()) != null)
-            {
-                var m = TimeRx.Match(line);
-                if (m.Success && durSec > 0)
-                {
-                    double sec = int.Parse(m.Groups[1].Value) * 3600
-                               + int.Parse(m.Groups[2].Value) * 60
-                               + int.Parse(m.Groups[3].Value)
-                               + double.Parse("0." + m.Groups[4].Value, System.Globalization.CultureInfo.InvariantCulture);
-                    rep.FileProgress(Math.Clamp(sec / durSec, 0, 1), line);
-                }
-            }
-        });
-        _ = proc.StandardOutput.ReadToEndAsync();
-
+        _active = proc;
         try
         {
-            await proc.WaitForExitAsync(ct);
-        }
-        catch (OperationCanceledException)
-        {
-            try { proc.Kill(entireProcessTree: true); } catch { }
+            var stderrTask = Task.Run(async () =>
+            {
+                string? line;
+                while ((line = await proc.StandardError.ReadLineAsync()) != null)
+                {
+                    var m = TimeRx.Match(line);
+                    if (m.Success && durSec > 0)
+                    {
+                        double sec = int.Parse(m.Groups[1].Value) * 3600
+                                   + int.Parse(m.Groups[2].Value) * 60
+                                   + int.Parse(m.Groups[3].Value)
+                                   + double.Parse("0." + m.Groups[4].Value, System.Globalization.CultureInfo.InvariantCulture);
+                        rep.FileProgress(Math.Clamp(sec / durSec, 0, 1), line);
+                    }
+                }
+            });
+            _ = proc.StandardOutput.ReadToEndAsync();
+
+            try
+            {
+                await proc.WaitForExitAsync(ct);
+            }
+            catch (OperationCanceledException)
+            {
+                ProcessControl.Resume(proc);                     // si estaba en pausa, reanudar para poder matarlo
+                try { proc.Kill(entireProcessTree: true); } catch { }
+                try { await stderrTask; } catch { }
+                throw;
+            }
             try { await stderrTask; } catch { }
-            throw;
+            return proc.ExitCode;
         }
-        try { await stderrTask; } catch { }
-        return proc.ExitCode;
+        finally { _active = null; }
     }
 
     // ---------- ejecutar un proceso y capturar salida ----------

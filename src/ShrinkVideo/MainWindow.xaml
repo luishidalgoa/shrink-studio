@@ -309,7 +309,8 @@
               <TextBlock Text="Comprimir marcados" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
-          <Button x:Name="btnCancel" Style="{StaticResource BtnSecondary}" Content="Cancelar" IsEnabled="False" Margin="0,0,8,0"/>
+          <Button x:Name="btnPause" Style="{StaticResource BtnSecondary}" Content="Pausar" IsEnabled="False" Margin="0,0,8,0"/>
+          <Button x:Name="btnCancel" Style="{StaticResource BtnSecondary}" Content="Detener" IsEnabled="False" Margin="0,0,8,0"/>
           <Button x:Name="btnOpen" Style="{StaticResource BtnGhost}">
             <StackPanel Orientation="Horizontal">
               <Viewbox Width="14" Height="14" Margin="0,0,6,0"><Path Data="M1.5 3.5h4l1.5 2h7.5l-2 7h-11z M1.5 3.5v9h11" Stroke="#968AE0" StrokeThickness="1.4" StrokeLineJoin="Round"/></Viewbox>

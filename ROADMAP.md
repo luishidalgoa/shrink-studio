@@ -46,5 +46,8 @@ Leyenda: ✅ hecho · 🔜 siguiente · ⬜ pendiente
 
 ## Transversal
 - ✅ **FFmpeg**: el instalador lo detecta y, si falta, lo descarga e instala junto a la app (el usuario no configura nada).
+- ✅ **Compilación en la nube** (GitHub Actions): al empujar un tag `vX.Y.Z`, el instalador de Windows se compila y se adjunta al Release automáticamente — sin dependencias de desarrollo en el PC.
+- ⬜ **Linux / macOS**: WPF es solo Windows. Requiere migrar la interfaz a **Avalonia** (multiplataforma); el motor (`Engine`/`Estimator`) ya es portable. Es el paso grande pendiente para builds de las 3 plataformas.
+- 🔜 **Pausar / Reanudar** y **Detener** limpios: ✅ ya implementados (suspender/continuar FFmpeg; al detener se corta y se borra el temporal).
 - ⬜ Firmar el instalador (evitar aviso de SmartScreen).
 - ⬜ Rediseño visual (brief en [`docs/design-brief.md`](docs/design-brief.md)).

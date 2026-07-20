@@ -1,0 +1,48 @@
+name: Compilar instalador
+
+# Compila el instalador de Windows en la nube (sin necesitar .NET SDK ni Inno Setup en tu PC).
+# - Al empujar un tag vX.Y.Z: compila y adjunta el instalador al Release de ese tag.
+# - Manualmente (workflow_dispatch): compila y deja el instalador como artefacto descargable.
+#
+# NOTA sobre Linux/macOS: la app usa WPF, que SOLO existe en Windows. No es posible compilarla
+# para Linux ni macOS sin migrar la interfaz a un framework multiplataforma (p. ej. Avalonia).
+# Por eso aquí solo hay un job de Windows. Ver ROADMAP.md.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Instalar Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Compilar instalador (icono + .exe self-contained + Inno)
+        shell: pwsh
+        run: ./build.ps1
+
+      - name: Subir instalador como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShrinkStudio-Setup
+          path: installer/Output/*.exe
+
+      - name: Adjuntar al Release (solo en tags)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/*.exe
+          generate_release_notes: true
