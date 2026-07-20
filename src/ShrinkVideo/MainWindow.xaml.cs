@@ -209,7 +209,18 @@ public partial class MainWindow : Window
             foreach (var l in info.AudioLangs) if (l != "?") EnsureLangChip(pnlALang, l);
             foreach (var l in info.SubLangs) if (l != "?") EnsureLangChip(pnlSLang, l);
         }
+        UpdateLangCombo();
         lblProg.Text = $"{_rows.Count} vídeo(s) en la lista.";
+    }
+
+    /// <summary>Llena el combo de idioma principal con los idiomas de audio realmente detectados.</summary>
+    private void UpdateLangCombo()
+    {
+        var detected = pnlALang.Children.OfType<CheckBox>().Select(c => (string)c.Content).Distinct().ToList();
+        if (detected.Count == 0) return;
+        var current = cboLang.Text;
+        cboLang.ItemsSource = detected;
+        cboLang.Text = detected.Contains(current) ? current : (detected.Contains("spa") ? "spa" : detected[0]);
     }
 
     private void EnsureLangChip(WrapPanel panel, string code)

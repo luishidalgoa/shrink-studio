@@ -130,10 +130,8 @@
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Margin="0,0,10,0">
               <TextBlock Text="Idioma principal" FontSize="11" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
-              <ComboBox x:Name="cboLang" IsEditable="True" Text="spa">
-                <ComboBoxItem Content="spa"/><ComboBoxItem Content="eng"/><ComboBoxItem Content="por"/>
-                <ComboBoxItem Content="fra"/><ComboBoxItem Content="ita"/><ComboBoxItem Content="deu"/><ComboBoxItem Content="jpn"/>
-              </ComboBox>
+              <ComboBox x:Name="cboLang" IsEditable="True" Text="spa"
+                        ToolTip="Idioma que se marca como pista de audio por defecto. Se llena con los idiomas detectados al analizar."/>
             </StackPanel>
             <StackPanel Grid.Column="1" Margin="0,0,10,0">
               <TextBlock Text="Formato" FontSize="11" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
