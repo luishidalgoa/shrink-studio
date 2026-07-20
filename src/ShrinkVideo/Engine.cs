@@ -57,6 +57,9 @@ public sealed class FileResult
     public long InBytes { get; set; }
     public long? OutBytes { get; set; }
     public string Status { get; set; } = "";
+    public string SourcePath { get; set; } = "";   // ruta del original
+    public string OutputPath { get; set; } = "";   // ruta del comprimido resultante
+    public bool Ok => OutBytes is > 0;
 }
 
 /// <summary>Reporta el avance de la compresión a la UI.</summary>
@@ -126,7 +129,7 @@ public sealed class Engine
         if (_cachedEncoder.TryGetValue(codec, out var cached)) return cached;
         var (hw, sw) = Candidates(codec);
         var (_, encList, _) = await RunAsync(Ffmpeg, new[] { "-hide_banner", "-encoders" });
-        foreach (var cand in hw)
+        foreach (var cand in AllowHardware ? hw : Array.Empty<string>())
         {
             if (!encList.Contains(cand)) continue;
             var (code, _, _) = await RunAsync(Ffmpeg, new[]
@@ -388,7 +391,7 @@ public sealed class Engine
                         File.Move(atmp, outPath);
                         long ob = new FileInfo(outPath).Length;
                         rep.Log($"    OK  audio → {ob / 1048576.0:n1} MB");
-                        var ar = new FileResult { Name = name, InBytes = fi.Length, OutBytes = ob, Status = "audio" };
+                        var ar = new FileResult { Name = name, InBytes = fi.Length, OutBytes = ob, Status = "audio", SourcePath = f, OutputPath = outPath };
                         results.Add(ar); rep.FileDone(ar);
                     }
                     else { try { if (File.Exists(atmp)) File.Delete(atmp); } catch { } rep.Log($"    ERROR al extraer audio (código {acode})"); }
@@ -484,14 +487,14 @@ public sealed class Engine
                     long inB = fi.Length, outB = new FileInfo(outPath).Length;
                     int pct = (int)Math.Round(100 - (outB / (double)Math.Max(inB, 1) * 100));
                     rep.Log($"    OK  {inB / 1048576} MB → {outB / 1048576} MB  (-{pct}%)");
-                    var r = new FileResult { Name = name, InBytes = inB, OutBytes = outB, Status = $"-{pct}%" };
+                    var r = new FileResult { Name = name, InBytes = inB, OutBytes = outB, Status = $"-{pct}%", SourcePath = f, OutputPath = outPath };
                     results.Add(r); rep.FileDone(r);
                 }
                 else
                 {
                     try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
                     rep.Log($"    ERROR al codificar (código {code})");
-                    var r = new FileResult { Name = name, InBytes = fi.Length, OutBytes = null, Status = "ERROR" };
+                    var r = new FileResult { Name = name, InBytes = fi.Length, OutBytes = null, Status = "ERROR", SourcePath = f, OutputPath = outPath };
                     results.Add(r); rep.FileDone(r);
                 }
             }
@@ -515,7 +518,24 @@ public sealed class Engine
         new(@"time=(\d+):(\d+):(\d+)\.(\d+)", RegexOptions.Compiled);
 
     // ---------- detección y espera por disco lleno ----------
-    private const long MinFreeBytes = 200L * 1024 * 1024;   // margen mínimo de disco: 200 MB
+    // Margen mínimo de disco antes de pausar (configurable desde Preferencias). Por defecto 200 MB.
+    internal static long MinFreeBytes = 200L * 1024 * 1024;
+
+    // ¿Se permite usar codificadores por hardware? (configurable desde Preferencias)
+    public static bool AllowHardware = true;
+
+    /// <summary>
+    /// ¿Debe enviarse el original a la Papelera tras comprimir? Solo si está activado, la
+    /// compresión fue correcta, y el comprimido NO es el propio original (evita autoborrado
+    /// cuando la salida coincide con la entrada).
+    /// </summary>
+    public static bool ShouldRecycleSource(bool enabled, FileResult r) =>
+        enabled && r.Ok
+        && !string.IsNullOrEmpty(r.SourcePath)
+        && !string.Equals(
+            Path.GetFullPath(r.SourcePath),
+            string.IsNullOrEmpty(r.OutputPath) ? "\0" : Path.GetFullPath(r.OutputPath),
+            StringComparison.OrdinalIgnoreCase);
 
     internal static bool IsDiskFull(string err) =>
         err.Contains("No space left", StringComparison.OrdinalIgnoreCase) ||
