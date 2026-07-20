@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly Engine _engine = new();
     private readonly string _thumbDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_thumbs");
     private readonly string _previewDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_preview");
+    private readonly System.Windows.Threading.DispatcherTimer _scrubTimer = new() { Interval = TimeSpan.FromMilliseconds(220) };
     private CancellationTokenSource? _cts;
     private bool _running;
     private bool _paused;
@@ -56,7 +57,12 @@ public partial class MainWindow : Window
             c.SelectionChanged += (_, _) => UpdateEstimate();
 
         btnPreview.Click += async (_, _) => await OnPreviewAsync();
-        sldPreview.ValueChanged += (_, _) => lblPreviewAt.Text = $"Previsualizar desde {FmtTime((int)sldPreview.Value)}";
+        _scrubTimer.Tick += async (_, _) => { _scrubTimer.Stop(); await ShowScrubFrameAsync(); };
+        sldPreview.ValueChanged += (_, _) =>
+        {
+            lblPreviewAt.Text = $"Previsualizar desde {FmtTime((int)sldPreview.Value)}";
+            _scrubTimer.Stop(); _scrubTimer.Start();   // debounce: muestra el fotograma al soltar/pausar
+        };
 
         cboFmt.SelectionChanged += (_, _) =>
         {
@@ -232,23 +238,24 @@ public partial class MainWindow : Window
         lblPrevInfo.Text = $"{r.Dir}  ·  {r.SizeMB}  ·  {r.Dur}\n{r.Codec}  ·  audio: {r.Audio}" +
                            (string.IsNullOrEmpty(r.Subs) ? "" : $"  ·  subs: {r.Subs}");
 
-        var hash = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(r.Path)));
-        var thumb = Path.Combine(_thumbDir, hash + ".jpg");
-        if (!File.Exists(thumb))
-        {
-            if (!await Engine.MakeThumbnailAsync(r.Path, thumb, 120))
-                await Engine.MakeThumbnailAsync(r.Path, thumb, 3);
-        }
-        if (File.Exists(thumb))
+        await ShowScrubFrameAsync();   // muestra el fotograma del punto de previsualización
+    }
+
+    /// <summary>Genera y muestra el fotograma del vídeo seleccionado en el punto del timeline.</summary>
+    private async Task ShowScrubFrameAsync()
+    {
+        if (lst.SelectedItem is not VideoRow r || !r.Probed) return;
+        var scrub = Path.Combine(_thumbDir, "scrub.jpg");
+        try { Directory.CreateDirectory(_thumbDir); if (File.Exists(scrub)) File.Delete(scrub); } catch { }
+        if (await Engine.MakeThumbnailAsync(r.Path, scrub, (int)sldPreview.Value) && File.Exists(scrub))
         {
             var bmp = new BitmapImage();
             bmp.BeginInit();
-            bmp.UriSource = new Uri(thumb);
+            bmp.UriSource = new Uri(scrub);
             bmp.CacheOption = BitmapCacheOption.OnLoad;
             bmp.EndInit();
             imgPrev.Source = bmp;
         }
-        else imgPrev.Source = null;
     }
 
     // ---------- estimación de ahorro ----------

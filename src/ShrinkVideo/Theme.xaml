@@ -323,6 +323,85 @@
     <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
   </Style>
 
+  <!-- ══ ScrollBar (oscuro, minimalista) ══ -->
+  <Style x:Key="ScrollThumb" TargetType="Thumb">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Thumb">
+          <Border Background="{StaticResource Neutral700}" CornerRadius="4" Margin="2,0"/>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="ScrollNoop" TargetType="RepeatButton">
+    <Setter Property="Opacity" Value="0"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="IsTabStop" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="ScrollBar">
+    <Setter Property="Width" Value="10"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ScrollBar">
+          <Grid Background="Transparent">
+            <Track x:Name="PART_Track" IsDirectionReversed="True">
+              <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollNoop}" Command="ScrollBar.PageUpCommand"/></Track.DecreaseRepeatButton>
+              <Track.Thumb><Thumb Style="{StaticResource ScrollThumb}"/></Track.Thumb>
+              <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollNoop}" Command="ScrollBar.PageDownCommand"/></Track.IncreaseRepeatButton>
+            </Track>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ══ Slider tipo línea de tiempo (previsualización) ══ -->
+  <Style x:Key="TimelineSlider" TargetType="Slider">
+    <Setter Property="Height" Value="24"/>
+    <Setter Property="IsMoveToPointEnabled" Value="True"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Slider">
+          <Grid>
+            <Border Height="18" CornerRadius="4" Background="{StaticResource Field}" BorderBrush="{StaticResource Neutral800}" BorderThickness="1" VerticalAlignment="Center"/>
+            <Track x:Name="PART_Track">
+              <Track.DecreaseRepeatButton>
+                <RepeatButton Command="Slider.DecreaseLarge">
+                  <RepeatButton.Template>
+                    <ControlTemplate TargetType="RepeatButton"><Border Height="18" CornerRadius="4,0,0,4" Background="#33968AE0" VerticalAlignment="Center"/></ControlTemplate>
+                  </RepeatButton.Template>
+                </RepeatButton>
+              </Track.DecreaseRepeatButton>
+              <Track.IncreaseRepeatButton>
+                <RepeatButton Command="Slider.IncreaseLarge">
+                  <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template>
+                </RepeatButton>
+              </Track.IncreaseRepeatButton>
+              <Track.Thumb>
+                <Thumb>
+                  <Thumb.Template>
+                    <ControlTemplate TargetType="Thumb">
+                      <Grid Width="12" Background="Transparent">
+                        <Rectangle Width="2" Fill="{StaticResource Accent}" HorizontalAlignment="Center"/>
+                        <Border Width="11" Height="11" CornerRadius="6" Background="{StaticResource Accent}" VerticalAlignment="Top"/>
+                        <Border Width="11" Height="11" CornerRadius="6" Background="{StaticResource Accent}" VerticalAlignment="Bottom"/>
+                      </Grid>
+                    </ControlTemplate>
+                  </Thumb.Template>
+                </Thumb>
+              </Track.Thumb>
+            </Track>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- ══ Chip de idioma (píldora) ══ -->
   <Style x:Key="ChipStyle" TargetType="CheckBox">
     <Setter Property="Cursor" Value="Hand"/>
