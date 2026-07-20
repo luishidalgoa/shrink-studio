@@ -208,7 +208,7 @@ public sealed class Engine
         "vp9_qsv" => new() { "-c:v", "vp9_qsv", "-global_quality", $"{quality}", "-preset", "slow" },
         "libsvtav1" => new() { "-c:v", "libsvtav1", "-crf", $"{quality}", "-preset", "6" },
         "libvpx-vp9" => new() { "-c:v", "libvpx-vp9", "-crf", $"{quality}", "-b:v", "0", "-row-mt", "1" },
-        "libaom-av1" => new() { "-c:v", "libaom-av1", "-crf", $"{quality}", "-b:v", "0" },
+        "libaom-av1" => new() { "-c:v", "libaom-av1", "-crf", $"{quality}", "-b:v", "0", "-cpu-used", "6", "-row-mt", "1" },
         _ => new() { "-c:v", encoder, "-crf", $"{quality}", "-preset", "medium" },   // libx264 / libx265
     };
 
@@ -315,7 +315,12 @@ public sealed class Engine
         int quality = opt.Quality > 0 ? opt.Quality : (IsHardware(encoder) ? 27 : 23);
         var encArgs = EncoderArgs(encoder, quality);
         if (opt.AudioOnly) rep.Log($"Modo solo audio → {opt.AudioFormat.ToUpperInvariant()}");
-        else rep.Log($"Codificador: {encoder} [{(IsHardware(encoder) ? "hardware" : "software (CPU, lento)")}] · calidad {quality}");
+        else
+        {
+            rep.Log($"Codificador: {encoder} [{(IsHardware(encoder) ? "hardware" : "software (CPU, lento)")}] · calidad {quality}");
+            if (encoder is "libaom-av1")
+                rep.Log("  AVISO: AV1 por software es MUY lento (puede tardar horas). Para ir rápido usa H.265, que aprovecha tu GPU.");
+        }
 
         var keepLangs = opt.KeepLangs.Count > 0 ? opt.KeepLangs : new List<string> { opt.Lang, "eng" };
         bool keepAll = keepLangs.Contains("all");

@@ -70,6 +70,24 @@
     </Setter>
   </Style>
 
+  <!-- TextBox sin marco (va DENTRO de un Border propio: Origen/Destino) -->
+  <Style x:Key="InlineTextBox" TargetType="TextBox">
+    <Setter Property="Foreground" Value="{StaticResource Text}"/>
+    <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- ══ Botones ══ -->
   <Style x:Key="BtnBase" TargetType="Button">
     <Setter Property="Foreground" Value="{StaticResource Text}"/>

@@ -86,7 +86,7 @@
                 <Viewbox Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center">
                   <Path Data="M1.5 3.5h4l1.5 2h7.5v7h-13z" Stroke="{StaticResource Neutral500}" StrokeThickness="1.4" StrokeLineJoin="Round"/>
                 </Viewbox>
-                <TextBox x:Name="txtSrc" Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="0" VerticalContentAlignment="Center"/>
+                <TextBox x:Name="txtSrc" Grid.Column="1" Style="{StaticResource InlineTextBox}"/>
               </Grid>
             </Border>
             <Button x:Name="btnSrc" Style="{StaticResource BtnSecondary}" Width="34" Height="34" Padding="0" Margin="6,0,0,0" ToolTip="Elegir carpeta">
@@ -104,7 +104,7 @@
           <TextBlock VerticalAlignment="Center" Margin="0,0,0,4"><Run Text="Destino " FontSize="11" Foreground="#9397AB"/><Run Text="(opcional)" FontSize="11" Foreground="#595D6C"/></TextBlock>
           <StackPanel Orientation="Horizontal">
             <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1" CornerRadius="8" Height="34" Width="300">
-              <TextBox x:Name="txtOut" Background="Transparent" BorderThickness="0" Margin="10,0" VerticalContentAlignment="Center"
+              <TextBox x:Name="txtOut" Style="{StaticResource InlineTextBox}" Margin="10,0"
                        ToolTip="Vacío = subcarpeta 'comprimido' junto al origen"/>
             </Border>
             <Button x:Name="btnOut" Style="{StaticResource BtnSecondary}" Width="34" Height="34" Padding="0" Margin="6,0,0,0" ToolTip="Elegir destino">

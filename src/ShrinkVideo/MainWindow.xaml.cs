@@ -556,7 +556,7 @@ public partial class MainWindow : Window
         if (!_running) return;
         _paused = !_paused;
         if (_paused) { _engine.Pause(); btnPause.Content = "Reanudar"; lblProg.Text = "En pausa — FFmpeg suspendido"; }
-        else { _engine.Resume(); btnPause.Content = "Pausar"; lblProg.Text = "Reanudado…"; }
+        else { _engine.Resume(); btnPause.Content = "Pausar"; lblProg.Text = "Comprimiendo… (mira la barra)"; }
     }
 
     private void AppendLog(string line)
