@@ -1,83 +1,72 @@
-# Comprimir vídeos (Shrink-Video)
+<p align="center">
+  <img src="docs/icon.png" alt="Comprimir vídeos" width="128">
+</p>
 
-Herramienta para **reducir el peso de vídeos** (series, películas, capítulos sueltos) recodificándolos
-a **HEVC/H.265** con aceleración por hardware, convirtiendo el audio y **conservando solo los idiomas
-que te interesan** (con tu idioma preferido marcado como predeterminado).
+<h1 align="center">Comprimir vídeos</h1>
 
-Pensada para tandas de archivos grandes: reduce típicamente **un 80–90 %** el tamaño manteniendo una
-calidad visual muy buena. **Nunca toca los originales** — el resultado va siempre a otra carpeta.
+<p align="center">
+  App de escritorio para Windows que <b>reduce el peso de tus vídeos</b> (series, películas, capítulos)
+  recodificándolos a HEVC con aceleración por hardware, conservando solo los idiomas de audio que quieras.
+</p>
 
-## Requisitos
+---
 
-- **Windows** con **PowerShell 7** (`pwsh`).
-- **FFmpeg** en el `PATH`:
-  ```powershell
-  winget install Gyan.FFmpeg
-  ```
-- Codificación por hardware automática si tienes GPU Intel (QSV), NVIDIA (NVENC) o AMD (AMF).
-  Si no hay ninguna, usa la CPU (`libx265`, más lento) y te avisa.
+Reduce típicamente **un 80–90 %** el tamaño manteniendo una calidad visual muy buena.
+**Nunca toca los originales**: el resultado va siempre a otra carpeta.
+
+## Instalación
+
+1. Descarga el instalador más reciente de la página de **[Releases](https://github.com/luishidalgoa/shrink-video/releases/latest)** → `ShrinkVideo-Setup-X.Y.Z.exe`.
+2. Ejecútalo. Se instala **solo para tu usuario** (no pide permisos de administrador) y crea acceso directo en el menú Inicio (y opcionalmente en el Escritorio).
+3. Como el instalador no está firmado, Windows SmartScreen puede avisar: pulsa **Más información → Ejecutar de todas formas**.
+
+> **Requisito:** necesitas **FFmpeg** en el `PATH`. Instálalo con `winget install Gyan.FFmpeg`.
+> La app avisa si no lo encuentra.
 
 ## Uso
 
-### Interfaz gráfica
-Doble clic en **`Comprimir vídeos.cmd`** (o en el acceso directo si lo creaste).
-Elige el origen (carpeta o archivo), opcionalmente el destino, y pulsa **Comprimir**.
-Todo lo demás trae valores por defecto.
+1. **Origen**: elige una carpeta (o un archivo suelto). Con *Subcarpetas* marcado, entra en las temporadas.
+2. **Analizar**: lista los vídeos con su tamaño, duración, códec y los idiomas de audio/subtítulos detectados.
+3. Ajusta las opciones (todas con valor por defecto): idioma principal, calidad, resolución máxima, audio, y qué idiomas conservar.
+4. Marca los que quieras y pulsa **Comprimir marcados**. Ves el progreso en vivo; puedes **Cancelar** en cualquier momento.
 
-### Línea de comandos
+El **idioma principal** (por defecto español) se marca como pista de audio predeterminada. Los idiomas no elegidos se descartan para ahorrar espacio.
+
+## Actualizaciones automáticas
+
+La app comprueba al arrancar si hay una versión nueva en GitHub. Si la hay, muestra un aviso: al pulsar **Actualizar ahora**, descarga el instalador, lo ejecuta y se cierra para completar la actualización (que reemplaza la versión anterior in-place). También puedes comprobarlo manualmente con **Buscar actualizaciones**.
+
+## Desarrollo
+
+Requisitos: **.NET 9 SDK** e **Inno Setup 6** (`winget install JRSoftware.InnoSetup`).
+
 ```powershell
-# Todos los vídeos de una carpeta
-.\Shrink-Video.ps1 -Path "D:\Series\Bob Esponja"
+# Ejecutar en desarrollo
+dotnet run --project src/ShrinkVideo
 
-# Una serie entera, con subcarpetas de temporadas
-.\Shrink-Video.ps1 -Path "D:\Series\Bob Esponja" -Recurse
-
-# Una película en 4K, más calidad, bajándola a 1080p
-.\Shrink-Video.ps1 -Path "D:\Pelis\Duna.mkv" -Quality 24 -MaxHeight 1080
-
-# Solo audio inglés, tirando el resto
-.\Shrink-Video.ps1 -Lang eng -KeepLangs eng
-
-# Ver qué haría sin codificar nada
-.\Shrink-Video.ps1 -Path "D:\Pelis" -DryRun
+# Compilar el instalador completo (icono + .exe self-contained + instalador Inno)
+pwsh -File build.ps1
+# -> installer/Output/ShrinkVideo-Setup-<version>.exe
 ```
 
-## Parámetros
+Publicar una versión nueva (dispara el auto-update en los usuarios):
 
-| Parámetro | Por defecto | Qué hace |
-|---|---|---|
-| `-Path` | carpeta actual | Archivo o carpeta a procesar. |
-| `-Output` | `<origen>\comprimido` | Carpeta de destino. |
-| `-Lang` | `spa` | Idioma preferido (ISO 3 letras); se marca como audio predeterminado. |
-| `-KeepLangs` | `spa,eng` | Idiomas de audio a conservar (coma). `all` = todos. |
-| `-Quality` | `0` (auto) | Menor número = más calidad y tamaño. Rango útil 22–30. |
-| `-MaxHeight` | `0` (sin cambio) | Reescala si el vídeo es más alto (p. ej. `1080`). |
-| `-AudioBitrate` | `0` (copiar original) | kbps del audio AAC; `0` copia el audio sin recomprimir. |
-| `-SubLangs` | todos | Idiomas de subtítulos a conservar. |
-| `-Recurse` | — | Incluye subcarpetas. |
-| `-NoSubs` | — | No conservar subtítulos. |
-| `-Force` | — | Reprocesa también los que ya parecen comprimidos. |
-| `-DryRun` | — | Muestra qué haría sin codificar. |
+1. Sube el número en `<Version>` de [`src/ShrinkVideo/ShrinkVideo.csproj`](src/ShrinkVideo/ShrinkVideo.csproj).
+2. `pwsh -File build.ps1`
+3. `gh release create vX.Y.Z installer/Output/ShrinkVideo-Setup-X.Y.Z.exe --title "vX.Y.Z" --notes "..."`
 
-Ayuda completa:
-```powershell
-Get-Help .\Shrink-Video.ps1 -Full
-```
+### Estructura
+
+| Carpeta | Qué es |
+|---|---|
+| `src/ShrinkVideo/` | App C#/WPF. `Engine.cs` = motor (FFmpeg); el resto es interfaz y auto-update. |
+| `installer/` | Script de Inno Setup. |
+| `make-icon.ps1` | Genera el icono con GDI+. |
+| `build.ps1` | Compila todo de punta a punta. |
+| `legacy/` | La versión original en PowerShell (el motor con el que nació esto). |
 
 ## Cómo funciona
 
-- Detecta las pistas con `ffprobe`: vídeo, audios por idioma y subtítulos.
-- Reordena el audio para poner tu idioma preferido primero y como predeterminado.
-- Salta lo que ya está comprimido (HEVC/AV1 con bitrate bajo) y lo que aún se está descargando.
-- Es **re-ejecutable sin miedo**: puedes lanzarlo otra vez y solo procesa lo que falta.
-
-## Estructura
-
-| Archivo | Qué es |
-|---|---|
-| `Shrink-Video.ps1` | El motor (toda la lógica; usable por línea de comandos). |
-| `Shrink-Video-GUI.ps1` | Interfaz gráfica (WPF); solo llama al motor. |
-| `Comprimir vídeos.cmd` | Lanzador de la interfaz (doble clic). |
-
-> La lógica vive **solo** en `Shrink-Video.ps1`. La interfaz es un frontend: mejorar el motor
-> beneficia a ambos.
+- Detecta las pistas con `ffprobe`, reordena el audio para poner tu idioma preferido primero y como predeterminado.
+- Elige el codificador por hardware disponible (Intel QSV, NVIDIA NVENC, AMD AMF) o cae a CPU (`libx265`).
+- Salta lo ya comprimido (HEVC/AV1 con bitrate bajo) y lo que aún se está descargando.

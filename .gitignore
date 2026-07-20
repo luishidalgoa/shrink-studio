@@ -1,10 +1,12 @@
-# Ignorar todo por defecto (esta carpeta puede tener otras utilidades sueltas)...
-/*
+# .NET
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/
 
-# ...salvo los archivos de esta herramienta:
-!/.gitignore
-!/README.md
-!/LICENSE
-!/Shrink-Video.ps1
-!/Shrink-Video-GUI.ps1
-!/Comprimir vídeos.cmd
+# Artefactos de build (se generan con build.ps1)
+publish/
+installer/Output/
+src/ShrinkVideo/Assets/app-256.png

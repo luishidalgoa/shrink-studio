@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>ShrinkVideo</AssemblyName>
+    <RootNamespace>ShrinkVideo</RootNamespace>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- Versión: única fuente para el ejecutable, el instalador y el auto-update -->
+    <Version>0.1.0</Version>
+    <Product>Comprimir vídeos</Product>
+    <Company>luishidalgoa</Company>
+    <Authors>luishidalgoa</Authors>
+    <Description>Comprime vídeos a HEVC reduciendo su peso, conservando los idiomas de audio elegidos.</Description>
+    <Copyright>© luishidalgoa</Copyright>
+
+    <!-- Repo de GitHub del que la app descarga sus actualizaciones -->
+    <UpdateRepo>luishidalgoa/shrink-video</UpdateRepo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>UpdateRepo</_Parameter1>
+      <_Parameter2>$(UpdateRepo)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+</Project>
