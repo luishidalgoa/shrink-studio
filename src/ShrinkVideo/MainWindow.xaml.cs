@@ -576,6 +576,12 @@ public partial class MainWindow : Window
         public void FileProgress(double frac, string raw) =>
             _w.Dispatcher.BeginInvoke(() => _w.bar.Value = frac);
         public void FileDone(FileResult r) { }
+        public void DiskFull(bool paused) => _w.Dispatcher.BeginInvoke(() =>
+        {
+            _w.lblProg.Text = paused
+                ? "⛔ Disco lleno — pausado. Libera espacio y continuará solo."
+                : "Comprimiendo… (mira la barra)";
+        });
     }
 
     // ---------- actualizaciones ----------
