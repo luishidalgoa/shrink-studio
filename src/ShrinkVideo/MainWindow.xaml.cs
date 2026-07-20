@@ -216,12 +216,10 @@ public partial class MainWindow : Window
 
     private void AddLangChip(WrapPanel panel, string code)
     {
-        panel.Children.Add(new CheckBox
-        {
-            Content = code,
-            IsChecked = true,
-            Style = (Style)FindResource("ChipStyle"),
-        });
+        var cb = new CheckBox { Content = code, IsChecked = true, Style = (Style)FindResource("ChipStyle") };
+        cb.Checked += (_, _) => UpdateEstimate();
+        cb.Unchecked += (_, _) => UpdateEstimate();
+        panel.Children.Add(cb);
     }
     private static List<string> CheckedLangs(WrapPanel panel) =>
         panel.Children.OfType<CheckBox>().Where(c => c.IsChecked == true).Select(c => (string)c.Content).ToList();
@@ -245,17 +243,23 @@ public partial class MainWindow : Window
     private async Task ShowScrubFrameAsync()
     {
         if (lst.SelectedItem is not VideoRow r || !r.Probed) return;
+        Directory.CreateDirectory(_thumbDir);
         var scrub = Path.Combine(_thumbDir, "scrub.jpg");
-        try { Directory.CreateDirectory(_thumbDir); if (File.Exists(scrub)) File.Delete(scrub); } catch { }
-        if (await Engine.MakeThumbnailAsync(r.Path, scrub, (int)sldPreview.Value) && File.Exists(scrub))
+        try { if (File.Exists(scrub)) File.Delete(scrub); } catch { }
+        if (!await Engine.MakeThumbnailAsync(r.Path, scrub, (int)sldPreview.Value) || !File.Exists(scrub)) return;
+        try
         {
+            var bytes = await File.ReadAllBytesAsync(scrub);   // leer y desacoplar del archivo
             var bmp = new BitmapImage();
             bmp.BeginInit();
-            bmp.UriSource = new Uri(scrub);
             bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            bmp.StreamSource = new MemoryStream(bytes);
             bmp.EndInit();
+            bmp.Freeze();
             imgPrev.Source = bmp;
         }
+        catch { }
     }
 
     // ---------- estimación de ahorro ----------

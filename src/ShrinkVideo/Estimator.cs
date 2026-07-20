@@ -24,6 +24,18 @@ public static class Estimator
 {
     private static readonly string[] Mp4Audio = { "aac", "ac3", "eac3", "mp3", "alac" };
 
+    /// <summary>Cuántas pistas de audio se conservan según los idiomas elegidos.</summary>
+    private static int KeptAudioTracks(VideoRow r, EncodeOptions o)
+    {
+        var langs = string.IsNullOrWhiteSpace(r.Audio)
+            ? new List<string>()
+            : r.Audio.Split('+').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+        if (langs.Count == 0) return 1;
+        if (o.KeepLangs.Count == 0 || o.KeepLangs.Contains("all")) return langs.Count;
+        int n = langs.Count(l => o.KeepLangs.Contains(l) || l == o.Lang);
+        return n < 1 ? langs.Count : n;   // si ningún idioma coincide, el motor conserva todas
+    }
+
     public static Estimate Compute(VideoRow r, EncodeOptions o)
     {
         var e = new Estimate { OrigBytes = r.Bytes };
@@ -33,9 +45,10 @@ public static class Estimator
         // --- modo solo audio: sin vídeo ---
         if (o.AudioOnly)
         {
-            int aKbps = o.AudioFormat == "flac"
+            int nA = KeptAudioTracks(r, o);
+            int aKbps = (o.AudioFormat == "flac"
                 ? (r.AudioBitrateKbps > 0 ? Math.Max(r.AudioBitrateKbps, 700) : 800)
-                : (o.AudioBitrate > 0 ? o.AudioBitrate : 192);
+                : (o.AudioBitrate > 0 ? o.AudioBitrate : 192)) * nA;
             e.EstAudioKbps = aKbps;
             e.EstBytes = Math.Min((long)(aKbps * 1000.0 / 8.0 * r.DurationSec * 1.02), r.Bytes);
             e.VideoQuality = 0; e.VideoSaving = 5;               // sin vídeo = máximo ahorro de espacio
@@ -75,9 +88,10 @@ public static class Estimator
             : (o.AudioBitrate > 0 ? o.AudioBitrate : (webm ? 160 : 192));
         if (willCopy && r.AudioBitrateKbps > 0) estAudioKbps = Math.Min(estAudioKbps, r.AudioBitrateKbps);
 
+        int numAudio = KeptAudioTracks(r, o);
         e.EstVideoKbps = estVideoKbps;
-        e.EstAudioKbps = estAudioKbps;
-        long bytes = (long)((estVideoKbps + estAudioKbps) * 1000.0 / 8.0 * r.DurationSec * 1.02);
+        e.EstAudioKbps = estAudioKbps * numAudio;   // suma de todas las pistas conservadas
+        long bytes = (long)((estVideoKbps + e.EstAudioKbps) * 1000.0 / 8.0 * r.DurationSec * 1.02);
         e.EstBytes = Math.Min(bytes, r.Bytes);
 
         // Valoraciones 0..5

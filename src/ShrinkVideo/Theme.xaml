@@ -320,7 +320,8 @@
     <Setter Property="BorderThickness" Value="0"/>
     <Setter Property="Foreground" Value="{StaticResource Text}"/>
     <Setter Property="ItemContainerStyle" Value="{StaticResource RowStyle}"/>
-    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ScrollViewer.CanContentScroll" Value="False"/>
   </Style>
 
   <!-- ══ ScrollBar (oscuro, minimalista) ══ -->
