@@ -38,6 +38,12 @@ Leyenda: ✅ hecho · 🔜 siguiente · ⬜ pendiente
 - ⬜ **Previsualización** (muestra corta del resultado antes de codificar todo).
 - ⬜ "Al terminar": no hacer nada / apagar / suspender.
 
+## Foco: ahorro de almacenamiento
+- ✅ **Pronóstico** de tamaño final y ahorro (GB y %) por vídeo, en la pestaña *Estimación* del panel lateral.
+- ✅ **Valoración calidad↔ahorro** en barras (0–5) para vídeo y audio, recalculada al cambiar las opciones.
+- ✅ **Limpieza de temporales**: el `.tmp` de cada compresión se borra al terminar/cancelar; las miniaturas cacheadas se liberan al cerrar.
+- 🔜 Modo bitrate/tamaño objetivo (llegar a un tamaño concreto) — se apoya en el mismo modelo de estimación.
+
 ## Transversal
 - ✅ **FFmpeg**: el instalador lo detecta y, si falta, lo descarga e instala junto a la app (el usuario no configura nada).
 - ⬜ Firmar el instalador (evitar aviso de SmartScreen).

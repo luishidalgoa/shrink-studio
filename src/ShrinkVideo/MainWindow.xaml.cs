@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 
@@ -43,6 +44,11 @@ public partial class MainWindow : Window
         btnDelDir.Click += (_, _) => DeleteFolders();
         btnCheckUpdate.Click += async (_, _) => await CheckUpdateAsync(manual: true);
         btnUpdateLater.Click += (_, _) => updateBar.Visibility = Visibility.Collapsed;
+
+        tabDetalle.MouseLeftButtonUp += (_, _) => ShowSideTab(false);
+        tabEstim.MouseLeftButtonUp += (_, _) => ShowSideTab(true);
+        foreach (var c in new[] { cboFmt, cboCodec, cboQ, cboRes, cboAud })
+            c.SelectionChanged += (_, _) => UpdateEstimate();
 
         Loaded += async (_, _) =>
         {
@@ -169,6 +175,10 @@ public partial class MainWindow : Window
             row.Audio = string.Join("+", info.AudioLangs);
             row.Subs = string.Join("+", info.SubLangs);
             row.Estado = "listo";
+            row.Width = info.Width; row.Height = info.Height; row.Fps = info.Fps;
+            row.DurationSec = info.DurationSec;
+            row.VideoBitrateKbps = info.VideoBitrateKbps; row.AudioBitrateKbps = info.AudioBitrateKbps;
+            row.Channels = info.Channels; row.Probed = true;
             foreach (var l in info.AudioLangs) if (l != "?") EnsureLangChip(pnlALang, l);
             foreach (var l in info.SubLangs) if (l != "?") EnsureLangChip(pnlSLang, l);
         }
@@ -197,6 +207,7 @@ public partial class MainWindow : Window
     private async void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (lst.SelectedItem is not VideoRow r) return;
+        UpdateEstimate();
         lblPrevName.Text = r.Name;
         lblPrevInfo.Text = $"{r.Dir}  ·  {r.SizeMB}  ·  {r.Dur}\n{r.Codec}  ·  audio: {r.Audio}" +
                            (string.IsNullOrEmpty(r.Subs) ? "" : $"  ·  subs: {r.Subs}");
@@ -219,6 +230,56 @@ public partial class MainWindow : Window
         }
         else imgPrev.Source = null;
     }
+
+    // ---------- estimación de ahorro ----------
+    private void ShowSideTab(bool estim)
+    {
+        panelEstim.Visibility = estim ? Visibility.Visible : Visibility.Collapsed;
+        panelDetalle.Visibility = estim ? Visibility.Collapsed : Visibility.Visible;
+        tabEstim.BorderBrush = estim ? (Brush)FindResource("Accent") : Brushes.Transparent;
+        tabDetalle.BorderBrush = estim ? Brushes.Transparent : (Brush)FindResource("Accent");
+        ((TextBlock)tabEstim.Child).Foreground = (Brush)FindResource(estim ? "Accent300" : "Neutral400");
+        ((TextBlock)tabDetalle.Child).Foreground = (Brush)FindResource(estim ? "Neutral400" : "Accent300");
+    }
+
+    private void UpdateEstimate()
+    {
+        if (lst.SelectedItem is not VideoRow r || !r.Probed) { ClearEstimate(); return; }
+        var est = Estimator.Compute(r, BuildOptions());
+        if (!est.Valid) { ClearEstimate(); return; }
+        lblEstSize.Text = "≈ " + Human(est.EstBytes);
+        lblEstSaving.Text = $"−{est.SavedPct}% · ahorras {Human(est.SavedBytes)}";
+        SetBar(barVQ, est.VideoQuality); SetBar(barVS, est.VideoSaving);
+        SetBar(barAQ, est.AudioQuality); SetBar(barAS, est.AudioSaving);
+        lblEstDetail.Text = $"Vídeo ≈ {est.EstVideoKbps} kbps · audio ≈ {est.EstAudioKbps} kbps. " +
+                            "Estimación aproximada; el resultado real depende del contenido.";
+    }
+
+    private void ClearEstimate()
+    {
+        lblEstSize.Text = "—";
+        lblEstSaving.Text = "Selecciona un vídeo analizado";
+        foreach (var b in new[] { barVQ, barVS, barAQ, barAS }) SetBar(b, 0);
+        lblEstDetail.Text = "";
+    }
+
+    private void SetBar(StackPanel panel, int value)
+    {
+        panel.Children.Clear();
+        var on = (Brush)FindResource("Accent");
+        var off = (Brush)FindResource("Neutral800");
+        for (int i = 0; i < 5; i++)
+            panel.Children.Add(new Border
+            {
+                Width = 20, Height = 6, CornerRadius = new CornerRadius(2),
+                Margin = new Thickness(0, 0, 3, 0),
+                Background = i < value ? on : off,
+            });
+    }
+
+    private static string Human(long bytes) => bytes >= (1L << 30)
+        ? $"{bytes / (double)(1L << 30):n2} GB"
+        : $"{bytes / (double)(1L << 20):n0} MB";
 
     // ---------- eliminar (papelera) ----------
     private void DeleteSelected()
@@ -381,6 +442,8 @@ public partial class MainWindow : Window
                 _cts?.Cancel();
             else { e.Cancel = true; return; }
         }
+        // liberar las miniaturas cacheadas en %TEMP% (foco: ahorro de almacenamiento)
+        try { if (Directory.Exists(_thumbDir)) Directory.Delete(_thumbDir, true); } catch { }
         base.OnClosing(e);
     }
 }

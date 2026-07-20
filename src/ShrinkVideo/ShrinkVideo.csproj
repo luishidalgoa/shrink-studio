@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
     <!-- Versión: única fuente para el ejecutable, el instalador y el auto-update -->
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Product>ShrinkStudio</Product>
     <Company>luishidalgoa</Company>
     <Authors>luishidalgoa</Authors>

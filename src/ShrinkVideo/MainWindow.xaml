@@ -213,14 +213,57 @@
         <StackPanel Grid.Column="1" Margin="10,0,0,0">
           <Border Background="{StaticResource Surface}" CornerRadius="8" Padding="10" Margin="0,0,0,8">
             <StackPanel>
-              <Border CornerRadius="4" Height="130" ClipToBounds="True">
-                <Border.Background>
-                  <LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#292B31" Offset="0"/><GradientStop Color="#161826" Offset="0.7"/></LinearGradientBrush>
-                </Border.Background>
-                <Image x:Name="imgPrev" Stretch="Uniform"/>
-              </Border>
-              <TextBlock x:Name="lblPrevName" Margin="0,10,0,2" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontWeight="Medium" FontSize="12.5"/>
-              <TextBlock x:Name="lblPrevInfo" Foreground="{StaticResource Neutral500}" TextWrapping="Wrap" FontSize="11.5"/>
+              <!-- pestañas del panel lateral -->
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <Border x:Name="tabDetalle" BorderThickness="0,0,0,2" BorderBrush="{StaticResource Accent}" Padding="2,0,2,5" Margin="0,0,14,0" Cursor="Hand">
+                  <TextBlock Text="Detalle" FontSize="12.5" Foreground="{StaticResource Accent300}"/>
+                </Border>
+                <Border x:Name="tabEstim" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="2,0,2,5" Cursor="Hand">
+                  <TextBlock Text="Estimación" FontSize="12.5" Foreground="{StaticResource Neutral400}"/>
+                </Border>
+              </StackPanel>
+
+              <!-- Detalle -->
+              <StackPanel x:Name="panelDetalle">
+                <Border CornerRadius="4" Height="130" ClipToBounds="True">
+                  <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#292B31" Offset="0"/><GradientStop Color="#161826" Offset="0.7"/></LinearGradientBrush>
+                  </Border.Background>
+                  <Image x:Name="imgPrev" Stretch="Uniform"/>
+                </Border>
+                <TextBlock x:Name="lblPrevName" Margin="0,10,0,2" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontWeight="Medium" FontSize="12.5"/>
+                <TextBlock x:Name="lblPrevInfo" Foreground="{StaticResource Neutral500}" TextWrapping="Wrap" FontSize="11.5"/>
+              </StackPanel>
+
+              <!-- Estimación -->
+              <StackPanel x:Name="panelEstim" Visibility="Collapsed">
+                <Border Background="{StaticResource Accent900}" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                  <StackPanel>
+                    <TextBlock Text="TAMAÑO ESTIMADO" FontSize="10" Foreground="{StaticResource Accent400}"/>
+                    <TextBlock x:Name="lblEstSize" Text="—" FontSize="18" FontWeight="Medium" Foreground="{StaticResource Accent200}" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="lblEstSaving" Text="Selecciona un vídeo analizado" FontSize="11.5" Foreground="{StaticResource Accent300}"/>
+                  </StackPanel>
+                </Border>
+                <TextBlock Text="VÍDEO" FontSize="10" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
+                <Grid Margin="0,0,0,5"><Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <TextBlock Text="Calidad" FontSize="11" Foreground="{StaticResource Neutral400}" VerticalAlignment="Center"/>
+                  <StackPanel x:Name="barVQ" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"/>
+                </Grid>
+                <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <TextBlock Text="Ahorro" FontSize="11" Foreground="{StaticResource Neutral400}" VerticalAlignment="Center"/>
+                  <StackPanel x:Name="barVS" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="AUDIO" FontSize="10" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
+                <Grid Margin="0,0,0,5"><Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <TextBlock Text="Calidad" FontSize="11" Foreground="{StaticResource Neutral400}" VerticalAlignment="Center"/>
+                  <StackPanel x:Name="barAQ" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"/>
+                </Grid>
+                <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <TextBlock Text="Ahorro" FontSize="11" Foreground="{StaticResource Neutral400}" VerticalAlignment="Center"/>
+                  <StackPanel x:Name="barAS" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock x:Name="lblEstDetail" FontSize="10.5" Foreground="{StaticResource Neutral600}" TextWrapping="Wrap"/>
+              </StackPanel>
             </StackPanel>
           </Border>
           <Border Background="{StaticResource Surface}" CornerRadius="8" Padding="8">

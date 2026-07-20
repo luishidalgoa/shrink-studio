@@ -18,7 +18,11 @@ internal sealed class FfStream
     [JsonPropertyName("index")] public int Index { get; set; }
     [JsonPropertyName("codec_type")] public string CodecType { get; set; } = "";
     [JsonPropertyName("codec_name")] public string CodecName { get; set; } = "";
+    [JsonPropertyName("width")] public int? Width { get; set; }
     [JsonPropertyName("height")] public int? Height { get; set; }
+    [JsonPropertyName("bit_rate")] public string? BitRate { get; set; }
+    [JsonPropertyName("r_frame_rate")] public string? RFrameRate { get; set; }
+    [JsonPropertyName("channels")] public int? Channels { get; set; }
     [JsonPropertyName("tags")] public FfTags? Tags { get; set; }
     public string Lang => Tags?.Language ?? "";
 }
@@ -27,13 +31,20 @@ internal sealed class FfFormat
 {
     [JsonPropertyName("bit_rate")] public string? BitRate { get; set; }
     [JsonPropertyName("duration")] public string? Duration { get; set; }
+    [JsonPropertyName("size")] public string? Size { get; set; }
 }
 
-/// <summary>Info resumida de pistas para la lista de la UI.</summary>
+/// <summary>Info resumida de pistas para la lista de la UI y la estimación.</summary>
 public sealed class ProbeInfo
 {
     public string Codec { get; set; } = "";
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public double Fps { get; set; }
     public int DurationSec { get; set; }
+    public int VideoBitrateKbps { get; set; }
+    public int AudioBitrateKbps { get; set; }
+    public int Channels { get; set; }
     public List<string> AudioLangs { get; set; } = new();
     public List<string> SubLangs { get; set; } = new();
 }
@@ -155,10 +166,32 @@ public sealed class Engine
         var pr = await ProbeFullAsync(path);
         var info = new ProbeInfo();
         if (pr == null) return info;
+
         var vid = pr.Streams.FirstOrDefault(s => s.CodecType == "video" && !CoverCodecs.Contains(s.CodecName));
         info.Codec = vid?.CodecName ?? "";
-        if (double.TryParse(pr.Format?.Duration, System.Globalization.CultureInfo.InvariantCulture, out var d))
-            info.DurationSec = (int)d;
+        info.Width = vid?.Width ?? 0;
+        info.Height = vid?.Height ?? 0;
+        info.Fps = ParseFps(vid?.RFrameRate);
+
+        double durSec = double.TryParse(pr.Format?.Duration, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0;
+        info.DurationSec = (int)durSec;
+
+        var firstAudio = pr.Streams.FirstOrDefault(s => s.CodecType == "audio");
+        info.Channels = firstAudio?.Channels ?? 2;
+        int audioKbps = ParseKbps(firstAudio?.BitRate);
+        int vidKbps = ParseKbps(vid?.BitRate);
+
+        // MKV rara vez expone bitrate por pista: derivarlo del total del contenedor.
+        int overallKbps = ParseKbps(pr.Format?.BitRate);
+        if (overallKbps == 0 && long.TryParse(pr.Format?.Size, out var sz) && durSec > 0)
+            overallKbps = (int)(sz * 8 / durSec / 1000);
+        if (audioKbps == 0) audioKbps = info.Channels >= 6 ? 448 : 192;
+        if (vidKbps == 0 && overallKbps > 0)
+            vidKbps = Math.Max(overallKbps - audioKbps, (int)(overallKbps * 0.85));
+
+        info.VideoBitrateKbps = vidKbps;
+        info.AudioBitrateKbps = audioKbps;
+
         info.AudioLangs = pr.Streams.Where(s => s.CodecType == "audio")
             .Select(s => string.IsNullOrEmpty(s.Lang) ? "?" : s.Lang).Distinct().ToList();
         info.SubLangs = pr.Streams.Where(s => s.CodecType == "subtitle")
@@ -166,12 +199,22 @@ public sealed class Engine
         return info;
     }
 
+    private static double ParseFps(string? r)
+    {
+        if (string.IsNullOrEmpty(r)) return 0;
+        var parts = r.Split('/');
+        if (parts.Length == 2 && double.TryParse(parts[0], out var n)
+            && double.TryParse(parts[1], out var den) && den > 0) return n / den;
+        return double.TryParse(r, System.Globalization.CultureInfo.InvariantCulture, out var f) ? f : 0;
+    }
+    private static int ParseKbps(string? bitrate) => int.TryParse(bitrate, out var b) && b > 0 ? b / 1000 : 0;
+
     private static async Task<FfProbe?> ProbeFullAsync(string path)
     {
         var (code, stdout, _) = await RunAsync(Ffprobe, new[]
         {
             "-v", "error",
-            "-show_entries", "stream=index,codec_type,codec_name,height:stream_tags=language:format=bit_rate,duration",
+            "-show_entries", "stream=index,codec_type,codec_name,width,height,bit_rate,r_frame_rate,channels:stream_tags=language:format=bit_rate,duration,size",
             "-of", "json", "--", path
         });
         if (code != 0 || string.IsNullOrWhiteSpace(stdout)) return null;

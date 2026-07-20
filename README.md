@@ -12,9 +12,11 @@
 
 ---
 
-Reduce típicamente **un 80–90 %** el tamaño manteniendo una calidad visual muy buena, y a diferencia
-de HandBrake destaca en **procesamiento por lotes**: analiza una carpeta entera, muestra las pistas de
-cada vídeo y comprime en tanda. **Nunca toca los originales**: el resultado va siempre a otra carpeta.
+Su foco es el **ahorro de almacenamiento**: reduce típicamente **un 80–90 %** el tamaño manteniendo una
+calidad visual muy buena, y antes de comprimir te muestra un **pronóstico** del tamaño final y del ahorro,
+con una valoración **calidad↔ahorro** que reacciona a cada ajuste. A diferencia de HandBrake destaca en
+**procesamiento por lotes**: analiza una carpeta entera, muestra las pistas de cada vídeo y comprime en
+tanda. **Nunca toca los originales**: el resultado va siempre a otra carpeta.
 
 > Roadmap de funcionalidades heredadas de HandBrake: [`ROADMAP.md`](ROADMAP.md).
 

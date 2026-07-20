@@ -25,4 +25,14 @@ public sealed class VideoRow : INotifyPropertyChanged
     public string SizeMB { get; init; } = "";
     public string Path { get; init; } = "";
     public long Bytes { get; init; }
+
+    // Datos del análisis, para la estimación de ahorro
+    public bool Probed { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public double Fps { get; set; }
+    public int DurationSec { get; set; }
+    public int VideoBitrateKbps { get; set; }
+    public int AudioBitrateKbps { get; set; }
+    public int Channels { get; set; }
 }
