@@ -13,15 +13,15 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
     <!-- Versión: única fuente para el ejecutable, el instalador y el auto-update -->
-    <Version>0.1.1</Version>
-    <Product>Comprimir vídeos</Product>
+    <Version>0.2.0</Version>
+    <Product>ShrinkStudio</Product>
     <Company>luishidalgoa</Company>
     <Authors>luishidalgoa</Authors>
-    <Description>Comprime vídeos a HEVC reduciendo su peso, conservando los idiomas de audio elegidos.</Description>
+    <Description>ShrinkStudio — transcodificador de vídeo: comprime a HEVC/H.264/AV1 en MP4/MKV conservando los idiomas de audio elegidos.</Description>
     <Copyright>© luishidalgoa</Copyright>
 
     <!-- Repo de GitHub del que la app descarga sus actualizaciones -->
-    <UpdateRepo>luishidalgoa/shrink-video</UpdateRepo>
+    <UpdateRepo>luishidalgoa/shrink-studio</UpdateRepo>
   </PropertyGroup>
 
   <ItemGroup>

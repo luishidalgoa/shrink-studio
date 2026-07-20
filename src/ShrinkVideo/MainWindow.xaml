@@ -1,7 +1,7 @@
 <Window x:Class="ShrinkVideo.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Comprimir vídeos" Width="1180" Height="780" MinWidth="980" MinHeight="640"
+        Title="ShrinkStudio" Width="1180" Height="780" MinWidth="980" MinHeight="640"
         WindowStartupLocation="CenterScreen" Background="#0F1216">
   <Window.Resources>
     <SolidColorBrush x:Key="Card" Color="#1A1F26"/>
@@ -103,6 +103,16 @@
         <WrapPanel>
           <TextBlock Text="Idioma principal" Foreground="#8A93A0" VerticalAlignment="Center" Margin="0,0,6,0"/>
           <ComboBox x:Name="cboLang" Width="70" IsEditable="True" Text="spa" Margin="0,0,18,0"/>
+          <TextBlock Text="Formato" Foreground="#8A93A0" VerticalAlignment="Center" Margin="0,0,6,0"/>
+          <ComboBox x:Name="cboFmt" Width="80" SelectedIndex="0" Margin="0,0,18,0"
+                    ToolTip="Contenedor de salida. MKV admite cualquier códec y subtítulos; MP4 es el más compatible.">
+            <ComboBoxItem Content="MKV"/><ComboBoxItem Content="MP4"/>
+          </ComboBox>
+          <TextBlock Text="Códec" Foreground="#8A93A0" VerticalAlignment="Center" Margin="0,0,6,0"/>
+          <ComboBox x:Name="cboCodec" Width="90" SelectedIndex="0" Margin="0,0,18,0"
+                    ToolTip="H.265: mejor compresión. H.264: máxima compatibilidad. AV1: compresión superior (más lento).">
+            <ComboBoxItem Content="H.265"/><ComboBoxItem Content="H.264"/><ComboBoxItem Content="AV1"/>
+          </ComboBox>
           <TextBlock Text="Calidad vídeo" Foreground="#8A93A0" VerticalAlignment="Center" Margin="0,0,6,0"/>
           <ComboBox x:Name="cboQ" Width="150" SelectedIndex="0" Margin="0,0,18,0">
             <ComboBoxItem Content="Automática"/><ComboBoxItem Content="22 · muy alta"/><ComboBoxItem Content="24 · alta"/>

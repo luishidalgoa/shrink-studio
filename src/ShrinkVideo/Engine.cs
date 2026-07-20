@@ -65,12 +65,13 @@ public sealed class Engine
 {
     private static readonly string[] LossyAudio = { "aac", "opus", "mp3", "vorbis" };
     private static readonly string[] CoverCodecs = { "png", "mjpeg", "bmp", "gif" };
+    private static readonly string[] Mp4Audio = { "aac", "ac3", "eac3", "mp3", "alac" };  // codecs que MP4 admite por copia
     // Nota: .ts (MPEG-TS) se omite a propósito: colisiona con TypeScript y llenaría
     // la lista de archivos de código en carpetas de desarrollo.
     public static readonly string[] VideoExtensions =
         { ".mkv", ".mp4", ".avi", ".m4v", ".mov", ".wmv", ".webm", ".mpg", ".mpeg", ".flv" };
 
-    private string? _cachedEncoder;
+    private readonly Dictionary<string, string> _cachedEncoder = new();
 
     // ---------- localización de ffmpeg/ffprobe ----------
     private static string ResolveTool(string exe)
@@ -97,11 +98,20 @@ public sealed class Engine
     }
 
     // ---------- elección de codificador ----------
-    public async Task<string> SelectEncoderAsync()
+    // Candidatos por códec: primero los de hardware, con fallback a software.
+    private static (string[] hw, string sw) Candidates(string codec) => codec switch
     {
-        if (_cachedEncoder != null) return _cachedEncoder;
+        "h264" => (new[] { "h264_qsv", "h264_nvenc", "h264_amf" }, "libx264"),
+        "av1" => (new[] { "av1_qsv", "av1_nvenc", "av1_amf" }, "libsvtav1"),
+        _ => (new[] { "hevc_qsv", "hevc_nvenc", "hevc_amf" }, "libx265"),
+    };
+
+    public async Task<string> SelectEncoderAsync(string codec = "hevc")
+    {
+        if (_cachedEncoder.TryGetValue(codec, out var cached)) return cached;
+        var (hw, sw) = Candidates(codec);
         var (_, encList, _) = await RunAsync(Ffmpeg, new[] { "-hide_banner", "-encoders" });
-        foreach (var cand in new[] { "hevc_qsv", "hevc_nvenc", "hevc_amf" })
+        foreach (var cand in hw)
         {
             if (!encList.Contains(cand)) continue;
             var (code, _, _) = await RunAsync(Ffmpeg, new[]
@@ -109,12 +119,12 @@ public sealed class Engine
                 "-hide_banner", "-loglevel", "error", "-f", "lavfi",
                 "-i", "testsrc=size=640x480:duration=0.1", "-c:v", cand, "-f", "null", "-"
             });
-            if (code == 0) return _cachedEncoder = cand;
+            if (code == 0) return _cachedEncoder[codec] = cand;
         }
-        return _cachedEncoder = "libx265";
+        return _cachedEncoder[codec] = sw;
     }
 
-    public static bool IsHardware(string encoder) => encoder != "libx265";
+    public static bool IsHardware(string encoder) => !encoder.StartsWith("lib");
 
     /// <summary>Extrae un fotograma como miniatura JPG. Devuelve true si lo consiguió.</summary>
     public static async Task<bool> MakeThumbnailAsync(string video, string destJpg, int atSec)
@@ -129,10 +139,14 @@ public sealed class Engine
 
     private static List<string> EncoderArgs(string encoder, int quality) => encoder switch
     {
-        "hevc_qsv" => new() { "-c:v", "hevc_qsv", "-global_quality", $"{quality}", "-preset", "slow" },
-        "hevc_nvenc" => new() { "-c:v", "hevc_nvenc", "-rc", "vbr", "-cq", $"{quality}", "-preset", "p6", "-tune", "hq" },
-        "hevc_amf" => new() { "-c:v", "hevc_amf", "-rc", "cqp", "-qp_i", $"{quality}", "-qp_p", $"{quality}", "-quality", "quality" },
-        _ => new() { "-c:v", "libx265", "-crf", $"{quality}", "-preset", "medium" },
+        "hevc_qsv" or "h264_qsv" or "av1_qsv" =>
+            new() { "-c:v", encoder, "-global_quality", $"{quality}", "-preset", "slow" },
+        "hevc_nvenc" or "h264_nvenc" or "av1_nvenc" =>
+            new() { "-c:v", encoder, "-rc", "vbr", "-cq", $"{quality}", "-preset", "p6", "-tune", "hq" },
+        "hevc_amf" or "h264_amf" or "av1_amf" =>
+            new() { "-c:v", encoder, "-rc", "cqp", "-qp_i", $"{quality}", "-qp_p", $"{quality}", "-quality", "quality" },
+        "libsvtav1" => new() { "-c:v", "libsvtav1", "-crf", $"{quality}", "-preset", "6" },
+        _ => new() { "-c:v", encoder, "-crf", $"{quality}", "-preset", "medium" },   // libx264 / libx265
     };
 
     // ---------- análisis de pistas (para el scan de la UI) ----------
@@ -184,8 +198,8 @@ public sealed class Engine
         IReadOnlyList<string> files, EncodeOptions opt, IEngineReporter rep, CancellationToken ct)
     {
         var results = new List<FileResult>();
-        var encoder = await SelectEncoderAsync();
-        int quality = opt.Quality > 0 ? opt.Quality : (encoder == "libx265" ? 23 : 27);
+        var encoder = await SelectEncoderAsync(opt.VideoCodec);
+        int quality = opt.Quality > 0 ? opt.Quality : (IsHardware(encoder) ? 27 : 23);
         var encArgs = EncoderArgs(encoder, quality);
         rep.Log($"Codificador: {encoder} [{(IsHardware(encoder) ? "hardware" : "software (CPU, lento)")}] · calidad {quality}");
 
@@ -201,7 +215,8 @@ public sealed class Engine
             var fi = new FileInfo(f);
             string name = fi.Name;
             string outDir = opt.Output ?? Path.Combine(fi.DirectoryName!, "comprimido");
-            string outPath = Path.Combine(outDir, Path.GetFileNameWithoutExtension(name) + ".mkv");
+            string ext = opt.Container == "mp4" ? ".mp4" : ".mkv";
+            string outPath = Path.Combine(outDir, Path.GetFileNameWithoutExtension(name) + ext);
 
             if (File.Exists(outPath) && !opt.Force) { rep.Log($"[{n}/{total}] {name} → ya hecho, salto"); continue; }
             if (StillDownloading(f)) { rep.Log($"[{n}/{total}] {name} → descargando aún, salto"); continue; }
@@ -238,14 +253,21 @@ public sealed class Engine
                 if (opt.MaxHeight > 0 && (video.Height ?? 0) > opt.MaxHeight)
                     a.AddRange(new[] { "-vf", $"scale=-2:{opt.MaxHeight}" });
                 a.AddRange(encArgs);
+                bool mp4 = opt.Container == "mp4";
                 for (int i = 0; i < audio.Count; i++)
                 {
-                    if (opt.AudioBitrate == 0 || LossyAudio.Contains(audio[i].CodecName))
+                    var ac = audio[i].CodecName;
+                    bool copy = opt.AudioBitrate == 0 || LossyAudio.Contains(ac);
+                    if (mp4 && copy && !Mp4Audio.Contains(ac)) copy = false;   // MP4 no admite copiar este códec
+                    if (copy)
                         a.AddRange(new[] { $"-c:a:{i}", "copy" });
                     else
-                        a.AddRange(new[] { $"-c:a:{i}", "aac", $"-b:a:{i}", $"{opt.AudioBitrate}k" });
+                    {
+                        int br = opt.AudioBitrate > 0 ? opt.AudioBitrate : 192;
+                        a.AddRange(new[] { $"-c:a:{i}", "aac", $"-b:a:{i}", $"{br}k" });
+                    }
                 }
-                if (withSubs) a.AddRange(new[] { "-c:s", "copy" });
+                if (withSubs) a.AddRange(new[] { "-c:s", mp4 ? "mov_text" : "copy" });
                 a.AddRange(new[] { "-disposition:a:0", "default" });
                 for (int i = 1; i < audio.Count; i++) a.AddRange(new[] { $"-disposition:a:{i}", "0" });
                 a.AddRange(new[] { "-map_metadata", "0" });

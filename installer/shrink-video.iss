@@ -5,10 +5,10 @@
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"
 #endif
-#define MyAppName "Comprimir vídeos"
+#define MyAppName "ShrinkStudio"
 #define MyAppExeName "ShrinkVideo.exe"
 #define MyAppPublisher "luishidalgoa"
-#define MyAppURL "https://github.com/luishidalgoa/shrink-video"
+#define MyAppURL "https://github.com/luishidalgoa/shrink-studio"
 
 [Setup]
 ; AppId FIJO: identifica la app entre versiones -> instalar una nueva actualiza la anterior in-place.
@@ -29,7 +29,7 @@ DisableProgramGroupPage=yes
 DisableDirPage=yes
 
 OutputDir=Output
-OutputBaseFilename=ShrinkVideo-Setup-{#MyAppVersion}
+OutputBaseFilename=ShrinkStudio-Setup-{#MyAppVersion}
 SetupIconFile=..\src\ShrinkVideo\Assets\app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}

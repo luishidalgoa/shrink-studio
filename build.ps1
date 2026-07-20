@@ -41,5 +41,5 @@ if (-not $iscc) { throw "No se encuentra ISCC.exe (Inno Setup). Instálalo: wing
 & $iscc "/DMyAppVersion=$Version" (Join-Path $root "installer\shrink-video.iss")
 if ($LASTEXITCODE -ne 0) { throw "Fallo en Inno Setup" }
 
-$out = Join-Path $root "installer\Output\ShrinkVideo-Setup-$Version.exe"
+$out = Join-Path $root "installer\Output\ShrinkStudio-Setup-$Version.exe"
 Write-Host "`nInstalador listo: $out ($([math]::Round((Get-Item $out).Length/1MB,1)) MB)" -ForegroundColor Green

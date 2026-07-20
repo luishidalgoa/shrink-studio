@@ -2,21 +2,25 @@
   <img src="docs/icon.png" alt="Comprimir vídeos" width="128">
 </p>
 
-<h1 align="center">Comprimir vídeos</h1>
+<h1 align="center">ShrinkStudio</h1>
 
 <p align="center">
-  App de escritorio para Windows que <b>reduce el peso de tus vídeos</b> (series, películas, capítulos)
-  recodificándolos a HEVC con aceleración por hardware, conservando solo los idiomas de audio que quieras.
+  Transcodificador de vídeo para Windows, pensado como <b>relevo ligero de HandBrake</b>:
+  comprime series, películas y capítulos a <b>H.265 / H.264 / AV1</b> en <b>MP4 o MKV</b>,
+  con aceleración por hardware y conservando solo los idiomas de audio que quieras.
 </p>
 
 ---
 
-Reduce típicamente **un 80–90 %** el tamaño manteniendo una calidad visual muy buena.
-**Nunca toca los originales**: el resultado va siempre a otra carpeta.
+Reduce típicamente **un 80–90 %** el tamaño manteniendo una calidad visual muy buena, y a diferencia
+de HandBrake destaca en **procesamiento por lotes**: analiza una carpeta entera, muestra las pistas de
+cada vídeo y comprime en tanda. **Nunca toca los originales**: el resultado va siempre a otra carpeta.
+
+> Roadmap de funcionalidades heredadas de HandBrake: [`ROADMAP.md`](ROADMAP.md).
 
 ## Instalación
 
-1. Descarga el instalador más reciente de la página de **[Releases](https://github.com/luishidalgoa/shrink-video/releases/latest)** → `ShrinkVideo-Setup-X.Y.Z.exe`.
+1. Descarga el instalador más reciente de la página de **[Releases](https://github.com/luishidalgoa/shrink-studio/releases/latest)** → `ShrinkVideo-Setup-X.Y.Z.exe`.
 2. Ejecútalo. Se instala **solo para tu usuario** (no pide permisos de administrador) y crea acceso directo en el menú Inicio (y opcionalmente en el Escritorio).
 3. Como el instalador no está firmado, Windows SmartScreen puede avisar: pulsa **Más información → Ejecutar de todas formas**.
 

@@ -4,6 +4,8 @@ namespace ShrinkVideo;
 public sealed class EncodeOptions
 {
     public string? Output { get; set; }
+    public string Container { get; set; } = "mkv";   // mkv | mp4
+    public string VideoCodec { get; set; } = "hevc"; // hevc | h264 | av1
     public string Lang { get; set; } = "spa";
     public List<string> KeepLangs { get; set; } = new();   // vacío = preferido + eng
     public List<string>? SubLangs { get; set; }            // null = todos

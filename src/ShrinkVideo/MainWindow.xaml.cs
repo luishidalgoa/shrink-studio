@@ -254,6 +254,8 @@ public partial class MainWindow : Window
             KeepLangs = CheckedLangs(pnlALang),
             Force = chkForce.IsChecked == true,
             DryRun = chkDry.IsChecked == true,
+            Container = cboFmt.SelectedIndex == 1 ? "mp4" : "mkv",
+            VideoCodec = cboCodec.SelectedIndex switch { 1 => "h264", 2 => "av1", _ => "hevc" },
         };
         opt.Quality = cboQ.SelectedIndex switch { 1 => 22, 2 => 24, 3 => 27, 4 => 30, _ => 0 };
         opt.MaxHeight = cboRes.SelectedIndex switch { 1 => 1080, 2 => 720, 3 => 480, _ => 0 };
