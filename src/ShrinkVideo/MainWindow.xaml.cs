@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _cts;
     private bool _running;
     private bool _paused;
+    private bool _applyingPreset;
 
     public MainWindow()
     {
@@ -56,6 +57,15 @@ public partial class MainWindow : Window
 
         btnPreview.Click += async (_, _) => await OnPreviewAsync();
         sldPreview.ValueChanged += (_, _) => lblPreviewAt.Text = $"Previsualizar desde {FmtTime((int)sldPreview.Value)}";
+
+        cboFmt.SelectionChanged += (_, _) =>
+        {
+            bool audioOnly = cboFmt.SelectedIndex >= 3;   // MP3/M4A/FLAC/Opus
+            cboCodec.IsEnabled = cboQ.IsEnabled = cboRes.IsEnabled = !audioOnly;
+        };
+        btnSavePreset.Click += (_, _) => SavePreset();
+        cboPreset.SelectionChanged += (_, _) => ApplyPreset();
+        ReloadPresets(null);
 
         Loaded += async (_, _) =>
         {
@@ -185,7 +195,7 @@ public partial class MainWindow : Window
             row.Width = info.Width; row.Height = info.Height; row.Fps = info.Fps;
             row.DurationSec = info.DurationSec;
             row.VideoBitrateKbps = info.VideoBitrateKbps; row.AudioBitrateKbps = info.AudioBitrateKbps;
-            row.Channels = info.Channels; row.Probed = true;
+            row.Channels = info.Channels; row.AudioCodec = info.AudioCodec; row.Probed = true;
             foreach (var l in info.AudioLangs) if (l != "?") EnsureLangChip(pnlALang, l);
             foreach (var l in info.SubLangs) if (l != "?") EnsureLangChip(pnlSLang, l);
         }
@@ -361,9 +371,18 @@ public partial class MainWindow : Window
             KeepLangs = CheckedLangs(pnlALang),
             Force = chkForce.IsChecked == true,
             DryRun = chkDry.IsChecked == true,
-            Container = cboFmt.SelectedIndex == 1 ? "mp4" : "mkv",
             VideoCodec = cboCodec.SelectedIndex switch { 1 => "h264", 2 => "av1", _ => "hevc" },
         };
+        switch (cboFmt.SelectedIndex)
+        {
+            case 1: opt.Container = "mp4"; break;
+            case 2: opt.Container = "webm"; break;
+            case 3: opt.AudioOnly = true; opt.AudioFormat = "mp3"; break;
+            case 4: opt.AudioOnly = true; opt.AudioFormat = "m4a"; break;
+            case 5: opt.AudioOnly = true; opt.AudioFormat = "flac"; break;
+            case 6: opt.AudioOnly = true; opt.AudioFormat = "opus"; break;
+            default: opt.Container = "mkv"; break;
+        }
         opt.Quality = cboQ.SelectedIndex switch { 1 => 22, 2 => 24, 3 => 27, 4 => 30, _ => 0 };
         opt.MaxHeight = cboRes.SelectedIndex switch { 1 => 1080, 2 => 720, 3 => 480, _ => 0 };
         opt.AudioBitrate = cboAud.SelectedIndex switch { 1 => 192, 2 => 160, 3 => 128, 4 => 96, _ => 0 };
@@ -414,6 +433,69 @@ public partial class MainWindow : Window
             progRow.Visibility = Visibility.Collapsed;
             _cts?.Dispose(); _cts = null;
         }
+    }
+
+    // ---------- presets ----------
+    private void ReloadPresets(string? select)
+    {
+        var all = PresetStore.Factory().Concat(PresetStore.LoadUser()).ToList();
+        _applyingPreset = true;
+        cboPreset.ItemsSource = all;
+        _applyingPreset = false;
+        if (select != null) cboPreset.SelectedItem = all.FirstOrDefault(p => p.Name == select);
+    }
+
+    private void ApplyPreset()
+    {
+        if (_applyingPreset || cboPreset.SelectedItem is not Preset p) return;
+        _applyingPreset = true;
+        cboFmt.SelectedIndex = p.Fmt; cboCodec.SelectedIndex = p.Codec;
+        cboQ.SelectedIndex = p.Quality; cboRes.SelectedIndex = p.Res; cboAud.SelectedIndex = p.Audio;
+        cboLang.Text = p.Lang; chkRec.IsChecked = p.Recurse;
+        _applyingPreset = false;
+        UpdateEstimate();
+    }
+
+    private void SavePreset()
+    {
+        var name = InputName("Nombre del preset:", "Guardar preset");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var user = PresetStore.LoadUser();
+        user.RemoveAll(x => x.Name == name);
+        user.Add(new Preset
+        {
+            Name = name, Fmt = cboFmt.SelectedIndex, Codec = cboCodec.SelectedIndex,
+            Quality = cboQ.SelectedIndex, Res = cboRes.SelectedIndex, Audio = cboAud.SelectedIndex,
+            Lang = cboLang.Text, Recurse = chkRec.IsChecked == true,
+        });
+        PresetStore.SaveUser(user);
+        ReloadPresets(name);
+        lblProg.Text = $"Preset «{name}» guardado.";
+    }
+
+    private string? InputName(string prompt, string title)
+    {
+        var win = new Window
+        {
+            Title = title, Width = 380, SizeToContent = SizeToContent.Height, Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.NoResize, WindowStyle = WindowStyle.ToolWindow,
+            Background = (Brush)FindResource("Surface"),
+        };
+        var tb = new TextBox { Margin = new Thickness(0, 0, 0, 12) };
+        var ok = new Button { Content = "Guardar", Width = 90, Style = (Style)FindResource("BtnPrimary"), IsDefault = true };
+        var panel = new StackPanel { Margin = new Thickness(16) };
+        panel.Children.Add(new TextBlock { Text = prompt, Foreground = (Brush)FindResource("Text"), Margin = new Thickness(0, 0, 0, 8) });
+        panel.Children.Add(tb);
+        var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        row.Children.Add(ok);
+        panel.Children.Add(row);
+        win.Content = panel;
+        string? result = null;
+        ok.Click += (_, _) => { result = tb.Text.Trim(); win.DialogResult = true; };
+        win.ContentRendered += (_, _) => tb.Focus();
+        win.ShowDialog();
+        return result;
     }
 
     private void TogglePause()

@@ -117,6 +117,11 @@
       <!-- ══ Panel de opciones ══ -->
       <Border Grid.Row="3" Margin="16,0,16,0" Background="{StaticResource Surface}" CornerRadius="8" Padding="12,10">
         <StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="Preset" FontSize="11" Foreground="{StaticResource Neutral500}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox x:Name="cboPreset" Width="260" VerticalAlignment="Center" DisplayMemberPath="Name"/>
+            <Button x:Name="btnSavePreset" Style="{StaticResource BtnSecondary}" Content="Guardar preset actual" FontSize="12" Padding="10,4" Margin="8,0,0,0"/>
+          </StackPanel>
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
@@ -132,7 +137,11 @@
             </StackPanel>
             <StackPanel Grid.Column="1" Margin="0,0,10,0">
               <TextBlock Text="Formato" FontSize="11" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
-              <ComboBox x:Name="cboFmt" SelectedIndex="0"><ComboBoxItem Content="MKV"/><ComboBoxItem Content="MP4"/></ComboBox>
+              <ComboBox x:Name="cboFmt" SelectedIndex="0">
+                <ComboBoxItem Content="MKV"/><ComboBoxItem Content="MP4"/><ComboBoxItem Content="WebM"/>
+                <ComboBoxItem Content="MP3 · solo audio"/><ComboBoxItem Content="M4A · solo audio"/>
+                <ComboBoxItem Content="FLAC · solo audio"/><ComboBoxItem Content="Opus · solo audio"/>
+              </ComboBox>
             </StackPanel>
             <StackPanel Grid.Column="2" Margin="0,0,10,0">
               <TextBlock Text="Códec" FontSize="11" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>

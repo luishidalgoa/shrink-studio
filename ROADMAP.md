@@ -12,10 +12,8 @@ Leyenda: ✅ hecho · 🔜 siguiente · ⬜ pendiente
 - ✅ Instalador per-user + auto-update.
 
 ## Bloque 1 — Presets + más formatos
-- ✅ **Formato de salida**: MKV y **MP4** (con audio/subtítulos recodificados a lo que MP4 admite).
-- ⬜ **WebM** (requiere forzar AV1/VP9 + Opus; sin subtítulos de texto).
-- 🔜 **Presets**: guardar/cargar configuraciones con nombre (JSON en `%AppData%`), combo + botón guardar/borrar.
-- ⬜ Presets de fábrica ("Máxima compatibilidad", "Archivar", "Móvil", …).
+- ✅ **Formato de salida**: MKV, **MP4** y **WebM** (VP9 + Opus). También **solo audio** (MP3/M4A/FLAC/Opus).
+- ✅ **Presets**: combo con presets de fábrica ("Máxima compatibilidad", "Archivar", "Móvil"…) + guardar los tuyos (JSON en `%AppData%`).
 
 ## Bloque 2 — Vídeo avanzado
 - ✅ **Códec elegible**: H.265 / H.264 / **AV1** (hardware si hay, si no software).

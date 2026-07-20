@@ -45,6 +45,7 @@ public sealed class ProbeInfo
     public int VideoBitrateKbps { get; set; }
     public int AudioBitrateKbps { get; set; }
     public int Channels { get; set; }
+    public string AudioCodec { get; set; } = "";
     public List<string> AudioLangs { get; set; } = new();
     public List<string> SubLangs { get; set; } = new();
 }
@@ -110,11 +111,13 @@ public sealed class Engine
 
     // ---------- elección de codificador ----------
     // Candidatos por códec: primero los de hardware, con fallback a software.
-    private static (string[] hw, string sw) Candidates(string codec) => codec switch
+    // Candidatos por códec: hardware (se prueban en vivo) y software (se usa el primero que exista).
+    private static (string[] hw, string[] sw) Candidates(string codec) => codec switch
     {
-        "h264" => (new[] { "h264_qsv", "h264_nvenc", "h264_amf" }, "libx264"),
-        "av1" => (new[] { "av1_qsv", "av1_nvenc", "av1_amf" }, "libsvtav1"),
-        _ => (new[] { "hevc_qsv", "hevc_nvenc", "hevc_amf" }, "libx265"),
+        "h264" => (new[] { "h264_qsv", "h264_nvenc", "h264_amf" }, new[] { "libx264" }),
+        "av1" => (new[] { "av1_qsv", "av1_nvenc", "av1_amf" }, new[] { "libsvtav1", "libaom-av1" }),
+        "vp9" => (Array.Empty<string>(), new[] { "libvpx-vp9" }),   // VP9 por software: fiable entre equipos
+        _ => (new[] { "hevc_qsv", "hevc_nvenc", "hevc_amf" }, new[] { "libx265" }),
     };
 
     public async Task<string> SelectEncoderAsync(string codec = "hevc")
@@ -132,7 +135,9 @@ public sealed class Engine
             });
             if (code == 0) return _cachedEncoder[codec] = cand;
         }
-        return _cachedEncoder[codec] = sw;
+        // primer codificador software que realmente exista en esta build de FFmpeg
+        foreach (var s in sw) if (encList.Contains(s)) return _cachedEncoder[codec] = s;
+        return _cachedEncoder[codec] = sw[0];
     }
 
     public static bool IsHardware(string encoder) => !encoder.StartsWith("lib");
@@ -194,9 +199,28 @@ public sealed class Engine
             new() { "-c:v", encoder, "-rc", "vbr", "-cq", $"{quality}", "-preset", "p6", "-tune", "hq" },
         "hevc_amf" or "h264_amf" or "av1_amf" =>
             new() { "-c:v", encoder, "-rc", "cqp", "-qp_i", $"{quality}", "-qp_p", $"{quality}", "-quality", "quality" },
+        "vp9_qsv" => new() { "-c:v", "vp9_qsv", "-global_quality", $"{quality}", "-preset", "slow" },
         "libsvtav1" => new() { "-c:v", "libsvtav1", "-crf", $"{quality}", "-preset", "6" },
+        "libvpx-vp9" => new() { "-c:v", "libvpx-vp9", "-crf", $"{quality}", "-b:v", "0", "-row-mt", "1" },
+        "libaom-av1" => new() { "-c:v", "libaom-av1", "-crf", $"{quality}", "-b:v", "0" },
         _ => new() { "-c:v", encoder, "-crf", $"{quality}", "-preset", "medium" },   // libx264 / libx265
     };
+
+    private static string AudioExt(string fmt) => fmt switch
+    {
+        "m4a" => ".m4a", "flac" => ".flac", "opus" => ".opus", _ => ".mp3",
+    };
+    private static List<string> AudioOnlyArgs(EncodeOptions opt)
+    {
+        int br = opt.AudioBitrate > 0 ? opt.AudioBitrate : 192;
+        return opt.AudioFormat switch
+        {
+            "flac" => new() { "-c:a", "flac" },
+            "opus" => new() { "-c:a", "libopus", "-b:a", $"{br}k" },
+            "m4a" => new() { "-c:a", "aac", "-b:a", $"{br}k" },
+            _ => new() { "-c:a", "libmp3lame", "-b:a", $"{br}k" },   // mp3
+        };
+    }
 
     // ---------- análisis de pistas (para el scan de la UI) ----------
     public async Task<ProbeInfo> ProbeAsync(string path)
@@ -216,6 +240,7 @@ public sealed class Engine
 
         var firstAudio = pr.Streams.FirstOrDefault(s => s.CodecType == "audio");
         info.Channels = firstAudio?.Channels ?? 2;
+        info.AudioCodec = firstAudio?.CodecName ?? "";
         int audioKbps = ParseKbps(firstAudio?.BitRate);
         int vidKbps = ParseKbps(vid?.BitRate);
 
@@ -279,10 +304,12 @@ public sealed class Engine
         IReadOnlyList<string> files, EncodeOptions opt, IEngineReporter rep, CancellationToken ct)
     {
         var results = new List<FileResult>();
-        var encoder = await SelectEncoderAsync(opt.VideoCodec);
+        string vcodec = opt.Container == "webm" ? "vp9" : opt.VideoCodec;   // WebM: VP9 (más compatible entre builds de FFmpeg)
+        var encoder = await SelectEncoderAsync(vcodec);
         int quality = opt.Quality > 0 ? opt.Quality : (IsHardware(encoder) ? 27 : 23);
         var encArgs = EncoderArgs(encoder, quality);
-        rep.Log($"Codificador: {encoder} [{(IsHardware(encoder) ? "hardware" : "software (CPU, lento)")}] · calidad {quality}");
+        if (opt.AudioOnly) rep.Log($"Modo solo audio → {opt.AudioFormat.ToUpperInvariant()}");
+        else rep.Log($"Codificador: {encoder} [{(IsHardware(encoder) ? "hardware" : "software (CPU, lento)")}] · calidad {quality}");
 
         var keepLangs = opt.KeepLangs.Count > 0 ? opt.KeepLangs : new List<string> { opt.Lang, "eng" };
         bool keepAll = keepLangs.Contains("all");
@@ -296,7 +323,9 @@ public sealed class Engine
             var fi = new FileInfo(f);
             string name = fi.Name;
             string outDir = opt.Output ?? Path.Combine(fi.DirectoryName!, "comprimido");
-            string ext = opt.Container == "mp4" ? ".mp4" : ".mkv";
+            string ext = opt.AudioOnly ? AudioExt(opt.AudioFormat)
+                       : opt.Container == "mp4" ? ".mp4"
+                       : opt.Container == "webm" ? ".webm" : ".mkv";
             string outPath = Path.Combine(outDir, Path.GetFileNameWithoutExtension(name) + ext);
 
             if (File.Exists(outPath) && !opt.Force) { rep.Log($"[{n}/{total}] {name} → ya hecho, salto"); continue; }
@@ -309,7 +338,7 @@ public sealed class Engine
             if (video == null) { rep.Log($"[{n}/{total}] {name} → sin pista de vídeo, salto"); continue; }
 
             int kbps = int.TryParse(pr.Format?.BitRate, out var br) ? br / 1000 : 0;
-            if (!opt.Force && (video.CodecName is "hevc" or "av1") && kbps > 0 && kbps < 2500)
+            if (!opt.AudioOnly && !opt.Force && (video.CodecName is "hevc" or "av1") && kbps > 0 && kbps < 2500)
             { rep.Log($"[{n}/{total}] {name} → ya comprimido ({video.CodecName}, {kbps} kbps), salto"); continue; }
 
             var allAudio = pr.Streams.Where(s => s.CodecType == "audio").ToList();
@@ -324,19 +353,58 @@ public sealed class Engine
 
             double durSec = double.TryParse(pr.Format?.Duration, System.Globalization.CultureInfo.InvariantCulture, out var dd) ? dd : 0;
 
+            // ---- modo solo audio: extraer sin vídeo ----
+            if (opt.AudioOnly)
+            {
+                if (opt.DryRun) { rep.Log($"[{n}/{total}] {name} → solo audio → {opt.AudioFormat}"); continue; }
+                rep.Log($"[{n}/{total}] {name}");
+                rep.Log($"    extrayendo audio ({audio.Count} pista/s) → {opt.AudioFormat}");
+                rep.FileStart(n, total, name, durSec);
+                Directory.CreateDirectory(outDir);
+                string atmp = outPath + ".tmp" + ext;
+                try { if (File.Exists(atmp)) File.Delete(atmp); } catch { }
+                var aargs = new List<string> { "-hide_banner", "-loglevel", "warning", "-stats", "-y", "-i", f, "-vn" };
+                foreach (var au in audio) aargs.AddRange(new[] { "-map", $"0:{au.Index}" });
+                aargs.AddRange(AudioOnlyArgs(opt));
+                aargs.Add(atmp);
+                try
+                {
+                    int acode = await RunFfmpegAsync(aargs, durSec, rep, ct);
+                    if (acode == 0 && File.Exists(atmp))
+                    {
+                        try { if (File.Exists(outPath)) File.Delete(outPath); } catch { }
+                        File.Move(atmp, outPath);
+                        long ob = new FileInfo(outPath).Length;
+                        rep.Log($"    OK  audio → {ob / 1048576.0:n1} MB");
+                        var ar = new FileResult { Name = name, InBytes = fi.Length, OutBytes = ob, Status = "audio" };
+                        results.Add(ar); rep.FileDone(ar);
+                    }
+                    else { try { if (File.Exists(atmp)) File.Delete(atmp); } catch { } rep.Log($"    ERROR al extraer audio (código {acode})"); }
+                }
+                catch (OperationCanceledException) { try { if (File.Exists(atmp)) File.Delete(atmp); } catch { } rep.Log("    detenido."); throw; }
+                continue;
+            }
+
             // ---- construir argumentos ----
             List<string> BuildArgs(bool withSubs)
             {
                 var a = new List<string> { "-hide_banner", "-loglevel", "warning", "-stats", "-y", "-i", f };
+                bool webm = opt.Container == "webm";
                 a.AddRange(new[] { "-map", $"0:{video.Index}" });
                 foreach (var au in audio) a.AddRange(new[] { "-map", $"0:{au.Index}" });
-                if (withSubs) foreach (var s in subs) a.AddRange(new[] { "-map", $"0:{s.Index}" });
+                if (withSubs && !webm) foreach (var s in subs) a.AddRange(new[] { "-map", $"0:{s.Index}" });
                 if (opt.MaxHeight > 0 && (video.Height ?? 0) > opt.MaxHeight)
                     a.AddRange(new[] { "-vf", $"scale=-2:{opt.MaxHeight}" });
                 a.AddRange(encArgs);
                 bool mp4 = opt.Container == "mp4";
                 for (int i = 0; i < audio.Count; i++)
                 {
+                    if (webm)   // WebM: audio siempre Opus
+                    {
+                        int wbr = opt.AudioBitrate > 0 ? opt.AudioBitrate : 160;
+                        a.AddRange(new[] { $"-c:a:{i}", "libopus", $"-b:a:{i}", $"{wbr}k" });
+                        continue;
+                    }
                     var ac = audio[i].CodecName;
                     bool copy = opt.AudioBitrate == 0 || LossyAudio.Contains(ac);
                     if (mp4 && copy && !Mp4Audio.Contains(ac)) copy = false;   // MP4 no admite copiar este códec
@@ -348,7 +416,7 @@ public sealed class Engine
                         a.AddRange(new[] { $"-c:a:{i}", "aac", $"-b:a:{i}", $"{br}k" });
                     }
                 }
-                if (withSubs) a.AddRange(new[] { "-c:s", mp4 ? "mov_text" : "copy" });
+                if (withSubs && !webm) a.AddRange(new[] { "-c:s", mp4 ? "mov_text" : "copy" });
                 a.AddRange(new[] { "-disposition:a:0", "default" });
                 for (int i = 1; i < audio.Count; i++) a.AddRange(new[] { $"-disposition:a:{i}", "0" });
                 a.AddRange(new[] { "-map_metadata", "0" });

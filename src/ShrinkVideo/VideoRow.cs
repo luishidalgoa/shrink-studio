@@ -35,4 +35,5 @@ public sealed class VideoRow : INotifyPropertyChanged
     public int VideoBitrateKbps { get; set; }
     public int AudioBitrateKbps { get; set; }
     public int Channels { get; set; }
+    public string AudioCodec { get; set; } = "";
 }

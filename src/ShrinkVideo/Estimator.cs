@@ -22,11 +22,28 @@ public sealed class Estimate
 /// </summary>
 public static class Estimator
 {
+    private static readonly string[] Mp4Audio = { "aac", "ac3", "eac3", "mp3", "alac" };
+
     public static Estimate Compute(VideoRow r, EncodeOptions o)
     {
         var e = new Estimate { OrigBytes = r.Bytes };
-        if (!r.Probed || r.DurationSec <= 0 || r.Width <= 0 || r.Height <= 0) return e;
+        if (!r.Probed || r.DurationSec <= 0) return e;
         e.Valid = true;
+
+        // --- modo solo audio: sin vídeo ---
+        if (o.AudioOnly)
+        {
+            int aKbps = o.AudioFormat == "flac"
+                ? (r.AudioBitrateKbps > 0 ? Math.Max(r.AudioBitrateKbps, 700) : 800)
+                : (o.AudioBitrate > 0 ? o.AudioBitrate : 192);
+            e.EstAudioKbps = aKbps;
+            e.EstBytes = Math.Min((long)(aKbps * 1000.0 / 8.0 * r.DurationSec * 1.02), r.Bytes);
+            e.VideoQuality = 0; e.VideoSaving = 5;               // sin vídeo = máximo ahorro de espacio
+            e.AudioQuality = o.AudioFormat == "flac" ? 5 : Clamp(aKbps / 48.0);
+            e.AudioSaving = Clamp((1 - e.EstBytes / (double)Math.Max(r.Bytes, 1)) * 5);
+            return e;
+        }
+        if (r.Width <= 0 || r.Height <= 0) { e.Valid = false; return e; }
 
         // Resolución de salida (posible reescalado)
         int outH = r.Height, outW = r.Width;
@@ -49,10 +66,14 @@ public static class Estimator
         if (r.VideoBitrateKbps > 0) estVideoKbps = Math.Min(estVideoKbps, r.VideoBitrateKbps); // no "recomprimir hacia arriba"
         estVideoKbps = Math.Max(estVideoKbps, 120);
 
-        int estAudioKbps = o.AudioBitrate == 0
-            ? (r.AudioBitrateKbps > 0 ? r.AudioBitrateKbps : 192)   // copiar original
-            : o.AudioBitrate;
-        if (r.AudioBitrateKbps > 0) estAudioKbps = Math.Min(estAudioKbps, r.AudioBitrateKbps);
+        // ¿el audio se copia tal cual o se recodifica? (WebM siempre Opus; MP4 no copia FLAC/PCM…)
+        bool webm = o.Container == "webm";
+        bool willCopy = o.AudioBitrate == 0 && !webm
+                        && !(o.Container == "mp4" && !Mp4Audio.Contains(r.AudioCodec));
+        int estAudioKbps = willCopy
+            ? (r.AudioBitrateKbps > 0 ? r.AudioBitrateKbps : 192)
+            : (o.AudioBitrate > 0 ? o.AudioBitrate : (webm ? 160 : 192));
+        if (willCopy && r.AudioBitrateKbps > 0) estAudioKbps = Math.Min(estAudioKbps, r.AudioBitrateKbps);
 
         e.EstVideoKbps = estVideoKbps;
         e.EstAudioKbps = estAudioKbps;
@@ -67,10 +88,10 @@ public static class Estimator
         double savV = r.VideoBitrateKbps > 0 ? 1 - (double)estVideoKbps / r.VideoBitrateKbps : 0.5;
         e.VideoSaving = Clamp(savV * 5.0 + 0.5);
 
-        if (o.AudioBitrate == 0) { e.AudioQuality = 5; e.AudioSaving = 1; }
+        if (willCopy) { e.AudioQuality = 5; e.AudioSaving = 1; }
         else
         {
-            e.AudioQuality = Clamp(o.AudioBitrate / 48.0);   // 96≈2 · 192≈4 · 256≈5
+            e.AudioQuality = Clamp(estAudioKbps / 48.0);   // 96≈2 · 192≈4 · 256≈5
             double savA = r.AudioBitrateKbps > 0 ? 1 - (double)estAudioKbps / r.AudioBitrateKbps : 0.4;
             e.AudioSaving = Clamp(savA * 5.0 + 0.5);
         }
