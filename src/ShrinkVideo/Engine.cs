@@ -177,13 +177,16 @@ public sealed class Engine
         int quality = opt.Quality > 0 ? opt.Quality : (IsHardware(encoder) ? 27 : 23);
         var pr = await ProbeFullAsync(input);
         var video = pr?.Streams.FirstOrDefault(s => s.CodecType == "video" && !CoverCodecs.Contains(s.CodecName));
+        var allAudio = pr?.Streams.Where(s => s.CodecType == "audio").ToList() ?? new();
+        var pickAudio = allAudio.FirstOrDefault(s => s.Lang == opt.Lang) ?? allAudio.FirstOrDefault();  // idioma preferido
 
         var a = new List<string>
         {
             "-hide_banner", "-loglevel", "warning", "-stats", "-y",
             "-ss", startSec.ToString(), "-t", "10", "-i", input,
-            "-map", "0:v:0", "-map", "0:a:0?",
+            "-map", "0:v:0",
         };
+        a.AddRange(pickAudio != null ? new[] { "-map", $"0:{pickAudio.Index}" } : new[] { "-map", "0:a:0?" });
         if (opt.MaxHeight > 0 && (video?.Height ?? 0) > opt.MaxHeight)
             a.AddRange(new[] { "-vf", $"scale=-2:{opt.MaxHeight}" });
         a.AddRange(PreviewEncoderArgs(encoder, quality));
