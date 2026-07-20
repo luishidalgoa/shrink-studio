@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,6 +16,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<VideoRow> _rows = new();
     private readonly Engine _engine = new();
     private readonly string _thumbDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_thumbs");
+    private readonly string _previewDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_preview");
     private CancellationTokenSource? _cts;
     private bool _running;
     private bool _paused;
@@ -51,6 +53,9 @@ public partial class MainWindow : Window
         tabEstim.MouseLeftButtonUp += (_, _) => ShowSideTab(true);
         foreach (var c in new[] { cboFmt, cboCodec, cboQ, cboRes, cboAud })
             c.SelectionChanged += (_, _) => UpdateEstimate();
+
+        btnPreview.Click += async (_, _) => await OnPreviewAsync();
+        sldPreview.ValueChanged += (_, _) => lblPreviewAt.Text = $"Previsualizar desde {FmtTime((int)sldPreview.Value)}";
 
         Loaded += async (_, _) =>
         {
@@ -210,6 +215,9 @@ public partial class MainWindow : Window
     {
         if (lst.SelectedItem is not VideoRow r) return;
         UpdateEstimate();
+        sldPreview.Maximum = Math.Max(0, r.DurationSec - 10);
+        if (sldPreview.Value > sldPreview.Maximum) sldPreview.Value = 0;
+        lblPreviewAt.Text = $"Previsualizar desde {FmtTime((int)sldPreview.Value)}";
         lblPrevName.Text = r.Name;
         lblPrevInfo.Text = $"{r.Dir}  ·  {r.SizeMB}  ·  {r.Dur}\n{r.Codec}  ·  audio: {r.Audio}" +
                            (string.IsNullOrEmpty(r.Subs) ? "" : $"  ·  subs: {r.Subs}");
@@ -282,6 +290,35 @@ public partial class MainWindow : Window
     private static string Human(long bytes) => bytes >= (1L << 30)
         ? $"{bytes / (double)(1L << 30):n2} GB"
         : $"{bytes / (double)(1L << 20):n0} MB";
+
+    private static string FmtTime(int sec) => $"{sec / 60}:{sec % 60:D2}";
+
+    // ---------- previsualización de 10 s ----------
+    private async Task OnPreviewAsync()
+    {
+        if (lst.SelectedItem is not VideoRow r || !r.Probed)
+        {
+            MessageBox.Show(this, "Selecciona un vídeo analizado.", "Previsualizar", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        btnPreview.IsEnabled = false;
+        lblProg.Text = "Generando previsualización (10 s)…";
+        try
+        {
+            Directory.CreateDirectory(_previewDir);
+            foreach (var old in Directory.GetFiles(_previewDir)) { try { File.Delete(old); } catch { } }  // borra la anterior
+            var dest = Path.Combine(_previewDir, $"preview_{Guid.NewGuid():N}.mkv");
+            var path = await _engine.PreviewAsync(r.Path, BuildOptions(), (int)sldPreview.Value, dest, CancellationToken.None);
+            if (path != null)
+            {
+                lblProg.Text = "Previsualización lista (se borra sola al cerrar la app o al generar otra).";
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            }
+            else lblProg.Text = "No se pudo generar la previsualización.";
+        }
+        catch (Exception ex) { lblProg.Text = "Error en la previsualización: " + ex.Message; }
+        finally { btnPreview.IsEnabled = true; }
+    }
 
     // ---------- eliminar (papelera) ----------
     private void DeleteSelected()
@@ -454,8 +491,9 @@ public partial class MainWindow : Window
                 _cts?.Cancel();
             else { e.Cancel = true; return; }
         }
-        // liberar las miniaturas cacheadas en %TEMP% (foco: ahorro de almacenamiento)
+        // liberar miniaturas y previsualizaciones cacheadas en %TEMP% (foco: ahorro de almacenamiento)
         try { if (Directory.Exists(_thumbDir)) Directory.Delete(_thumbDir, true); } catch { }
+        try { if (Directory.Exists(_previewDir)) Directory.Delete(_previewDir, true); } catch { }
         base.OnClosing(e);
     }
 }

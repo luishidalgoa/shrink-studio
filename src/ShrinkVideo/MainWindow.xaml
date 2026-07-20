@@ -233,6 +233,20 @@
                 </Border>
                 <TextBlock x:Name="lblPrevName" Margin="0,10,0,2" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontWeight="Medium" FontSize="12.5"/>
                 <TextBlock x:Name="lblPrevInfo" Foreground="{StaticResource Neutral500}" TextWrapping="Wrap" FontSize="11.5"/>
+                <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,10,0,0">
+                  <StackPanel>
+                    <TextBlock x:Name="lblPreviewAt" Text="Previsualizar desde 0:00" FontSize="11" Foreground="{StaticResource Neutral500}"/>
+                    <Slider x:Name="sldPreview" Minimum="0" Maximum="0" Margin="0,4,0,8" Foreground="{StaticResource Accent}"
+                            IsSnapToTickEnabled="True" TickFrequency="1"/>
+                    <Button x:Name="btnPreview" Style="{StaticResource BtnSecondary}" HorizontalContentAlignment="Center"
+                            ToolTip="Renderiza 10 s con los ajustes actuales para ver el resultado. Se borra sola.">
+                      <StackPanel Orientation="Horizontal">
+                        <Viewbox Width="12" Height="12" Margin="0,0,6,0"><Path Data="M4 3l8 5-8 5z" Fill="{StaticResource Accent}"/></Viewbox>
+                        <TextBlock Text="Previsualizar 10 s" VerticalAlignment="Center"/>
+                      </StackPanel>
+                    </Button>
+                  </StackPanel>
+                </Border>
               </StackPanel>
 
               <!-- Estimación -->

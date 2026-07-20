@@ -148,6 +148,44 @@ public sealed class Engine
         return code == 0 && File.Exists(destJpg);
     }
 
+    // ---------- previsualización de 10 s con los ajustes actuales ----------
+    private sealed class NullReporter : IEngineReporter
+    {
+        public static readonly NullReporter Instance = new();
+        public void Log(string l) { }
+        public void FileStart(int i, int t, string n, double d) { }
+        public void FileProgress(double f, string r) { }
+        public void FileDone(FileResult r) { }
+    }
+
+    /// <summary>
+    /// Renderiza 10 s desde `startSec` con el códec/calidad/resolución elegidos, a un archivo
+    /// temporal, para que el usuario compruebe el resultado antes de comprimir. El audio se pasa
+    /// a AAC para que se reproduzca en cualquier reproductor. Devuelve la ruta o null si falla.
+    /// </summary>
+    public async Task<string?> PreviewAsync(string input, EncodeOptions opt, int startSec, string dest, CancellationToken ct)
+    {
+        var encoder = await SelectEncoderAsync(opt.VideoCodec);
+        int quality = opt.Quality > 0 ? opt.Quality : (IsHardware(encoder) ? 27 : 23);
+        var pr = await ProbeFullAsync(input);
+        var video = pr?.Streams.FirstOrDefault(s => s.CodecType == "video" && !CoverCodecs.Contains(s.CodecName));
+
+        var a = new List<string>
+        {
+            "-hide_banner", "-loglevel", "error", "-y",
+            "-ss", startSec.ToString(), "-t", "10", "-i", input,
+            "-map", "0:v:0", "-map", "0:a:0?",
+        };
+        if (opt.MaxHeight > 0 && (video?.Height ?? 0) > opt.MaxHeight)
+            a.AddRange(new[] { "-vf", $"scale=-2:{opt.MaxHeight}" });
+        a.AddRange(EncoderArgs(encoder, quality));
+        int abr = opt.AudioBitrate > 0 ? opt.AudioBitrate : 192;
+        a.AddRange(new[] { "-c:a", "aac", "-b:a", $"{abr}k", dest });
+
+        int code = await RunFfmpegAsync(a, 10, NullReporter.Instance, ct);
+        return code == 0 && File.Exists(dest) ? dest : null;
+    }
+
     private static List<string> EncoderArgs(string encoder, int quality) => encoder switch
     {
         "hevc_qsv" or "h264_qsv" or "av1_qsv" =>
