@@ -22,6 +22,13 @@ public partial class MainWindow : Window
         InitializeComponent();
         Directory.CreateDirectory(_thumbDir);
         lst.ItemsSource = _rows;
+        lblVersion.Text = "v" + Updater.Current;
+
+        // barra de título propia
+        btnMin.Click += (_, _) => WindowState = WindowState.Minimized;
+        btnMax.Click += (_, _) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        btnClose.Click += (_, _) => Close();
+        StateChanged += (_, _) => rootBorder.Padding = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
 
         btnSrc.Click += (_, _) => PickFolder(txtSrc);
         btnOut.Click += (_, _) => PickFolder(txtOut);
@@ -39,6 +46,7 @@ public partial class MainWindow : Window
 
         Loaded += async (_, _) =>
         {
+            cboLang.Text = "spa";
             if (!await Engine.ToolsAvailableAsync())
                 MessageBox.Show(this,
                     "No se encuentra FFmpeg. Instálalo (por ejemplo con:  winget install Gyan.FFmpeg) y vuelve a abrir la app.",
@@ -173,14 +181,13 @@ public partial class MainWindow : Window
         AddLangChip(panel, code);
     }
 
-    private static void AddLangChip(WrapPanel panel, string code)
+    private void AddLangChip(WrapPanel panel, string code)
     {
         panel.Children.Add(new CheckBox
         {
             Content = code,
             IsChecked = true,
-            Margin = new Thickness(0, 0, 10, 0),
-            Foreground = System.Windows.Media.Brushes.White,
+            Style = (Style)FindResource("ChipStyle"),
         });
     }
     private static List<string> CheckedLangs(WrapPanel panel) =>
@@ -277,7 +284,8 @@ public partial class MainWindow : Window
         _cts = new CancellationTokenSource();
         _running = true;
         btnRun.IsEnabled = false; btnCancel.IsEnabled = true;
-        bar.Visibility = Visibility.Visible; bar.Value = 0;
+        progRow.Visibility = Visibility.Visible; bar.Value = 0;
+        tglLog.IsChecked = true;
         txtLog.Clear();
         lblProg.Text = $"Procesando {sel.Count} vídeo(s)…";
 
@@ -301,7 +309,7 @@ public partial class MainWindow : Window
         {
             _running = false;
             btnRun.IsEnabled = true; btnCancel.IsEnabled = false;
-            bar.Visibility = Visibility.Collapsed;
+            progRow.Visibility = Visibility.Collapsed;
             _cts?.Dispose(); _cts = null;
         }
     }

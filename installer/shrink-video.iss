@@ -66,11 +66,10 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Abrir {#MyAppName} ahora"; Flag
 
 [Code]
 var
-  DownloadPage: TDownloadWizardPage;
   FfmpegChecked: Boolean;
   FfmpegPresent: Boolean;
 
-{ Devuelve True si 'ffmpeg' está en el PATH (where ffmpeg -> código 0). Se cachea. }
+{ True si 'ffmpeg' está en el PATH (where ffmpeg -> codigo 0). Se cachea. }
 function FfmpegInPath(): Boolean;
 var
   ResultCode: Integer;
@@ -82,61 +81,43 @@ begin
   Result := FfmpegPresent;
 end;
 
-{ Check para la tarea installffmpeg: aparece si FALTA ffmpeg. }
+{ Check de la tarea installffmpeg: la muestra (marcada) solo si FALTA ffmpeg. }
 function NeedsFfmpeg(): Boolean;
 begin
   Result := not FfmpegInPath();
 end;
 
-procedure InitializeWizard;
-begin
-  DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), SetupMessage(msgPreparingDesc), nil);
-end;
-
-{ En la página "listo para instalar", si se eligió instalar FFmpeg, lo descarga. }
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  Result := True;
-  if (CurPageID = wpReady) and WizardIsTaskSelected('installffmpeg') then begin
-    DownloadPage.Clear;
-    DownloadPage.Add('{#FfmpegUrl}', 'ffmpeg.zip', '');
-    DownloadPage.Show;
-    try
-      try
-        DownloadPage.Download;
-        Result := True;
-      except
-        if not DownloadPage.AbortedByUser then
-          SuppressibleMsgBox('No se pudo descargar FFmpeg:' + #13#10 + GetExceptionMessage +
-            #13#10 + #13#10 + 'Puedes instalarlo luego con:  winget install Gyan.FFmpeg',
-            mbError, MB_OK, IDOK);
-        Result := False;
-      end;
-    finally
-      DownloadPage.Hide;
-    end;
-  end;
-end;
-
-{ Tras copiar la app, extrae el zip descargado y coloca ffmpeg.exe/ffprobe.exe en {app}\ffmpeg. }
+{ Tras copiar la app: descarga el zip de FFmpeg y copia ffmpeg/ffprobe a la carpeta ffmpeg de la app.
+  Funciona en instalacion normal y desatendida. }
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
   Ps: String;
 begin
-  if (CurStep = ssPostInstall) and WizardIsTaskSelected('installffmpeg') then begin
-    Ps := '-NoProfile -ExecutionPolicy Bypass -Command "' +
-      '$ErrorActionPreference=''Stop''; ' +
-      '$z=''' + ExpandConstant('{tmp}\ffmpeg.zip') + '''; ' +
-      '$d=''' + ExpandConstant('{tmp}\ffx') + '''; ' +
-      'Expand-Archive -LiteralPath $z -DestinationPath $d -Force; ' +
-      '$b=(Get-ChildItem $d -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName; ' +
-      '$o=''' + ExpandConstant('{app}\ffmpeg') + '''; New-Item -ItemType Directory -Force $o | Out-Null; ' +
-      'Copy-Item (Join-Path $b ''ffmpeg.exe'') $o -Force; ' +
-      'Copy-Item (Join-Path $b ''ffprobe.exe'') $o -Force"';
-    if (not Exec('powershell.exe', Ps, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
-      SuppressibleMsgBox('No se pudo preparar FFmpeg (código ' + IntToStr(ResultCode) + ').' + #13#10 +
-        'La app funcionará igual si instalas FFmpeg manualmente (winget install Gyan.FFmpeg).',
-        mbError, MB_OK, IDOK);
+  if (CurStep <> ssPostInstall) or (not WizardIsTaskSelected('installffmpeg')) then
+    Exit;
+
+  WizardForm.StatusLabel.Caption := 'Descargando FFmpeg (una sola vez)...';
+  try
+    DownloadTemporaryFile('{#FfmpegUrl}', 'ffmpeg.zip', '', nil);
+  except
+    SuppressibleMsgBox('No se pudo descargar FFmpeg. Puedes instalarlo luego con: winget install Gyan.FFmpeg',
+      mbError, MB_OK, IDOK);
+    Exit;
   end;
+
+  WizardForm.StatusLabel.Caption := 'Instalando FFmpeg...';
+  Ps := '-NoProfile -ExecutionPolicy Bypass -Command "' +
+    '$ErrorActionPreference=''Stop''; ' +
+    '$z=''' + ExpandConstant('{tmp}\ffmpeg.zip') + '''; ' +
+    '$d=''' + ExpandConstant('{tmp}\ffx') + '''; ' +
+    'Expand-Archive -LiteralPath $z -DestinationPath $d -Force; ' +
+    '$b=(Get-ChildItem $d -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName; ' +
+    '$o=''' + ExpandConstant('{app}\ffmpeg') + '''; New-Item -ItemType Directory -Force $o | Out-Null; ' +
+    'Copy-Item (Join-Path $b ''ffmpeg.exe'') $o -Force; ' +
+    'Copy-Item (Join-Path $b ''ffprobe.exe'') $o -Force"';
+  if (not Exec('powershell.exe', Ps, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
+    SuppressibleMsgBox('No se pudo preparar FFmpeg (codigo ' + IntToStr(ResultCode) + '). ' +
+      'La app funcionara si instalas FFmpeg manualmente (winget install Gyan.FFmpeg).',
+      mbError, MB_OK, IDOK);
 end;
