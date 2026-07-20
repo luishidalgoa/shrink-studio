@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly string _thumbDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_thumbs");
     private readonly string _previewDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_preview");
     private readonly System.Windows.Threading.DispatcherTimer _scrubTimer = new() { Interval = TimeSpan.FromMilliseconds(220) };
+    private CancellationTokenSource? _scrubCts;
     private CancellationTokenSource? _cts;
     private bool _running;
     private bool _paused;
@@ -243,24 +244,30 @@ public partial class MainWindow : Window
     private async Task ShowScrubFrameAsync()
     {
         if (lst.SelectedItem is not VideoRow r || !r.Probed) return;
+        _scrubCts?.Cancel();
+        var cts = _scrubCts = new CancellationTokenSource();
+        var token = cts.Token;
+
         Directory.CreateDirectory(_thumbDir);
-        var scrub = Path.Combine(_thumbDir, "scrub.jpg");
-        try { if (File.Exists(scrub)) File.Delete(scrub); } catch { }
-        if (!await Engine.MakeThumbnailAsync(r.Path, scrub, (int)sldPreview.Value) || !File.Exists(scrub)) return;
+        var scrub = Path.Combine(_thumbDir, $"frame_{Guid.NewGuid():N}.jpg");   // archivo único: sin carreras
+        bool ok = await Engine.MakeThumbnailAsync(r.Path, scrub, (int)sldPreview.Value);
+        if (token.IsCancellationRequested || !ok || !File.Exists(scrub)) { TryDelete(scrub); return; }
         try
         {
-            var bytes = await File.ReadAllBytesAsync(scrub);   // leer y desacoplar del archivo
+            var bytes = await File.ReadAllBytesAsync(scrub, token);
             var bmp = new BitmapImage();
             bmp.BeginInit();
             bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
             bmp.StreamSource = new MemoryStream(bytes);
             bmp.EndInit();
             bmp.Freeze();
-            imgPrev.Source = bmp;
+            if (!token.IsCancellationRequested) imgPrev.Source = bmp;
         }
         catch { }
+        TryDelete(scrub);
     }
+
+    private static void TryDelete(string path) { try { if (File.Exists(path)) File.Delete(path); } catch { } }
 
     // ---------- estimación de ahorro ----------
     private void ShowSideTab(bool estim)
