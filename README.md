@@ -24,8 +24,8 @@ cada vídeo y comprime en tanda. **Nunca toca los originales**: el resultado va 
 2. Ejecútalo. Se instala **solo para tu usuario** (no pide permisos de administrador) y crea acceso directo en el menú Inicio (y opcionalmente en el Escritorio).
 3. Como el instalador no está firmado, Windows SmartScreen puede avisar: pulsa **Más información → Ejecutar de todas formas**.
 
-> **Requisito:** necesitas **FFmpeg** en el `PATH`. Instálalo con `winget install Gyan.FFmpeg`.
-> La app avisa si no lo encuentra.
+> **FFmpeg** (única dependencia): el instalador lo **detecta automáticamente** y, si no lo tienes,
+> ofrece descargarlo e instalarlo junto a la app. No necesitas configurar nada.
 
 ## Uso
 

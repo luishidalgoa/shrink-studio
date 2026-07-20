@@ -39,6 +39,6 @@ Leyenda: ✅ hecho · 🔜 siguiente · ⬜ pendiente
 - ⬜ "Al terminar": no hacer nada / apagar / suspender.
 
 ## Transversal
-- ⬜ Empaquetar FFmpeg en el instalador (hoy debe estar en el PATH).
+- ✅ **FFmpeg**: el instalador lo detecta y, si falta, lo descarga e instala junto a la app (el usuario no configura nada).
 - ⬜ Firmar el instalador (evitar aviso de SmartScreen).
 - ⬜ Rediseño visual (brief en [`docs/design-brief.md`](docs/design-brief.md)).
