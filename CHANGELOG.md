@@ -39,6 +39,13 @@ es un acuerdo de buena voluntad: está verificado.
   hace falta ensanchar la ventana para leer un nombre largo. Solo aparece cuando el texto
   está recortado de verdad, para no repetir lo que ya se ve.
 
+- **El encargo para la IA ya no da por hecho que el anexo lo tiene todo.** Antes enseñaba un
+  único ejemplo con todos los campos rellenos, y ante una tabla pobre la IA acababa
+  inventándose fechas o improvisando estructura. Ahora lista los campos que admite el
+  programa separando lo obligatorio de lo opcional, enseña también un catálogo mínimo
+  igual de válido, y deja una sola regla sin excepción: se pueden omitir campos, nunca
+  inventarlos.
+
 ### Corregido
 
 - **El texto se cortaba por abajo en los campos de «Generar con IA».** Tenían una altura
