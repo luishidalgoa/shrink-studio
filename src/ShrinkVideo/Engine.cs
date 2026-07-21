@@ -79,6 +79,12 @@ public interface IEngineReporter
     void FileProgress(double fraction, string rawLine);   // 0..1 del archivo actual
     void FileDone(FileResult result);
     void DiskFull(bool paused) { }                        // disco lleno: en pausa esperando espacio
+
+    /// <summary>
+    /// Un archivo se salta y por qué. Antes esto solo iba al registro, así que la tabla
+    /// no podía contar el motivo («ya está en HEVC», «ya hecho»…).
+    /// </summary>
+    void FileSkipped(string sourcePath, string reason) { }
 }
 
 /// <summary>
@@ -154,6 +160,14 @@ public sealed class Engine
     }
 
     public static bool IsHardware(string encoder) => !encoder.StartsWith("lib");
+
+    /// <summary>
+    /// ¿Este vídeo ya está bien comprimido y no merece la pena tocarlo? Misma regla que
+    /// aplica CompressAsync al saltárselo; se expone para que la tabla pueda avisar al
+    /// analizar, en vez de descubrirlo el usuario cuando ya ha lanzado la tanda.
+    /// </summary>
+    public static bool AlreadyCompressed(string codec, int totalKbps) =>
+        (codec is "hevc" or "av1") && totalKbps > 0 && totalKbps < 2500;
 
     /// <summary>Extrae un fotograma como miniatura JPG. Devuelve true si lo consiguió.</summary>
     public static async Task<bool> MakeThumbnailAsync(string video, string destJpg, int atSec)
@@ -373,21 +387,21 @@ public sealed class Engine
             }
             string outPath = UniqueOutput(Path.Combine(outDir, outName), usedOutputs);
 
-            if (File.Exists(outPath) && !opt.Force) { rep.Log($"[{n}/{total}] {name} → ya hecho, salto"); continue; }
-            if (StillDownloading(f)) { rep.Log($"[{n}/{total}] {name} → descargando aún, salto"); continue; }
+            if (File.Exists(outPath) && !opt.Force) { rep.Log($"[{n}/{total}] {name} → ya hecho, salto"); rep.FileSkipped(f, "Ya hecho"); continue; }
+            if (StillDownloading(f)) { rep.Log($"[{n}/{total}] {name} → descargando aún, salto"); rep.FileSkipped(f, "Descargando"); continue; }
 
             var pr = await ProbeFullAsync(f);
-            if (pr == null) { rep.Log($"[{n}/{total}] {name} → no se puede leer, salto"); continue; }
+            if (pr == null) { rep.Log($"[{n}/{total}] {name} → no se puede leer, salto"); rep.FileSkipped(f, "No se puede leer"); continue; }
 
             var video = pr.Streams.FirstOrDefault(s => s.CodecType == "video" && !CoverCodecs.Contains(s.CodecName));
-            if (video == null) { rep.Log($"[{n}/{total}] {name} → sin pista de vídeo, salto"); continue; }
+            if (video == null) { rep.Log($"[{n}/{total}] {name} → sin pista de vídeo, salto"); rep.FileSkipped(f, "Sin vídeo"); continue; }
 
             int kbps = int.TryParse(pr.Format?.BitRate, out var br) ? br / 1000 : 0;
             if (!opt.AudioOnly && !opt.Force && (video.CodecName is "hevc" or "av1") && kbps > 0 && kbps < 2500)
-            { rep.Log($"[{n}/{total}] {name} → ya comprimido ({video.CodecName}, {kbps} kbps), salto"); continue; }
+            { rep.Log($"[{n}/{total}] {name} → ya comprimido ({video.CodecName}, {kbps} kbps), salto"); rep.FileSkipped(f, $"Ya en {video.CodecName!.ToUpperInvariant()}"); continue; }
 
             var allAudio = pr.Streams.Where(s => s.CodecType == "audio").ToList();
-            if (allAudio.Count == 0) { rep.Log($"[{n}/{total}] {name} → sin audio, salto"); continue; }
+            if (allAudio.Count == 0) { rep.Log($"[{n}/{total}] {name} → sin audio, salto"); rep.FileSkipped(f, "Sin audio"); continue; }
             var pref = allAudio.Where(s => s.Lang == opt.Lang).ToList();
             var other = allAudio.Where(s => s.Lang != opt.Lang && (keepAll || keepLangs.Contains(s.Lang))).ToList();
             var audio = pref.Concat(other).ToList();

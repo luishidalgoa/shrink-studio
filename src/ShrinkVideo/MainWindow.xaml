@@ -275,10 +275,48 @@
                   <GridViewColumn Header="CÓDEC" Width="64" DisplayMemberBinding="{Binding Codec}"/>
                   <GridViewColumn Header="AUDIO" Width="88" DisplayMemberBinding="{Binding Audio}"/>
                   <GridViewColumn Header="SUBS" Width="64" DisplayMemberBinding="{Binding Subs}"/>
-                  <GridViewColumn Header="ESTADO" Width="104" DisplayMemberBinding="{Binding Estado}"/>
+                  <!-- El color solo REFUERZA: el texto ya distingue por sí solo (daltonismo) -->
+                  <GridViewColumn Header="ESTADO" Width="132">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Estado}" TextTrimming="CharacterEllipsis">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Foreground" Value="{StaticResource Neutral500}"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding EstadoBrush}" Value="Ok">
+                                  <Setter Property="Foreground" Value="{StaticResource EstadoOk}"/>
+                                  <Setter Property="FontWeight" Value="Medium"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding EstadoBrush}" Value="Err">
+                                  <Setter Property="Foreground" Value="{StaticResource EstadoErr}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding EstadoBrush}" Value="Live">
+                                  <Setter Property="Foreground" Value="{StaticResource Accent300}"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
                 </GridView>
               </ListView.View>
             </ListView>
+            <!-- estado vacío: guía en vez de un hueco en negro -->
+            <StackPanel x:Name="emptyState" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        MaxWidth="420" IsHitTestVisible="False">
+              <Viewbox Width="46" Height="46" HorizontalAlignment="Center" Opacity="0.5">
+                <Path Data="M1.5 3.5h4l1.5 2h7.5v7h-13z" Stroke="{StaticResource Neutral600}"
+                      StrokeThickness="1.1" StrokeLineJoin="Round"/>
+              </Viewbox>
+              <TextBlock Text="Aquí aparecerán tus vídeos" FontSize="13.5" Foreground="{StaticResource Neutral400}"
+                         HorizontalAlignment="Center" Margin="0,14,0,6"/>
+              <TextBlock TextWrapping="Wrap" TextAlignment="Center" FontSize="11.5" Foreground="{StaticResource Neutral600}"
+                         Text="Elige una carpeta en Origen (o arrastra vídeos aquí) y pulsa Analizar. Se marcarán solos los que convenga comprimir."/>
+            </StackPanel>
+
             <!-- banda de selección (rubber-band), estilo explorador -->
             <Canvas x:Name="marqueeCanvas" IsHitTestVisible="False">
               <Border x:Name="marquee" Visibility="Collapsed" Background="#33968AE0"

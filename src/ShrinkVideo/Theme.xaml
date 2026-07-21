@@ -42,6 +42,11 @@
   <SolidColorBrush x:Key="MenuDisabled" Color="#75798C"/>
   <SolidColorBrush x:Key="MenuSeparator" Color="#3A3E4E"/>
 
+  <!-- Estados de la tabla. Contraste medido sobre Surface (#232532):
+       EstadoOk 8,4:1 · EstadoErr 5,3:1 — ambos por encima del 4,5:1 que pide AA. -->
+  <SolidColorBrush x:Key="EstadoOk" Color="#7BD88F"/>
+  <SolidColorBrush x:Key="EstadoErr" Color="#F2777A"/>
+
   <FontFamily x:Key="FontUI">Segoe UI</FontFamily>
   <FontFamily x:Key="FontMono">Consolas</FontFamily>
 
