@@ -175,7 +175,11 @@ public static class ReindexEngine
 
         // ── títulos del fichero, ya normalizados ──
         var titulosArchivo = TitulosDe(f);
-        var (mejorTituloEp, mejorTituloScore) = indice.MejorPorTitulo(titulosArchivo, cat.Episodios);
+        // La temporada que declara el fichero (por su nombre o por su carpeta) entra en el
+        // desempate: sin ella, un episodio de 2014 competia de tu a tu con el de 2005 que el
+        // propio fichero estaba diciendo.
+        var (mejorTituloEp, mejorTituloP) = indice.MejorPorTitulo(titulosArchivo, cat.Episodios, f.Temporada);
+        double mejorTituloScore = mejorTituloP.Sim;
 
         // ── Regla 3: metadato y nombre apuntan a episodios distintos → nunca elegir en silencio ──
         var choque = ChoqueMetaVsNombre(f, cat, indice);
@@ -206,18 +210,22 @@ public static class ReindexEngine
             r.Confianza = ReindexConfianza.Alta;
             r.Estado = f.Indice == mejorTituloEp.Num ? ReindexEstado.Limpio : ReindexEstado.Corregido;
             r.Motivo = $"El título coincide al {Pct(mejorTituloScore)}";
-            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp);
+            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp, f.Temporada);
 
             // Otra cara del remake: DOS episodios distintos encajan igual de bien y ganó el
             // primero por orden de lista. Por título no hay manera de separarlos, así que no
             // se aplica solo — es exactamente el caso que el resolvedor de conflictos existe
             // para resolver (en el diseño, «E210 vs E655»).
+            // Solo es empate si, mirándolo TODO (parecido, cuántos trozos casan y la
+            // temporada), los dos siguen siendo indistinguibles. Antes bastaba con que el
+            // parecido fuera parecido, y se preguntaba por casos que la temporada resolvía sola.
             var rival = r.Alternativas.FirstOrDefault();
-            if (rival != null && rival.Score >= mejorTituloScore - MargenDesempate)
+            if (rival != null &&
+                indice.Puntuar(titulosArchivo, rival.Episodio, f.Temporada).IndistinguibleDe(in mejorTituloP))
             {
                 r.Confianza = ReindexConfianza.Revisar;
-                r.Motivo = $"El título encaja igual de bien con dos episodios " +
-                           $"({mejorTituloEp.Num} y {rival.Episodio.Num}) — elige tú";
+                r.Motivo = $"El título encaja igual de bien con el episodio {mejorTituloEp.Num} " +
+                           $"y con el {rival.Episodio.Num} — elige tú";
             }
             return r;
         }
@@ -256,7 +264,7 @@ public static class ReindexEngine
             r.Confianza = ReindexConfianza.Revisar;
             r.Estado = ReindexEstado.Corregido;
             r.Motivo = $"Se parece al {Pct(mejorTituloScore)}, por debajo de lo fiable";
-            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp);
+            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp, f.Temporada);
             return r;
         }
 
@@ -442,9 +450,10 @@ public static class ReindexEngine
     }
 
     private static IReadOnlyList<ReindexCandidato> OtrosCandidatos(IndiceTitulos indice,
-        IReadOnlyList<TitleBag> titulos, IReadOnlyList<CatalogEpisode> candidatos, CatalogEpisode elegido)
+        IReadOnlyList<TitleBag> titulos, IReadOnlyList<CatalogEpisode> candidatos, CatalogEpisode elegido,
+        int? temporadaArchivo = null)
     {
-        return indice.Ranking(titulos, candidatos, excluir: elegido, cuantos: 2)
+        return indice.Ranking(titulos, candidatos, excluir: elegido, cuantos: 2, temporadaArchivo)
             .Select(x => new ReindexCandidato
             {
                 Episodio = x.ep,
@@ -482,18 +491,82 @@ internal sealed class IndiceTitulos
             _bolsas[e] = e.TitulosNorm.Select(t => new TitleBag(t)).ToArray();
     }
 
-    /// <summary>Mejor episodio y su score sobre los títulos dados.</summary>
+    /// <summary>
+    /// Lo que se sabe de un episodio frente a un fichero. El parecido manda, pero cuando
+    /// dos episodios empatan en parecido hay más evidencia que mirar antes de rendirse y
+    /// preguntarle al usuario.
+    /// </summary>
+    internal readonly record struct Puntuacion(double Sim, int SegmentosCasados, bool MismaTemporada)
+    {
+        public static readonly Puntuacion Cero = new(0, 0, false);
+
+        /// <summary>
+        /// ¿Es esta puntuación mejor que la otra? Primero el parecido; si empatan (dentro del
+        /// margen), gana el que case MÁS trozos del nombre, y en último término el de la
+        /// misma temporada que dice el fichero.
+        /// </summary>
+        public bool MejorQue(in Puntuacion otra)
+        {
+            if (Sim > otra.Sim + ReindexEngine.MargenDesempate) return true;
+            if (otra.Sim > Sim + ReindexEngine.MargenDesempate) return false;
+
+            if (SegmentosCasados != otra.SegmentosCasados) return SegmentosCasados > otra.SegmentosCasados;
+            if (MismaTemporada != otra.MismaTemporada) return MismaTemporada;
+            return Sim > otra.Sim;
+        }
+
+        /// <summary>¿Siguen siendo indistinguibles después de mirarlo todo?</summary>
+        public bool IndistinguibleDe(in Puntuacion otra) =>
+            Math.Abs(Sim - otra.Sim) <= ReindexEngine.MargenDesempate
+            && SegmentosCasados == otra.SegmentosCasados
+            && MismaTemporada == otra.MismaTemporada;
+    }
+
+    /// <summary>Mejor episodio y su puntuación sobre los títulos dados.</summary>
     public (CatalogEpisode? ep, double score) MejorPorTitulo(IReadOnlyList<TitleBag> titulos,
                                                             IReadOnlyList<CatalogEpisode> candidatos)
+        => MejorPorTitulo(titulos, candidatos, null) is var (e, p) ? (e, p.Sim) : default;
+
+    internal (CatalogEpisode? ep, Puntuacion p) MejorPorTitulo(IReadOnlyList<TitleBag> titulos,
+        IReadOnlyList<CatalogEpisode> candidatos, int? temporadaArchivo)
     {
         CatalogEpisode? mejor = null;
-        double mejorScore = 0;
+        var mejorP = Puntuacion.Cero;
         foreach (var ep in candidatos)
         {
-            double s = Score(titulos, ep, mejorScore);
-            if (s > mejorScore) { mejorScore = s; mejor = ep; }
+            var p = Puntuar(titulos, ep, temporadaArchivo);
+            if (p.Sim > 0 && (mejor == null || p.MejorQue(in mejorP))) { mejorP = p; mejor = ep; }
         }
-        return (mejor, mejorScore);
+        return (mejor, mejorP);
+    }
+
+    /// <summary>
+    /// Puntúa un episodio: el mejor parecido, cuántos trozos del nombre casan de verdad, y si
+    /// la temporada coincide con la que declara el fichero.
+    /// </summary>
+    internal Puntuacion Puntuar(IReadOnlyList<TitleBag> titulos, CatalogEpisode ep, int? temporadaArchivo)
+    {
+        if (!_bolsas.TryGetValue(ep, out var bolsas) || bolsas.Length == 0) return Puntuacion.Cero;
+
+        double mejor = 0;
+        int casados = 0;
+        foreach (var t in titulos)
+        {
+            double mejorDeEste = 0;
+            foreach (var b in bolsas)
+            {
+                if (TitleMatch.CotaSuperior(in t, in b) <= mejorDeEste) continue;
+                double s = TitleMatch.Sim(t.Text, b.Text);
+                if (s > mejorDeEste) mejorDeEste = s;
+            }
+            if (mejorDeEste > mejor) mejor = mejorDeEste;
+            // Un episodio que explica DOS de los trozos del nombre encaja mejor que otro que
+            // solo explica uno, aunque los dos den 1,00 en su mejor trozo.
+            if (mejorDeEste >= TitleMatch.UmbralSegmento) casados++;
+        }
+
+        bool mismaTemp = temporadaArchivo.HasValue && ep.Temporada == temporadaArchivo;
+        return new Puntuacion(mejor, casados, mismaTemp);
     }
 
     /// <summary>Score de UN episodio concreto contra los títulos dados.</summary>
@@ -501,16 +574,20 @@ internal sealed class IndiceTitulos
 
     /// <summary>Los siguientes mejores, para ofrecer alternativas de un clic.</summary>
     public List<(CatalogEpisode ep, double score)> Ranking(IReadOnlyList<TitleBag> titulos,
-        IReadOnlyList<CatalogEpisode> candidatos, CatalogEpisode? excluir, int cuantos)
+        IReadOnlyList<CatalogEpisode> candidatos, CatalogEpisode? excluir, int cuantos,
+        int? temporadaArchivo = null)
     {
-        var lista = new List<(CatalogEpisode, double)>();
+        // Se ordenan con el MISMO criterio con el que se eligió al ganador: si no, la primera
+        // alternativa podría no ser la segunda mejor y el usuario elegiría a ciegas.
+        var lista = new List<(CatalogEpisode ep, Puntuacion p)>();
         foreach (var ep in candidatos)
         {
             if (ReferenceEquals(ep, excluir)) continue;
-            double s = Score(titulos, ep, 0);
-            if (s > 0) lista.Add((ep, s));
+            var p = Puntuar(titulos, ep, temporadaArchivo);
+            if (p.Sim > 0) lista.Add((ep, p));
         }
-        return lista.OrderByDescending(x => x.Item2).Take(cuantos).ToList();
+        lista.Sort((a, b) => a.p.MejorQue(in b.p) ? -1 : b.p.MejorQue(in a.p) ? 1 : 0);
+        return lista.Take(cuantos).Select(x => (x.ep, x.p.Sim)).ToList();
     }
 
     /// <summary>

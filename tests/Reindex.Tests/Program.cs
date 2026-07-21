@@ -21,6 +21,7 @@ public static class Program
         CargaDeCatalogo();
         Cascada();
         ReglasDeLote();
+        Desempate();
         Idiomas();
         Prompt();
         Plantilla();
@@ -411,6 +412,68 @@ public static class Program
         Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Especial), "1 especial");
         Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Error), "1 error");
         Assert(mezcla.All(x => !string.IsNullOrWhiteSpace(x.Motivo)), "toda fila tiene su «por qué»");
+    }
+
+    // ─────────────────── Desempate: temporada y segmentos casados ───────────────────
+
+    /// <summary>
+    /// Caso real de Doraemon (2005). El fichero trae dos segmentos y declara su temporada
+    /// (por el nombre y por la carpeta). El episodio 1 explica LOS DOS segmentos y es de
+    /// 2005; el 318 comparte solo uno y es de 2014. Como la puntuación era el MÁXIMO, los
+    /// dos daban 1,00 y la app preguntaba — enseñando además solo los descartados, así que
+    /// las dos opciones que ofrecía estaban mal.
+    /// </summary>
+    private static void Desempate()
+    {
+        Seccion("Desempate por temporada y por segmentos casados");
+
+        const string catalogo = """
+        {
+          "esquema": "reindex/1.0", "serie": "Doraemon (2005)",
+          "episodios": [
+            { "num": 1, "temporada": 2005,
+              "titulos": { "es": ["Con calma y con prisa", "La mujer de Nobita"] } },
+            { "num": 318, "temporada": 2014,
+              "titulos": { "es": ["El gorro de la invisibilidad", "La mujer de Nobita"] } },
+            { "num": 132, "temporada": 2009, "titulos": { "es": ["Los sueños de Nobita"] } }
+          ]
+        }
+        """;
+        var cat = ReindexCatalog.Parse(catalogo);
+
+        var f = SignalExtractor.Extract(
+            Path.Combine("Temporada 2005", "Doraemon (2005) S2005E002 - Con calma y con prisa | La mujer de Nobita.mkv"),
+            "Temporada 2005");
+        Eq(2005, f.Temporada, "el fichero declara su temporada");
+        Eq(2, f.Segmentos.Count, "y trae dos segmentos");
+
+        var r = ReindexEngine.Resolve(new[] { f }, cat)[0];
+        Eq(1, r.Episodio?.Num, "gana el episodio que explica AMBOS segmentos, no el que comparte uno");
+        Eq(ReindexConfianza.Alta, r.Confianza, "y deja de preguntar: la temporada y los segmentos lo resuelven");
+
+        // Sin la temporada del fichero, el empate por segmentos sigue decidiendo
+        var sinTemp = SignalExtractor.Extract(
+            Path.Combine("Videos", "Con calma y con prisa | La mujer de Nobita.mkv"), "Videos");
+        Eq(1, ReindexEngine.Resolve(new[] { sinTemp }, cat)[0].Episodio?.Num,
+            "sin temporada, «2 de 2 segmentos» todavía gana a «1 de 2»");
+
+        // Pero cuando NADA desempata, se sigue preguntando: no se inventa una certeza
+        var catGemelo = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0", "serie": "S",
+          "episodios": [
+            { "num": 10, "temporada": 2005, "titulos": { "es": ["El mismo título"] } },
+            { "num": 455, "temporada": 2005, "titulos": { "es": ["El mismo título"] } }
+          ]
+        }
+        """);
+        var dudoso = ReindexEngine.Resolve(
+            new[] { SignalExtractor.Extract(Path.Combine("Temporada 2005", "El mismo título.mkv"), "Temporada 2005") },
+            catGemelo)[0];
+        Eq(ReindexConfianza.Revisar, dudoso.Confianza,
+            "con misma temporada y mismos segmentos, sigue siendo un empate de verdad");
+        Assert(dudoso.Motivo.Contains("10") && dudoso.Motivo.Contains("455"),
+            "y el motivo nombra a los dos implicados");
     }
 
     // ─────────────────── Idiomas: reconocer en uno, nombrar en otro ───────────────────
