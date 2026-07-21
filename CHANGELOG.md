@@ -37,9 +37,19 @@ es un acuerdo de buena voluntad: está verificado.
   escribirlo a ciegas. Si el archivo tiene fallos, se te dicen **todos juntos** y con el
   episodio concreto: números repetidos (que antes hacían perder un episodio en silencio),
   fechas imposibles o números negativos.
+- **Generador de catálogos con IA.** El botón «Generar con IA…» arma el encargo para que una
+  IA convierta un anexo de episodios (Wikipedia, Fandom, el que uses) en el catálogo, con el
+  formato y las reglas ya dentro. Eliges la serie, la dirección y los idiomas, y lo copias.
+  Cada anexo está montado a su manera, así que el texto le dice cómo resolver lo que cambia
+  entre ellos: qué columna es el número, qué hacer si solo numeran por temporada, cómo
+  tratar los episodios con varias historias y qué fecha usar si hay más de una.
 
 ### Cambiado
 
+- **Reconoce ficheros en un idioma y los nombra en otro.** Antes solo se comparaba contra
+  los títulos en español, así que un fichero titulado en inglés no se identificaba nunca.
+  Ahora el catálogo declara en qué idioma quieres el nombre final y con cuáles hay que
+  comparar: `Help Wanted.mkv` se reconoce por su título inglés y se renombra al español.
 - **La ventana se puede encoger mucho más.** El mínimo baja de 1000×660 a 820×560, y el
   contenido se adapta en vez de recortarse: los campos se estiran, los botones bajan de
   línea si no caben, el panel de detalle se pliega cuando le quita sitio a la tabla, y en

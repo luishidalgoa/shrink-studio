@@ -1,0 +1,96 @@
+<Window x:Class="ShrinkVideo.PromptWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Generar catálogo con una IA" Width="760" Height="640" MinWidth="620" MinHeight="480"
+        WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}" Background="Transparent"
+        AllowsTransparency="False">
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="38" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0"
+                  UseAeroCaptionButtons="False"/>
+  </WindowChrome.WindowChrome>
+
+  <Border Background="{StaticResource Bg}" BorderBrush="{StaticResource Divider}" BorderThickness="1" CornerRadius="8">
+    <Grid Margin="0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/><!-- titulo -->
+        <RowDefinition Height="Auto"/><!-- explicacion -->
+        <RowDefinition Height="Auto"/><!-- campos -->
+        <RowDefinition Height="*"/>   <!-- vista previa -->
+        <RowDefinition Height="Auto"/><!-- acciones -->
+      </Grid.RowDefinitions>
+
+      <Grid Grid.Row="0" Height="38">
+        <TextBlock Text="Generar catálogo con una IA" FontSize="13.5" FontWeight="Medium"
+                   VerticalAlignment="Center" Margin="16,0,0,0"/>
+        <Button x:Name="btnCerrar" Style="{StaticResource BtnClose}" HorizontalAlignment="Right"
+                WindowChrome.IsHitTestVisibleInChrome="True">
+          <Path Data="M2,2 L11,11 M11,2 L2,11" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                StrokeThickness="1.2" Width="13" Height="13" Stretch="None"
+                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Button>
+      </Grid>
+
+      <TextBlock Grid.Row="1" Margin="16,0,16,14" TextWrapping="Wrap" FontSize="12.5" LineHeight="19"
+                 Foreground="{StaticResource Neutral400}">
+        Rellena los datos y copia el texto. Pégaselo a una IA que pueda leer páginas web
+        (Claude, ChatGPT…) junto con la dirección del anexo, y te devolverá el catálogo listo
+        para importar. El texto ya lleva dentro el formato y las reglas, así que no hace falta
+        que le expliques nada más.
+      </TextBlock>
+
+      <Grid Grid.Row="2" Margin="16,0,16,12">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
+          <TextBlock Text="Serie" Style="{StaticResource OrgLabel}"/>
+          <TextBox x:Name="txtSerie" Height="32"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
+          <TextBlock Text="Idioma para el nombre del fichero" Style="{StaticResource OrgLabel}"/>
+          <ComboBox x:Name="cboSalida" Height="32" VerticalContentAlignment="Center"
+                    ToolTip="El título que se escribirá al renombrar"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Grid.Column="0">
+          <TextBlock Text="Dirección del anexo" Style="{StaticResource OrgLabel}"/>
+          <TextBox x:Name="txtFuente" Height="32"
+                   ToolTip="La página con la lista de episodios: Wikipedia, Fandom, la que uses"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Grid.Column="2">
+          <TextBlock Text="Idiomas para reconocer los ficheros" Style="{StaticResource OrgLabel}"/>
+          <!-- No es lo mismo que el de salida: aquí van los idiomas en los que PUEDEN venir
+               titulados tus ficheros. Cuantos más, menos se quedan sin identificar. -->
+          <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}"
+                  BorderThickness="1" CornerRadius="8" Padding="10,6">
+            <ItemsControl x:Name="listaIdiomas">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
+          </Border>
+        </StackPanel>
+      </Grid>
+
+      <Border Grid.Row="3" Margin="16,0,16,12" Background="{StaticResource Field}" CornerRadius="8">
+        <TextBox x:Name="txtPrompt" IsReadOnly="True" Background="Transparent" BorderThickness="0"
+                 Foreground="{StaticResource Neutral300}" FontFamily="{StaticResource FontMono}" FontSize="11"
+                 Padding="12,10" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+      </Border>
+
+      <Grid Grid.Row="4" Margin="16,0,16,14">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBlock x:Name="lblAviso" VerticalAlignment="Center" FontSize="12"
+                   Foreground="{StaticResource Neutral500}" TextTrimming="CharacterEllipsis"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal">
+          <Button x:Name="btnAbrirFuente" Style="{StaticResource BtnSecondary}" Content="Abrir el anexo"
+                  Margin="0,0,8,0" ToolTip="Abre la página en el navegador para comprobar que es la correcta"/>
+          <Button x:Name="btnCopiar" Style="{StaticResource BtnPrimary}" Content="Copiar el prompt"/>
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

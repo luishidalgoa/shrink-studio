@@ -21,6 +21,8 @@ public static class Program
         CargaDeCatalogo();
         Cascada();
         ReglasDeLote();
+        Idiomas();
+        Prompt();
         Plantilla();
         Almacen();
         CatalogosReales();
@@ -242,7 +244,7 @@ public static class Program
         var ejemplo = ReindexCatalog.Parse(ReindexCatalog.Ejemplo);
         Eq(3, ejemplo.Episodios.Count, "el catálogo de ejemplo es válido y se lee");
         Eq(1, ejemplo.Especiales.Count, "el ejemplo enseña cómo se marca un especial");
-        Assert(ejemplo.Episodios.Any(e => e.TitulosVisibles.Count > 1),
+        Assert(ejemplo.Episodios.Any(e => e.TitulosSalida.Count > 1),
             "el ejemplo enseña un episodio con varios segmentos");
         Assert(ejemplo.Episodios.Any(e => e.FechaParsed != null), "el ejemplo enseña el formato de fecha");
 
@@ -409,6 +411,113 @@ public static class Program
         Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Especial), "1 especial");
         Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Error), "1 error");
         Assert(mezcla.All(x => !string.IsNullOrWhiteSpace(x.Motivo)), "toda fila tiene su «por qué»");
+    }
+
+    // ─────────────────── Idiomas: reconocer en uno, nombrar en otro ───────────────────
+
+    private static void Idiomas()
+    {
+        Seccion("Idiomas (reconocer en uno, nombrar en otro)");
+
+        // El caso real: los ficheros llegan titulados en inglés y se quieren en español.
+        const string catalogo = """
+        {
+          "esquema": "reindex/1.0",
+          "serie": "Bob Esponja",
+          "idiomas": { "salida": "es" },
+          "episodios": [
+            { "num": 1, "temporada": 1999,
+              "titulos": { "es": ["Ayudante de cocina"], "en": ["Help Wanted"] } },
+            { "num": 2, "temporada": 1999,
+              "titulos": { "es": ["La burbuja mascota"], "en": ["Bubblestand"] } }
+          ]
+        }
+        """;
+        var cat = ReindexCatalog.Parse(catalogo);
+        var plantilla = new LibraryTemplate();
+
+        var ingles = Uno(cat, F("Help Wanted.mkv"));
+        Eq(1, ingles.Episodio?.Num, "identifica un fichero titulado en INGLÉS");
+        Eq(ReindexConfianza.Alta, ingles.Confianza, "y lo hace con confianza");
+        Eq("Bob Esponja - S1999E1 - Ayudante de cocina.mkv",
+            plantilla.Render(cat, ingles.Episodio!, ingles.Archivo),
+            "pero el nombre que propone va en ESPAÑOL");
+
+        // Y al revés: el mismo catálogo sigue reconociendo el español
+        var espanol = Uno(cat, F("La burbuja mascota.mkv"));
+        Eq(2, espanol.Episodio?.Num, "el mismo catálogo reconoce también el español");
+
+        // Salida en inglés: mismo catálogo, otra preferencia
+        var catEn = ReindexCatalog.Parse(catalogo.Replace("\"salida\": \"es\"", "\"salida\": \"en\""));
+        Eq("Bob Esponja - S1999E1 - Help Wanted.mkv",
+            plantilla.Render(catEn, catEn.PorNum(1)!, ingles.Archivo),
+            "cambiar el idioma de salida cambia el nombre, no la identificación");
+
+        // Acotar la comparación deja fuera lo que no se listó
+        var catSoloEs = ReindexCatalog.Parse(
+            catalogo.Replace("\"salida\": \"es\"", "\"salida\": \"es\", \"comparar\": [\"es\"]"));
+        var fallo = Uno(catSoloEs, F("Help Wanted.mkv"));
+        Assert(fallo.Confianza != ReindexConfianza.Alta,
+            "si limitas «comparar» a español, el fichero inglés deja de reconocerse");
+
+        // El japonés no estorba aunque se compare: norm() lo deja en cadena vacía
+        var catJp = ReindexCatalog.Parse("""
+        { "esquema": "reindex/1.0", "serie": "S", "episodios": [
+          { "num": 1, "titulos": { "es": ["Uno"], "jp": ["ゆめの町ノビタランド"] } } ] }
+        """);
+        Eq(1, catJp.PorNum(1)!.TitulosNorm.Count,
+            "un título en japonés no añade ruido: al normalizar se queda en nada");
+
+        // Si al episodio le falta el idioma de salida, se tira de lo que haya
+        var catHueco = ReindexCatalog.Parse("""
+        { "esquema": "reindex/1.0", "serie": "S", "idiomas": { "salida": "es" },
+          "episodios": [ { "num": 1, "titulos": { "en": ["Only English"] } } ] }
+        """);
+        Eq("Only English", catHueco.PorNum(1)!.TituloPrincipal,
+            "sin título en el idioma de salida, usa el que haya en vez de «Episodio 1»");
+    }
+
+    // ─────────────────── Encargo para la IA ───────────────────
+
+    private static void Prompt()
+    {
+        Seccion("Generador del encargo para la IA");
+
+        var p = CatalogPrompt.Build("Bob Esponja",
+            "https://bobesponja.fandom.com/wiki/Lista_de_episodios", "es", new[] { "en" });
+
+        Assert(p.Contains("Bob Esponja"), "lleva el nombre de la serie");
+        Assert(p.Contains("bobesponja.fandom.com"), "lleva la dirección del anexo");
+        Assert(p.Contains("reindex/1.0"), "fija el esquema");
+        Assert(p.Contains("\"salida\": \"es\"") && p.Contains("\"en\""),
+            "declara el idioma de salida y los de comparación");
+        Assert(p.Contains("único en todo el catálogo"), "avisa de la regla del num duplicado");
+        Assert(p.Contains("AAAA-MM-DD"), "fija el formato de fecha");
+        Assert(p.Contains("no inventes un 56"), "prohíbe rellenar los huecos de numeración");
+        Assert(p.Contains("ÚNICAMENTE con el JSON"), "pide solo el JSON, sin explicaciones");
+
+        // El idioma de salida SIEMPRE entra entre los comparables: sería absurdo escribir un
+        // título que luego el motor no sabe reconocer.
+        var sinSalida = CatalogPrompt.Build("S", "http://x", "es", new[] { "en" });
+        int i_es = sinSalida.IndexOf("\"es\"", StringComparison.Ordinal);
+        Assert(i_es >= 0, "el idioma de salida se cuela solo entre los de comparación");
+
+        var duplicado = CatalogPrompt.Build("S", "http://x", "es", new[] { "es", "en" });
+        Assert(CuentaSubcadena(duplicado, "\"es\", \"en\"") == 1,
+            "y no se duplica si ya estaba en la lista");
+
+        // Sin datos sigue produciendo algo utilizable, con huecos marcados
+        var vacio = CatalogPrompt.Build("", "", "", Array.Empty<string>());
+        Assert(vacio.Contains("escribe aquí el nombre de la serie"), "sin serie, deja el hueco señalado");
+        Assert(vacio.Contains("pega aquí la dirección"), "sin fuente, deja el hueco señalado");
+        Assert(vacio.Contains("\"salida\": \"es\""), "sin idioma, cae al español");
+    }
+
+    private static int CuentaSubcadena(string texto, string aguja)
+    {
+        int n = 0, i = 0;
+        while ((i = texto.IndexOf(aguja, i, StringComparison.Ordinal)) >= 0) { n++; i += aguja.Length; }
+        return n;
     }
 
     // ─────────────────── Plantilla de biblioteca ───────────────────
