@@ -589,6 +589,18 @@ public static class Program
         Assert(p.Contains("TRANSMISIÓN"), "manda usar el número de transmisión por defecto");
         Assert(p.Contains("15-04-2005"), "y lo justifica con el caso real que lo destapó");
 
+        // Un anexo pobre no debe empujar a la IA a inventarse los campos que faltan.
+        Assert(p.Contains("puedes OMITIR campos, nunca INVENTARLOS"), "prohíbe inventar campos");
+        Assert(p.Contains("**Omite el campo.**"), "y dice qué hacer cuando un dato no está");
+        Assert(p.Contains("solo número y título"), "enseña también un catálogo mínimo válido");
+        Assert(p.Contains("valida el archivo"), "recuerda que al importar se valida");
+
+        // La tabla de campos tiene que cubrir TODO lo que el programa entiende: si el prompt
+        // se queda corto, la IA no puede saber que ese campo existe.
+        foreach (var campo in new[] { "esquema", "serie", "episodios", "clave", "notas", "idiomas",
+                                      "total", "num", "titulos", "temporada", "fecha", "especial", "aliases" })
+            Assert(p.Contains($"`{campo}`"), $"el prompt documenta el campo «{campo}»");
+
         // El idioma de salida SIEMPRE entra entre los comparables: sería absurdo escribir un
         // título que luego el motor no sabe reconocer.
         var sinSalida = CatalogPrompt.Build("S", "http://x", "es", new[] { "en" });
