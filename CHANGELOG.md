@@ -54,6 +54,11 @@ es un acuerdo de buena voluntad: está verificado.
   contenido se adapta en vez de recortarse: los campos se estiran, los botones bajan de
   línea si no caben, el panel de detalle se pliega cuando le quita sitio a la tabla, y en
   la barra de título el conmutador se queda en iconos para que no se coma el menú.
+- **El generador de prompts avisa de la trampa de la numeración.** Muchos anexos traen a la
+  vez el «número de transmisión» (orden de emisión) y el «número de episodio» (oficial), y
+  no dan el mismo resultado: en Doraemon (2005) el estreno es la transmisión 1 pero en la
+  numeración oficial es un especial, así que elegir mal desplaza la serie entera. Ahora el
+  encargo manda usar el de transmisión salvo que digas otra cosa, y lo explica con ese caso.
 
 ### Corregido
 

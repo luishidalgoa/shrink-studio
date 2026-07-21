@@ -56,6 +56,29 @@ completes, menos dudas tendrás que resolver a mano.
 | `aliases` | no | Otros títulos por los que se conoce el episodio. Cuentan igual que los de `titulos`. |
 | `emitido_es` | no | Informativo. |
 
+### Elegir la numeración: el error que más caro sale
+
+Muchos anexos traen **varias numeraciones a la vez**, y no dan el mismo resultado:
+
+- **Número de transmisión** (orden de emisión): cuenta los pases tal y como se emitieron,
+  con los especiales ocupando su sitio en la secuencia.
+- **Número de episodio** (oficial): la numeración canónica, que suele dejar los especiales
+  fuera, salta números y no cuadra con el orden real.
+
+**Normalmente quieres la de transmisión**, porque es como suelen estar numerados los
+ficheros de una colección: se guardan en el orden en que se emitieron.
+
+El caso que lo demuestra, en Doraemon (2005): el estreno del **15-04-2005** es la
+**transmisión 1**, pero en la numeración oficial es un *especial* (nº 901), y el «episodio 1»
+oficial es en realidad la **transmisión 2**. Con el catálogo oficial, una colección numerada
+por emisión sale entera desplazada y casi nada encaja; con el de transmisión, todo sale
+«Limpio» sin tocar un fichero.
+
+Escribe siempre en `clave` cuál has usado (`"transmision"`, `"oficial"`, `"segmento"`…).
+
+**Los especiales solo van aparte si tu numeración los deja aparte.** Numerando por
+transmisión, un especial es una emisión más: le toca su número y lleva `"especial": false`.
+
 ### `titulos` son listas, y no por capricho
 
 Un episodio puede contener **varias mini-historias** en la misma emisión. Cualquiera de

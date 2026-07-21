@@ -559,6 +559,10 @@ public static class Program
         Assert(p.Contains("no inventes un 56"), "prohíbe rellenar los huecos de numeración");
         Assert(p.Contains("ÚNICAMENTE con el JSON"), "pide solo el JSON, sin explicaciones");
 
+        // La lección de Doraemon: elegir la numeración equivocada desplaza la serie entera.
+        Assert(p.Contains("TRANSMISIÓN"), "manda usar el número de transmisión por defecto");
+        Assert(p.Contains("15-04-2005"), "y lo justifica con el caso real que lo destapó");
+
         // El idioma de salida SIEMPRE entra entre los comparables: sería absurdo escribir un
         // título que luego el motor no sabe reconocer.
         var sinSalida = CatalogPrompt.Build("S", "http://x", "es", new[] { "en" });
