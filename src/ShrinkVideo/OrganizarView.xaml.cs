@@ -93,6 +93,9 @@ public partial class OrganizarView : UserControl
 
         tabla.PreviewKeyDown += OnTablaKeyDown;
         tabla.PreviewMouseLeftButtonDown += OnTablaClic;
+        tabla.PreviewMouseMove += OnTablaArrastre;
+        tabla.PreviewMouseLeftButtonUp += (_, _) => _pintando = null;
+        tabla.MouseLeave += (_, _) => _pintando = null;
 
         // Con la ventana estrecha, el rótulo de la sección se recortaba a un par de puntos
         // suspensivos, que queda peor que no estar: los botones de al lado ya dicen de qué
@@ -579,6 +582,22 @@ public partial class OrganizarView : UserControl
     /// </summary>
     private void OnTablaClic(object sender, MouseButtonEventArgs e)
     {
+        // Un clic que nace en una casilla es PARA la casilla. Este manejador oye el clic
+        // antes que ella (los Preview van de fuera adentro), y sin esta salida se lo comía
+        // cuando la fila estaba seleccionada: la casilla parecía muerta con el ratón — y la
+        // verificación por accesibilidad no lo cazó porque conmuta sin pasar por el ratón.
+        // De paso, aquí arranca el marcado por arrastre: se anota el valor del primer
+        // toque y el movimiento lo va contagiando a las filas que cruces.
+        if (Ascender<CheckBox>(e.OriginalSource as DependencyObject) is
+            { DataContext: OrganizarRow filaMarca } && filaMarca.ListoParaAplicar)
+        {
+            _pintando = !filaMarca.Marcado;
+            filaMarca.Marcado = _pintando.Value;
+            ActualizarContadores();
+            e.Handled = true;   // que el CheckBox no vuelva a conmutar lo ya conmutado
+            return;
+        }
+
         var celda = Ascender<DataGridCell>(e.OriginalSource as DependencyObject);
         if (celda == null) return;
 
@@ -587,6 +606,26 @@ public partial class OrganizarView : UserControl
 
         tabla.SelectedItem = null;
         e.Handled = true;
+    }
+
+    /// <summary>Valor que se está «pintando» al arrastrar sobre las casillas. Null = no hay arrastre.</summary>
+    private bool? _pintando;
+
+    /// <summary>
+    /// Marca en tanda: con el botón pulsado, cada fila que cruces recibe el valor del primer
+    /// toque (no se alterna fila a fila, que dejaría un patrón de ajedrez si pasas dos veces).
+    /// </summary>
+    private void OnTablaArrastre(object sender, MouseEventArgs e)
+    {
+        if (_pintando is not bool valor) return;
+        if (e.LeftButton != MouseButtonState.Pressed) { _pintando = null; return; }
+
+        var fila = Ascender<DataGridRow>(e.OriginalSource as DependencyObject);
+        if (fila?.Item is OrganizarRow f && f.ListoParaAplicar && f.Marcado != valor)
+        {
+            f.Marcado = valor;
+            ActualizarContadores();
+        }
     }
 
     private static T? Ascender<T>(DependencyObject? d) where T : DependencyObject
