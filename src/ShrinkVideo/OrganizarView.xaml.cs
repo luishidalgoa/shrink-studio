@@ -381,7 +381,7 @@ public partial class OrganizarView : UserControl
                 _filas.Add(new OrganizarRow(r, catalogo, _plantilla,
                     LibraryScan.Etiqueta(LibraryScan.Grupo(raiz, r.Archivo.Path))));
 
-            AgruparPorCarpeta();
+            RecalcularSeparadores();
             MostrarRevision();
             ActualizarContadores();
             Escribir($"Simulación: {_filas.Count} ficheros contra «{catalogo.Serie}».");
@@ -456,19 +456,34 @@ public partial class OrganizarView : UserControl
     }
 
     /// <summary>
-    /// Separa la tabla por carpeta de origen, con su cabecera entre temporada y temporada.
+    /// Marca qué fila abre cada temporada, que es la que lleva encima la banda separadora.
     ///
-    /// Solo si hay más de una: con una sola, la cabecera repetiría lo que ya dice el cuadro
-    /// de la carpeta y se comería una fila por nada.
+    /// Se calcula sobre la vista YA FILTRADA, no sobre <c>_filas</c>: si escondes las limpias,
+    /// la banda tiene que salir sobre la primera que quede —no sobre una que no se ve— y el
+    /// recuento tiene que ser el de las visibles.
+    ///
+    /// Solo se separa si hay más de una carpeta: con una sola, la banda repetiría lo que ya
+    /// dice el cuadro de la carpeta y se comería una fila por nada.
     /// </summary>
-    private void AgruparPorCarpeta()
+    private void RecalcularSeparadores()
     {
         var vista = CollectionViewSource.GetDefaultView(_filas);
         if (vista == null) return;
 
-        vista.GroupDescriptions.Clear();
-        if (_filas.Select(f => f.Grupo).Distinct().Count() > 1)
-            vista.GroupDescriptions.Add(new PropertyGroupDescription(nameof(OrganizarRow.Grupo)));
+        var visibles = vista.Cast<OrganizarRow>().ToList();
+        foreach (var f in visibles) { f.PrimeraDeGrupo = false; f.GrupoConteo = ""; }
+
+        if (visibles.Select(f => f.Grupo).Distinct().Count() <= 1) return;
+
+        for (int i = 0; i < visibles.Count;)
+        {
+            int j = i;
+            while (j < visibles.Count && visibles[j].Grupo == visibles[i].Grupo) j++;
+
+            visibles[i].PrimeraDeGrupo = true;
+            visibles[i].GrupoConteo = j - i == 1 ? "· 1 fichero" : $"· {j - i} ficheros";
+            i = j;
+        }
     }
 
     private void AplicarFiltro()
@@ -484,7 +499,7 @@ public partial class OrganizarView : UserControl
         if (chipConflictos.IsChecked == true) estados.Add(ReindexEstado.Conflicto);
         if (chipErrores.IsChecked == true) estados.Add(ReindexEstado.Error);
 
-        if (estados.Count == 0 && !soloDudas) { vista.Filter = null; return; }
+        if (estados.Count == 0 && !soloDudas) { vista.Filter = null; RecalcularSeparadores(); return; }
 
         vista.Filter = o =>
         {
@@ -492,6 +507,9 @@ public partial class OrganizarView : UserControl
             if (soloDudas && !f.EsDuda) return false;
             return estados.Count == 0 || estados.Contains(f.Res.Estado);
         };
+
+        // Las bandas dependen de lo que quede visible, así que se rehacen tras cada filtro
+        RecalcularSeparadores();
     }
 
     private void FiltrarSolo(ReindexEstado estado)

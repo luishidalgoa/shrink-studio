@@ -51,6 +51,10 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **Los campos de Origen, Destino, Carpeta y Plantilla ya se encienden al escribir en ellos.**
+  Eran los únicos que se quedaron sin el haz de foco, porque estaban montados a mano en cada
+  pantalla en vez de ser el mismo componente. Ahora lo son, así que lo que se arregle en uno
+  vale para todos.
 - **Organizar ya lee la serie entera, no solo el primer nivel de la carpeta.** Al apuntar a
   la carpeta de una serie —la que tiene dentro `Season 2005`, `Season 2006`…— decía «no hay
   vídeos» sobre una carpeta con cientos, porque solo miraba los ficheros sueltos de arriba.

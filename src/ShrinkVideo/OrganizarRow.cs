@@ -48,8 +48,24 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     public LibraryTemplate Plantilla { get; }
     public ReindexCatalog Catalogo { get; }
 
-    /// <summary>Carpeta de temporada de la que salió, ya con nombre presentable. Agrupa la tabla.</summary>
+    /// <summary>Carpeta de temporada de la que salió, ya con nombre presentable.</summary>
     public string Grupo { get; }
+
+    private bool _primeraDeGrupo;
+    /// <summary>Esta fila abre su temporada: lleva encima la banda separadora.</summary>
+    public bool PrimeraDeGrupo
+    {
+        get => _primeraDeGrupo;
+        set { _primeraDeGrupo = value; N(); }
+    }
+
+    private string _grupoConteo = "";
+    /// <summary>«32 ficheros» de esa temporada, contando solo los que el filtro deja ver.</summary>
+    public string GrupoConteo
+    {
+        get => _grupoConteo;
+        set { _grupoConteo = value; N(); }
+    }
 
     /// <summary>Nombre final que se escribirá, o null si esta fila no se toca.</summary>
     public string? NombreNuevo { get; private set; }
