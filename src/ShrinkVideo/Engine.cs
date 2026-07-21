@@ -68,6 +68,8 @@ public sealed class FileResult
     public string Status { get; set; } = "";
     public string SourcePath { get; set; } = "";   // ruta del original
     public string OutputPath { get; set; } = "";   // ruta del comprimido resultante
+    /// <summary>Si se perdió algún subtítulo por el contenedor elegido, el motivo (para avisar en la UI).</summary>
+    public string? SubtitleWarning { get; set; }
     public bool Ok => OutBytes is > 0;
 }
 
@@ -97,6 +99,10 @@ public sealed class Engine
     private static readonly string[] LossyAudio = { "aac", "opus", "mp3", "vorbis" };
     private static readonly string[] CoverCodecs = { "png", "mjpeg", "bmp", "gif" };
     private static readonly string[] Mp4Audio = { "aac", "ac3", "eac3", "mp3", "alac" };  // codecs que MP4 admite por copia
+    // Subtítulos "de imagen": mapas de bits, no texto. MP4 no tiene dónde meterlos
+    // (mov_text es texto), así que al pasar a MP4 hay que descartarlos a propósito.
+    private static readonly string[] ImageSubs =
+        { "hdmv_pgs_subtitle", "pgssub", "dvd_subtitle", "dvdsub", "dvb_subtitle", "dvbsub", "xsub" };
     // Nota: .ts (MPEG-TS) se omite a propósito: colisiona con TypeScript y llenaría
     // la lista de archivos de código en carpetas de desarrollo.
     public static readonly string[] VideoExtensions =
@@ -410,6 +416,19 @@ public sealed class Engine
             var subs = opt.NoSubs ? new List<FfStream>()
                 : pr.Streams.Where(s => s.CodecType == "subtitle" && (subsAll || (opt.SubLangs?.Contains(s.Lang) ?? true))).ToList();
 
+            // Qué subtítulos caben de verdad en el contenedor elegido:
+            //   · MKV admite texto e imagen, y se copian tal cual.
+            //   · MP4 solo admite texto (convertido a mov_text); los de imagen
+            //     (PGS, VobSub, DVB…) no tienen equivalente y se descartan aquí,
+            //     a propósito, en vez de hacer fallar toda la codificación.
+            //   · WebM no lleva subtítulos en esta versión.
+            bool webmOut = opt.Container == "webm";
+            bool mp4Out = opt.Container == "mp4";
+            var keptSubs = webmOut ? new List<FfStream>()
+                         : mp4Out ? subs.Where(s => IsTextSubtitle(s.CodecName)).ToList()
+                         : subs;
+            var lostSubs = subs.Where(s => !keptSubs.Contains(s)).ToList();
+
             double durSec = double.TryParse(pr.Format?.Duration, System.Globalization.CultureInfo.InvariantCulture, out var dd) ? dd : 0;
 
             // ---- modo solo audio: extraer sin vídeo ----
@@ -452,7 +471,7 @@ public sealed class Engine
                 bool webm = opt.Container == "webm";
                 a.AddRange(new[] { "-map", $"0:{video.Index}" });
                 foreach (var au in audio) a.AddRange(new[] { "-map", $"0:{au.Index}" });
-                if (withSubs && !webm) foreach (var s in subs) a.AddRange(new[] { "-map", $"0:{s.Index}" });
+                if (withSubs) foreach (var s in keptSubs) a.AddRange(new[] { "-map", $"0:{s.Index}" });
                 if (opt.MaxHeight > 0 && (video.Height ?? 0) > opt.MaxHeight)
                     a.AddRange(new[] { "-vf", $"scale=-2:{opt.MaxHeight}" });
                 a.AddRange(encArgs);
@@ -476,7 +495,7 @@ public sealed class Engine
                         a.AddRange(new[] { $"-c:a:{i}", "aac", $"-b:a:{i}", $"{br}k" });
                     }
                 }
-                if (withSubs && !webm) a.AddRange(new[] { "-c:s", mp4 ? "mov_text" : "copy" });
+                if (withSubs && keptSubs.Count > 0) a.AddRange(new[] { "-c:s", mp4 ? "mov_text" : "copy" });
                 a.AddRange(new[] { "-disposition:a:0", "default" });
                 for (int i = 1; i < audio.Count; i++) a.AddRange(new[] { $"-disposition:a:{i}", "0" });
                 a.AddRange(new[] { "-map_metadata", "0" });
@@ -487,8 +506,14 @@ public sealed class Engine
             int dropped = allAudio.Count - audio.Count;
             string infoLine = $"audio: {langs}"
                 + (dropped > 0 ? $" (descarto {dropped})" : "")
-                + (subs.Count > 0 ? $", {subs.Count} sub" : "")
+                + (keptSubs.Count > 0 ? $", {keptSubs.Count} sub" : "")
                 + (opt.MaxHeight > 0 && (video.Height ?? 0) > opt.MaxHeight ? $", reescalo a {opt.MaxHeight}p" : "");
+
+            // Aviso de subtítulos que este contenedor no puede llevar. No basta con el
+            // registro: el usuario los marcó en la UI y da por hecho que van dentro.
+            var lostSoFar = new List<FfStream>(lostSubs);
+            if (lostSubs.Count > 0)
+                rep.Log($"    AVISO: {SubtitleLossMessage(lostSubs, opt.Container)}");
 
             if (opt.DryRun) { rep.Log($"[{n}/{total}] {name} → {infoLine}"); continue; }
 
@@ -499,7 +524,10 @@ public sealed class Engine
 
             Directory.CreateDirectory(outDir);
             await WaitForSpaceAsync(outDir, MinFreeBytes, rep, ct);   // no empezar si el disco ya está lleno
-            string tmp = outPath + ".tmp.mkv";
+            // El temporal DEBE llevar la extensión del contenedor elegido: ffmpeg escoge
+            // el muxer por la extensión, así que un ".tmp.mkv" producía un Matroska aunque
+            // luego se renombrara a .mp4 (y con él, mov_text fallaba siempre).
+            string tmp = outPath + ".tmp" + ext;
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
 
             try
@@ -509,12 +537,14 @@ public sealed class Engine
                 {
                     (code, err) = await RunFfmpegAsync(BuildArgs(true).Append(tmp).ToList(), durSec, rep, ct);
 
-                    // reintento sin subtítulos (algunos formatos no se copian a MKV)
-                    if (code != 0 && !IsDiskFull(err) && subs.Count > 0 && !ct.IsCancellationRequested)
+                    // red de seguridad: si aun así el subtítulo no entra (formato raro que
+                    // no supimos clasificar), sacar el vídeo sin subtítulos antes que nada.
+                    if (code != 0 && !IsDiskFull(err) && keptSubs.Count > 0 && !ct.IsCancellationRequested)
                     {
                         rep.Log("    reintentando sin subtítulos…");
                         try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
                         (code, err) = await RunFfmpegAsync(BuildArgs(false).Append(tmp).ToList(), durSec, rep, ct);
+                        if (code == 0) lostSoFar.AddRange(keptSubs);
                     }
 
                     if (code != 0 && IsDiskFull(err))
@@ -533,7 +563,12 @@ public sealed class Engine
                     long inB = fi.Length, outB = new FileInfo(outPath).Length;
                     int pct = (int)Math.Round(100 - (outB / (double)Math.Max(inB, 1) * 100));
                     rep.Log($"    OK  {inB / 1048576} MB → {outB / 1048576} MB  (-{pct}%)");
-                    var r = new FileResult { Name = name, InBytes = inB, OutBytes = outB, Status = $"-{pct}%", SourcePath = f, OutputPath = outPath };
+                    var r = new FileResult
+                    {
+                        Name = name, InBytes = inB, OutBytes = outB, Status = $"-{pct}%",
+                        SourcePath = f, OutputPath = outPath,
+                        SubtitleWarning = lostSoFar.Count > 0 ? SubtitleLossMessage(lostSoFar, opt.Container) : null,
+                    };
                     results.Add(r); rep.FileDone(r);
                 }
                 else
@@ -621,6 +656,44 @@ public sealed class Engine
         const double SampleKeyframeBias = 0.94;
         return (int)Math.Round(totalBytes * 8.0 / totalSecs / 1000.0 * SampleKeyframeBias);
     }
+
+    /// <summary>¿Ese códec de subtítulo es de texto (y por tanto convertible a mov_text para MP4)?</summary>
+    public static bool IsTextSubtitle(string codec) =>
+        !ImageSubs.Contains(codec, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Explica en cristiano qué subtítulos se han quedado fuera y por qué, para poder
+    /// enseñarlo tanto en el registro como en el aviso final de la ventana.
+    /// </summary>
+    private static string SubtitleLossMessage(IEnumerable<FfStream> lost, string container) =>
+        SubtitleLossMessage(
+            lost.Select(s => (s.CodecName, string.IsNullOrEmpty(s.Lang) ? "?" : s.Lang)).ToList(),
+            container);
+
+    internal static string SubtitleLossMessage(IReadOnlyList<(string codec, string lang)> lost, string container)
+    {
+        if (lost.Count == 0) return "";
+        string cont = container.ToUpperInvariant();
+        string langs = string.Join(", ", lost.Select(x => x.lang).Distinct());
+        bool allImage = lost.All(x => !IsTextSubtitle(x.codec));
+        bool una = lost.Count == 1;
+        string qué = una ? "1 pista de subtítulos" : $"{lost.Count} pistas de subtítulos";
+        string quedó = una ? "se ha quedado fuera" : "se han quedado fuera";
+        string porqué = allImage
+            ? $"{(una ? "es" : "son")} de imagen (tipo {string.Join("/", lost.Select(x => FriendlyCodec(x.codec)).Distinct())})"
+              + $" y {cont} no admite ese formato"
+            : $"{cont} no ha podido incluirla{(una ? "" : "s")}";
+        return $"{qué} ({langs}) {quedó}: {porqué}. Comprime a MKV si {(una ? "la necesitas" : "las necesitas")}.";
+    }
+
+    private static string FriendlyCodec(string codec) => codec.ToLowerInvariant() switch
+    {
+        "hdmv_pgs_subtitle" or "pgssub" => "PGS",
+        "dvd_subtitle" or "dvdsub" => "VobSub",
+        "dvb_subtitle" or "dvbsub" => "DVB",
+        "xsub" => "XSUB",
+        _ => codec,
+    };
 
     /// <summary>
     /// Evita que dos vídeos distintos acaben escribiendo en el mismo archivo dentro de

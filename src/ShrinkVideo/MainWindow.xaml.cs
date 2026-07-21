@@ -938,10 +938,12 @@ public partial class MainWindow : Window
 
         foreach (var r in selRows) r.Estado = "En cola";
         var reporter = new Reporter(this, deleteOriginals, selRows);
+        // «ok» vive fuera del try porque el resumen de subtítulos lo consulta al terminar
+        var ok = new List<FileResult>();
         try
         {
             var results = await _engine.CompressAsync(sel, opt, reporter, _cts.Token);
-            var ok = results.Where(r => r.OutBytes != null).ToList();
+            ok = results.Where(r => r.OutBytes != null).ToList();
             if (ok.Count > 0)
             {
                 double inGb = ok.Sum(r => r.InBytes) / 1073741824.0;
@@ -964,6 +966,9 @@ public partial class MainWindow : Window
             // de golpe, quien estuviera en «Organizar» no llegaría a saber que terminó.
             AnunciarFinEnPildora(sel.Count);
         }
+
+        // Con la ventana ya en reposo: si se han quedado subtítulos fuera, decirlo.
+        WarnAboutLostSubtitles(ok);
     }
 
     // ---------- presets ----------
@@ -1030,6 +1035,30 @@ public partial class MainWindow : Window
         win.ContentRendered += (_, _) => tb.Focus();
         win.ShowDialog();
         return result;
+    }
+
+    /// <summary>
+    /// Si algún vídeo ha salido sin los subtítulos que el usuario tenía marcados, decírselo
+    /// a la cara al terminar. Antes solo constaba en el registro y se daba por hecho que iban.
+    /// </summary>
+    private void WarnAboutLostSubtitles(List<FileResult> done)
+    {
+        var afectados = done.Where(r => !string.IsNullOrEmpty(r.SubtitleWarning)).ToList();
+        if (afectados.Count == 0) return;
+
+        lblProg.Text += "  ·  ⚠ sin algunos subtítulos";
+
+        // Un motivo por línea; casi siempre será uno solo repetido en varios archivos.
+        var motivos = afectados.Select(r => r.SubtitleWarning!).Distinct().ToList();
+        string cuerpo = afectados.Count == 1
+            ? $"«{afectados[0].Name}»:\n\n{motivos[0]}"
+            : $"{afectados.Count} de los {done.Count} vídeos han salido sin parte de sus subtítulos:\n\n"
+              + string.Join("\n\n", motivos)
+              + "\n\nAfectados:\n· " + string.Join("\n· ", afectados.Take(8).Select(r => r.Name))
+              + (afectados.Count > 8 ? $"\n… y {afectados.Count - 8} más" : "");
+
+        MessageBox.Show(this, cuerpo, "Subtítulos no incluidos",
+            MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
     private void TogglePause()
