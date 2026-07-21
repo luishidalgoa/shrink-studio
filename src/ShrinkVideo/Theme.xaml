@@ -102,6 +102,31 @@
        queda en torno a 12:1, muy por encima de AA. -->
   <SolidColorBrush x:Key="SurfaceGlass" Color="#DB232532"/>
 
+  <!-- ══ Tooltip automático en el texto recortado ══
+       Si algo acaba en puntos suspensivos, hay información escondida y hace falta poder
+       leerla. Va como estilo implícito de TextBlock en lugar de repetir un ToolTip campo
+       por campo: así lo hereda también lo que se añada mañana, que es donde se olvidaría.
+
+       IsTextTrimmed solo se enciende cuando el texto SE HA recortado de verdad, así que
+       no aparecen tooltips redundantes en lo que cabe entero. Y un ToolTip puesto a mano
+       en el propio elemento gana a este, porque un valor local tiene más precedencia que
+       un disparador de estilo — lo que permite seguir dando una explicación mejor que el
+       propio texto donde interese. -->
+  <Style x:Key="TextoRecortable" TargetType="TextBlock">
+    <Style.Triggers>
+      <!-- WPF no tiene «IsTextTrimmed» (eso es de UWP), así que el tooltip se pone en todo
+           lo que PUEDE recortarse y se cancela al vuelo si el texto cabía entero. Esa
+           comprobación vive en App, midiendo el texto sin tocar el layout. -->
+      <Trigger Property="TextTrimming" Value="CharacterEllipsis">
+        <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+      </Trigger>
+      <Trigger Property="TextTrimming" Value="WordEllipsis">
+        <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style TargetType="TextBlock" BasedOn="{StaticResource TextoRecortable}"/>
+
   <!-- Regla horizontal fundida en los extremos (firma Nocturne) -->
   <LinearGradientBrush x:Key="FadedRule" StartPoint="0,0" EndPoint="1,0">
     <GradientStop Color="#00E9E9ED" Offset="0"/>

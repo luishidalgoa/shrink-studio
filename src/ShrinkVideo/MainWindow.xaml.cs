@@ -148,9 +148,7 @@ public partial class MainWindow : Window
         {
             if (cboPreset.SelectedItem == null) cboLang.Text = _settings.DefaultLang;
             if (!await Engine.ToolsAvailableAsync())
-                MessageBox.Show(this,
-                    "No se encuentra FFmpeg. Instálalo (por ejemplo con:  winget install Gyan.FFmpeg) y vuelve a abrir la app.",
-                    "Falta FFmpeg", MessageBoxButton.OK, MessageBoxImage.Warning);
+                DialogWindow.Aviso(this, "Falta FFmpeg", "No se encuentra FFmpeg. Instálalo (por ejemplo con:  winget install Gyan.FFmpeg) y vuelve a abrir la app.");
             if (_settings.CheckUpdatesOnStart) await CheckUpdateAsync(manual: false);
         };
     }
@@ -224,10 +222,8 @@ public partial class MainWindow : Window
         lblRename.Foreground = on ? (Brush)FindResource("Accent300") : (Brush)FindResource("Text");
     }
 
-    private void ShowAbout() => MessageBox.Show(this,
-        $"ShrinkStudio v{Updater.Current}\n\nCompresor de vídeo con foco en el ahorro de almacenamiento.\n" +
-        "Usa FFmpeg por debajo. Nunca toca los originales salvo que lo pidas explícitamente.",
-        "Acerca de ShrinkStudio", MessageBoxButton.OK, MessageBoxImage.Information);
+    private void ShowAbout() => DialogWindow.Aviso(this, "Acerca de ShrinkStudio", $"ShrinkStudio v{Updater.Current}\n\nCompresor de vídeo con foco en el ahorro de almacenamiento.\n" +
+        "Usa FFmpeg por debajo. Nunca toca los originales salvo que lo pidas explícitamente.");
 
     /// <summary>Modal antes de comprimir: ¿enviar cada original a la Papelera al terminar? Devuelve (proceder, borrar, recordar).</summary>
     private (bool proceed, bool delete, bool remember) AskAfterCompress(int count)
@@ -385,7 +381,7 @@ public partial class MainWindow : Window
         var src = txtSrc.Text.Trim();
         if (string.IsNullOrEmpty(src) || (!Directory.Exists(src) && !File.Exists(src)))
         {
-            MessageBox.Show(this, "Indica un archivo o carpeta de origen válido.", "Origen", MessageBoxButton.OK, MessageBoxImage.Warning);
+            DialogWindow.Aviso(this, "Origen", "Indica un archivo o carpeta de origen válido.");
             return;
         }
         _rows.Clear(); pnlALang.Children.Clear(); pnlSLang.Children.Clear();
@@ -747,13 +743,13 @@ public partial class MainWindow : Window
     {
         if (lst.SelectedItem is not VideoRow r || !r.Probed)
         {
-            MessageBox.Show(this, "Selecciona un vídeo analizado.", "Medir", MessageBoxButton.OK, MessageBoxImage.Information);
+            DialogWindow.Aviso(this, "Medir", "Selecciona un vídeo analizado.");
             return;
         }
-        if (_running) { MessageBox.Show(this, "Espera a que termine la compresión en curso.", "Medir", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        if (_running) { DialogWindow.Aviso(this, "Medir", "Espera a que termine la compresión en curso."); return; }
 
         var opt = BuildOptions();
-        if (opt.AudioOnly) { MessageBox.Show(this, "En modo «solo audio» el tamaño ya es exacto: no hace falta medir.", "Medir", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        if (opt.AudioOnly) { DialogWindow.Aviso(this, "Medir", "En modo «solo audio» el tamaño ya es exacto: no hace falta medir."); return; }
 
         btnMeasure.IsEnabled = false;
         progRow.Visibility = Visibility.Visible; bar.Value = 0;
@@ -795,7 +791,7 @@ public partial class MainWindow : Window
         if (_previewCts != null) { _previewCts.Cancel(); return; }   // ya generando → el botón cancela
         if (lst.SelectedItem is not VideoRow r || !r.Probed)
         {
-            MessageBox.Show(this, "Selecciona un vídeo analizado.", "Previsualizar", MessageBoxButton.OK, MessageBoxImage.Information);
+            DialogWindow.Aviso(this, "Previsualizar", "Selecciona un vídeo analizado.");
             return;
         }
         _previewCts = new CancellationTokenSource();
@@ -841,10 +837,9 @@ public partial class MainWindow : Window
     private void DeleteSelected()
     {
         var sel = SelectedRows();
-        if (sel.Count == 0) { MessageBox.Show(this, "No hay vídeos seleccionados.", "Eliminar", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        if (sel.Count == 0) { DialogWindow.Aviso(this, "Eliminar", "No hay vídeos seleccionados."); return; }
         double mb = sel.Sum(r => r.Bytes) / 1048576.0;
-        if (MessageBox.Show(this, $"¿Enviar {sel.Count} vídeo(s) ({mb:n0} MB) a la Papelera de reciclaje?",
-                "Eliminar marcados", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (!DialogWindow.Confirmar(this, "Eliminar marcados", $"¿Enviar {sel.Count} vídeo(s) ({mb:n0} MB) a la Papelera de reciclaje?")) return;
         foreach (var r in sel)
         {
             if (RecycleBin.Send(r.Path)) _rows.Remove(r);
@@ -860,9 +855,8 @@ public partial class MainWindow : Window
             var s = txtSrc.Text.Trim();
             if (!string.IsNullOrEmpty(s) && Directory.Exists(s)) dirs = new() { s };
         }
-        if (dirs.Count == 0) { MessageBox.Show(this, "Marca algún vídeo o indica una carpeta de origen.", "Eliminar carpeta", MessageBoxButton.OK, MessageBoxImage.Information); return; }
-        if (MessageBox.Show(this, $"¿Enviar estas {dirs.Count} carpeta(s) COMPLETAS a la Papelera?\n\n{string.Join("\n", dirs)}",
-                "Eliminar carpeta", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (dirs.Count == 0) { DialogWindow.Aviso(this, "Eliminar carpeta", "Marca algún vídeo o indica una carpeta de origen."); return; }
+        if (!DialogWindow.Confirmar(this, "Eliminar carpeta", $"¿Enviar estas {dirs.Count} carpeta(s) COMPLETAS a la Papelera?\n\n{string.Join("\n", dirs)}")) return;
         foreach (var d in dirs) RecycleBin.Send(d);
         foreach (var r in _rows.Where(r => Path.GetDirectoryName(r.Path) is { } d && dirs.Contains(d)).ToList()) _rows.Remove(r);
         lblProg.Text = "Carpeta(s) enviadas a la Papelera.";
@@ -905,7 +899,7 @@ public partial class MainWindow : Window
     private async Task RunAsync()
     {
         var selRows = SelectedRows();
-        if (selRows.Count == 0) { MessageBox.Show(this, "Analiza y selecciona al menos un vídeo (arrastra o Ctrl/Shift+click).", "Comprimir", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        if (selRows.Count == 0) { DialogWindow.Aviso(this, "Comprimir", "Analiza y selecciona al menos un vídeo (arrastra o Ctrl/Shift+click)."); return; }
         var sel = selRows.Select(r => r.Path).ToList();
 
         var opt = BuildOptions();
@@ -1060,8 +1054,7 @@ public partial class MainWindow : Window
               + "\n\nAfectados:\n· " + string.Join("\n· ", afectados.Take(8).Select(r => r.Name))
               + (afectados.Count > 8 ? $"\n… y {afectados.Count - 8} más" : "");
 
-        MessageBox.Show(this, cuerpo, "Subtítulos no incluidos",
-            MessageBoxButton.OK, MessageBoxImage.Warning);
+        DialogWindow.Aviso(this, "Subtítulos no incluidos", cuerpo);
     }
 
     private void TogglePause()
@@ -1337,8 +1330,7 @@ public partial class MainWindow : Window
             progRow.Visibility = Visibility.Collapsed;
             lblUpdate.Text = "No se pudo descargar la actualización.";
             lblProg.Text = "Fallo al descargar la actualización.";
-            MessageBox.Show(this, "No se pudo descargar la actualización:\n" + ex.Message,
-                "Actualizar", MessageBoxButton.OK, MessageBoxImage.Error);
+            DialogWindow.Aviso(this, "Actualizar", "No se pudo descargar la actualización:\n" + ex.Message);
         }
     }
 
@@ -1347,8 +1339,7 @@ public partial class MainWindow : Window
     {
         if (_running)
         {
-            if (MessageBox.Show(this, "Hay una compresión en curso. ¿Cerrar y cancelarla?",
-                    "Salir", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            if (DialogWindow.Confirmar(this, "Salir", "Hay una compresión en curso. ¿Cerrar y cancelarla?"))
                 _cts?.Cancel();
             else { e.Cancel = true; return; }
         }

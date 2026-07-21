@@ -338,12 +338,10 @@ public partial class OrganizarView : UserControl
             File.WriteAllText(dlg.FileName, ReindexCatalog.Ejemplo, new System.Text.UTF8Encoding(false));
             Escribir($"Catálogo de ejemplo guardado en {dlg.FileName}.");
 
-            var r = MessageBox.Show(
-                "Ejemplo guardado.\n\nEdítalo con tus episodios y luego impórtalo. " +
+            var r = DialogWindow.Confirmar(Window.GetWindow(this), "Organizar", "Ejemplo guardado.\n\nEdítalo con tus episodios y luego impórtalo. " +
                 "Si algo no encaja, al importar se te dirá exactamente qué corregir.\n\n" +
-                "¿Quieres abrir la especificación del formato?",
-                "Organizar", MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
-            if (r == MessageBoxResult.Yes) AbrirEspecificacion();
+                "¿Quieres abrir la especificación del formato?");
+            if (r) AbrirEspecificacion();
         }
         catch (Exception ex) { Aviso($"No se pudo guardar el ejemplo: {ex.Message}"); }
     }
@@ -680,10 +678,8 @@ public partial class OrganizarView : UserControl
     {
         if (_decisiones.Count == 0) { Aviso("Todavía no has tomado ninguna decisión que recordar."); return; }
 
-        var r = MessageBox.Show(
-            $"Tienes {_decisiones.Count} decisiones recordadas.\n\n¿Quieres olvidarlas todas?",
-            "Memoria de decisiones", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (r != MessageBoxResult.Yes) return;
+        var r = DialogWindow.Confirmar(Window.GetWindow(this), "Memoria de decisiones", $"Tienes {_decisiones.Count} decisiones recordadas.\n\n¿Quieres olvidarlas todas?");
+        if (!r) return;
 
         _decisiones.Clear();
         ReindexStore.OlvidarDecisiones();
@@ -712,6 +708,6 @@ public partial class OrganizarView : UserControl
     private void Aviso(string mensaje)
     {
         Escribir(mensaje);
-        MessageBox.Show(mensaje, "Organizar", MessageBoxButton.OK, MessageBoxImage.Information);
+        DialogWindow.Aviso(Window.GetWindow(this), "Organizar", mensaje);
     }
 }

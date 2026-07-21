@@ -48,10 +48,8 @@ public partial class PreferencesWindow : Window
         {
             bool ok = quiere ? ShellIntegration.Register() : ShellIntegration.Unregister();
             if (!ok)
-                MessageBox.Show(this,
-                    quiere ? "No se pudo añadir la entrada al menú del Explorador."
-                           : "No se pudo quitar la entrada del menú del Explorador.",
-                    "Menú del Explorador", MessageBoxButton.OK, MessageBoxImage.Warning);
+                DialogWindow.Aviso(this, "Menú del Explorador", quiere ? "No se pudo añadir la entrada al menú del Explorador."
+                           : "No se pudo quitar la entrada del menú del Explorador.");
         }
 
         var s = new Settings
