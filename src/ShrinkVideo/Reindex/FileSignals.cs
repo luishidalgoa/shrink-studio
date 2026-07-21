@@ -92,7 +92,14 @@ public static partial class SignalExtractor
         var nombreArchivo = System.IO.Path.GetFileName(rutaCompleta);
         var ext = System.IO.Path.GetExtension(rutaCompleta);
         var resto = System.IO.Path.GetFileNameWithoutExtension(rutaCompleta) ?? "";
-        carpeta ??= new System.IO.DirectoryInfo(System.IO.Path.GetDirectoryName(rutaCompleta) ?? ".").Name;
+
+        // Un nombre suelto sin carpeta deja GetDirectoryName en cadena vacía, y DirectoryInfo
+        // lanza con eso. Antes reventaba en vez de limitarse a no saber la temporada.
+        if (carpeta == null)
+        {
+            var dir = System.IO.Path.GetDirectoryName(rutaCompleta);
+            carpeta = string.IsNullOrEmpty(dir) ? "" : new System.IO.DirectoryInfo(dir).Name;
+        }
 
         DateOnly? fecha = null;
         int? indice = null, indiceEspecial = null;

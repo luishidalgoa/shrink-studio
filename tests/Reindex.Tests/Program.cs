@@ -105,62 +105,62 @@ public static class Program
     {
         Seccion("Extracción de señales del nombre");
 
-        var f = SignalExtractor.Extract(@"C:\S\2005-04-22 Con calma y con prisa.mkv", "Season 2005");
+        var f = SignalExtractor.Extract(F("2005-04-22 Con calma y con prisa.mkv"), "Season 2005");
         Eq(new DateOnly(2005, 4, 22), f.Fecha, "fecha yyyy-mm-dd al inicio");
         Eq("Con calma y con prisa", f.TituloNombre, "el título es lo que queda");
         Eq(2005, f.Temporada, "temporada de la carpeta «Season 2005»");
         Assert(f.Indice is null, "la fecha no deja un «22» suelto haciéndose pasar por índice");
 
-        f = SignalExtractor.Extract(@"C:\S\[438] La robochica me ama.mkv");
+        f = SignalExtractor.Extract(F("[438] La robochica me ama.mkv"));
         Eq(438, f.Indice, "índice entre corchetes");
         Eq("La robochica me ama", f.TituloNombre, "título tras el índice");
         Assert(f.SubSegmento is null, "sin sub-segmento");
 
-        f = SignalExtractor.Extract(@"C:\S\[438a] Primera mitad.mkv");
+        f = SignalExtractor.Extract(F("[438a] Primera mitad.mkv"));
         Eq(438, f.Indice, "índice de sub-segmento");
         Eq("a", f.SubSegmento, "letra del sub-segmento");
 
-        f = SignalExtractor.Extract(@"C:\S\[S12] Especial de Navidad.mkv");
+        f = SignalExtractor.Extract(F("[S12] Especial de Navidad.mkv"));
         Assert(f.Especial, "«[S12]» marca especial");
         Eq(12, f.IndiceEspecial, "número del especial");
         Eq("Especial de Navidad", f.TituloNombre, "título del especial");
 
-        f = SignalExtractor.Extract(@"C:\S\[S] Especial sin número.mkv");
+        f = SignalExtractor.Extract(F("[S] Especial sin número.mkv"));
         Assert(f.Especial, "«[S]» a secas también marca especial");
         Assert(f.IndiceEspecial is null, "especial sin número");
 
-        f = SignalExtractor.Extract(@"C:\S\S03E12 Un titulo.mkv", "Serie");
+        f = SignalExtractor.Extract(F("S03E12 Un titulo.mkv"), "Serie");
         Eq(12, f.Indice, "SxxExx → episodio 12");
 
-        f = SignalExtractor.Extract(@"C:\S\E72 Otro titulo.mkv");
+        f = SignalExtractor.Extract(F("E72 Otro titulo.mkv"));
         Eq(72, f.Indice, "«E72» suelto");
 
-        f = SignalExtractor.Extract(@"C:\S\72 - Otro titulo mas.mkv");
+        f = SignalExtractor.Extract(F("72 - Otro titulo mas.mkv"));
         Eq(72, f.Indice, "número al principio");
         Eq("Otro titulo mas", f.TituloNombre, "título tras el número inicial");
 
-        f = SignalExtractor.Extract(@"C:\S\[10] Uno ┃ Dos ┃ Tres.mkv");
+        f = SignalExtractor.Extract(F("[10] Uno ┃ Dos ┃ Tres.mkv"));
         Eq(3, f.Segmentos.Count, "multi-segmento con ┃");
         Eq("Uno", f.Segmentos[0], "primer segmento limpio");
         Eq("Tres", f.Segmentos[2], "último segmento limpio");
 
-        f = SignalExtractor.Extract(@"C:\S\[10] Uno | Dos.mkv");
+        f = SignalExtractor.Extract(F("[10] Uno | Dos.mkv"));
         Eq(2, f.Segmentos.Count, "multi-segmento con |");
 
-        f = SignalExtractor.Extract(@"C:\S\[10] Titulo simple.mkv");
+        f = SignalExtractor.Extract(F("[10] Titulo simple.mkv"));
         Eq(0, f.Segmentos.Count, "un solo título no se parte");
 
         foreach (var (carpeta, esperada) in new (string, int?)[]
                  { ("Season 2007", 2007), ("Temporada 3", 3), ("2007", 2007), ("S03", 3), ("Vídeos", null) })
         {
-            f = SignalExtractor.Extract($@"C:\S\{carpeta}\algo.mkv", carpeta);
+            f = SignalExtractor.Extract(Path.Combine("S", carpeta, "algo.mkv"), carpeta);
             Eq(esperada, f.Temporada, $"temporada de la carpeta «{carpeta}»");
         }
 
-        f = SignalExtractor.Extract(@"C:\S\.mkv", "x");
+        f = SignalExtractor.Extract(F(".mkv"), "x");
         Assert(!f.TieneSeñales, "un nombre sin nada no tiene señales");
 
-        f = SignalExtractor.Extract(@"C:\S\[10] Con meta.mkv", "S", tituloMeta: "  El titulo interno  ");
+        f = SignalExtractor.Extract(F("[10] Con meta.mkv"), "S", tituloMeta: "  El titulo interno  ");
         Eq("El titulo interno", f.TituloMeta, "el metadato se recorta");
     }
 
@@ -208,54 +208,54 @@ public static class Program
         var cat = ReindexCatalog.Parse(CatalogoDePrueba);
 
         // P1 — número + fecha exacta, y el número ya era el bueno
-        var r = Uno(cat, @"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv");
+        var r = Uno(cat, F("2005-01-10 [10] El interruptor del despotismo.mkv"));
         Eq(ReindexEstado.Limpio, r.Estado, "P1 con el número correcto → limpio");
         Eq(ReindexConfianza.Alta, r.Confianza, "P1 es verde");
         Eq(ReindexHint.IndiceFecha, r.Hint, "P1 lo resolvió número+fecha");
 
         // P1 — número + fecha exacta, pero el número del fichero era otro
-        r = Uno(cat, @"C:\S\2005-01-17 [11] La robochica me ama.mkv");
+        r = Uno(cat, F("2005-01-17 [11] La robochica me ama.mkv"));
         Eq(ReindexEstado.Limpio, r.Estado, "P1: el 11 con su fecha es correcto");
 
         // P2 — sin número, el título manda
-        r = Uno(cat, @"C:\S\Las galletas magicas.mkv");
+        r = Uno(cat, F("Las galletas magicas.mkv"));
         Eq(ReindexEstado.Corregido, r.Estado, "P2 sin número → hay que corregir");
         Eq(12, r.Episodio?.Num, "P2 identifica el episodio 12 por título");
         Eq(ReindexConfianza.Alta, r.Confianza, "P2 por encima del umbral es verde");
         Eq(ReindexHint.Titulo, r.Hint, "P2 lo resolvió el título");
 
         // P2 — con acentos y sufijo de doblaje de por medio
-        r = Uno(cat, @"C:\S\Las galletas mágicas (España).mkv");
+        r = Uno(cat, F("Las galletas mágicas (España).mkv"));
         Eq(12, r.Episodio?.Num, "P2 aguanta acentos y sufijo de doblaje");
 
         // P3 — número correcto pero la fecha baila 2 días
-        r = Uno(cat, @"C:\S\2005-01-12 [10] Titulo que no dice nada.mkv");
+        r = Uno(cat, F("2005-01-12 [10] Titulo que no dice nada.mkv"));
         Eq(ReindexConfianza.Revisar, r.Confianza, "P3 (fecha ±2 días) nunca es verde");
         Eq(ReindexHint.IndiceFechaAprox, r.Hint, "P3 lo resolvió número+fecha aproximada");
         Eq(10, r.Episodio?.Num, "P3 se queda con el episodio del número");
 
         // Fecha demasiado lejos: el número deja de valer como prueba
-        r = Uno(cat, @"C:\S\2005-06-30 [10] Titulo que no dice nada.mkv");
+        r = Uno(cat, F("2005-06-30 [10] Titulo que no dice nada.mkv"));
         Assert(r.Confianza != ReindexConfianza.Alta, "una fecha a meses de distancia no se aplica sola");
 
         // P4 — el título se parece, pero poco
-        r = Uno(cat, @"C:\S\El interruptor de la obediencia.mkv");
+        r = Uno(cat, F("El interruptor de la obediencia.mkv"));
         Eq(ReindexConfianza.Revisar, r.Confianza, "P4 (título flojo) es sugerencia, no automático");
         Eq(ReindexHint.TituloDebil, r.Hint, "P4 lo marca como título débil");
         Assert(r.Score < TitleMatch.UmbralTitulo, "P4 va por debajo del umbral");
 
         // Sin ninguna señal → error, nunca una propuesta inventada
-        r = Uno(cat, @"C:\S\.mkv");
+        r = Uno(cat, F(".mkv"));
         Eq(ReindexEstado.Error, r.Estado, "sin señales → error");
         Assert(r.Episodio is null, "un error no propone episodio");
 
         // P0 — el override gana a todo, incluso a un número+fecha perfectos
         var overrides = new Dictionary<string, ReindexOverride>
         {
-            [@"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv"] = new() { Num = 12 },
+            [F("2005-01-10 [10] El interruptor del despotismo.mkv")] = new() { Num = 12 },
         };
         r = ReindexEngine.Resolve(
-            new[] { SignalExtractor.Extract(@"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv") },
+            new[] { SignalExtractor.Extract(F("2005-01-10 [10] El interruptor del despotismo.mkv")) },
             cat, overrides)[0];
         Eq(12, r.Episodio?.Num, "P0 gana a P1");
         Eq(ReindexHint.Override, r.Hint, "P0 se marca como decisión del usuario");
@@ -271,22 +271,22 @@ public static class Program
 
         // Regla 1 — anti-remake: el título encaja igual de bien con el 10 y con el 455.
         // Elegir el primero de la lista en silencio sería justo el bug que la regla evita.
-        var r = Uno(cat, @"C:\S\[11] El interruptor del despotismo.mkv");
+        var r = Uno(cat, F("[11] El interruptor del despotismo.mkv"));
         Eq(ReindexConfianza.Revisar, r.Confianza, "anti-remake: dos episodios empatan → a revisar");
         Assert(r.Alternativas.Count > 0, "anti-remake enseña el otro candidato");
         Assert(r.Motivo.Contains("título"), "el motivo explica el empate");
 
         // El mismo empate, pero con una fecha que desempata: vuelve a ser automático
-        r = Uno(cat, @"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv");
+        r = Uno(cat, F("2005-01-10 [10] El interruptor del despotismo.mkv"));
         Eq(ReindexConfianza.Alta, r.Confianza, "con fecha exacta el empate de título deja de importar");
 
         // …pero un remake BIEN numerado no puede salir como duda: comparten título a propósito
-        r = Uno(cat, @"C:\S\2012-05-05 [455] El interruptor del despotismo.mkv");
+        r = Uno(cat, F("2012-05-05 [455] El interruptor del despotismo.mkv"));
         Eq(ReindexConfianza.Alta, r.Confianza, "un remake bien numerado sigue siendo verde");
         Eq(455, r.Episodio?.Num, "el remake se queda en su propio número");
 
         // Regla 3 — el nombre y el metadato llevan a episodios distintos
-        var conChoque = SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv", "S",
+        var conChoque = SignalExtractor.Extract(F("Las galletas magicas.mkv"), "S",
             tituloMeta: "La robochica me ama");
         r = ReindexEngine.Resolve(new[] { conChoque }, cat)[0];
         Eq(ReindexEstado.Conflicto, r.Estado, "nombre vs metadato en desacuerdo → conflicto");
@@ -294,7 +294,7 @@ public static class Program
         Eq(2, r.Alternativas.Count, "el conflicto enseña las dos lecturas");
 
         // …y si coinciden, no hay conflicto ninguno
-        var sinChoque = SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv", "S",
+        var sinChoque = SignalExtractor.Extract(F("Las galletas magicas.mkv"), "S",
             tituloMeta: "Las galletas mágicas");
         r = ReindexEngine.Resolve(new[] { sinChoque }, cat)[0];
         Eq(12, r.Episodio?.Num, "nombre y metadato de acuerdo → sin conflicto");
@@ -302,8 +302,8 @@ public static class Program
         // Regla 2 — dos ficheros que reclaman el mismo destino
         var lote = ReindexEngine.Resolve(new[]
         {
-            SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv"),
-            SignalExtractor.Extract(@"C:\S\Las galletas mágicas (España).mkv"),
+            SignalExtractor.Extract(F("Las galletas magicas.mkv")),
+            SignalExtractor.Extract(F("Las galletas mágicas (España).mkv")),
         }, cat);
         Eq(1, lote.Count(x => x.Estado == ReindexEstado.Conflicto), "el duplicado cae en conflicto");
         Assert(lote.All(x => !x.AplicableEnBloque), "con pelea de por medio no se aplica nada a ciegas");
@@ -312,14 +312,14 @@ public static class Program
         // …pero los sub-segmentos comparten número LEGÍTIMAMENTE
         lote = ReindexEngine.Resolve(new[]
         {
-            SignalExtractor.Extract(@"C:\S\2005-01-10 [10a] El interruptor del despotismo.mkv"),
-            SignalExtractor.Extract(@"C:\S\2005-01-10 [10b] El interruptor del despotismo.mkv"),
+            SignalExtractor.Extract(F("2005-01-10 [10a] El interruptor del despotismo.mkv")),
+            SignalExtractor.Extract(F("2005-01-10 [10b] El interruptor del despotismo.mkv")),
         }, cat);
         Eq(0, lote.Count(x => x.Estado == ReindexEstado.Conflicto),
             "«[10a]» y «[10b]» comparten número sin ser un duplicado");
 
         // Regla 4 — un especial jamás cae en la numeración regular
-        r = Uno(cat, @"C:\S\[S1] Especial de Navidad.mkv");
+        r = Uno(cat, F("[S1] Especial de Navidad.mkv"));
         Eq(ReindexEstado.Especial, r.Estado, "un especial se queda en estado especial");
         Eq(ReindexConfianza.Revisar, r.Confianza, "un especial siempre se confirma a mano");
         Assert(r.Episodio?.Especial == true, "el especial apunta a un episodio especial del catálogo");
@@ -327,28 +327,28 @@ public static class Program
 
         // Un especial recién identificado NO se aplica solo; confirmado (override) sí.
         // Es la regla «Aplicar toca verdes + confirmados» del diseño.
-        r = Uno(cat, @"C:\S\[S1] Especial de Navidad.mkv");
+        r = Uno(cat, F("[S1] Especial de Navidad.mkv"));
         Assert(!r.AplicableEnBloque, "un especial sin confirmar no entra en el lote");
         r = ReindexEngine.Resolve(
-            new[] { SignalExtractor.Extract(@"C:\S\[S1] Especial de Navidad.mkv") }, cat,
+            new[] { SignalExtractor.Extract(F("[S1] Especial de Navidad.mkv")) }, cat,
             new Dictionary<string, ReindexOverride>
-            { [@"C:\S\[S1] Especial de Navidad.mkv"] = new() { Num = 901 } })[0];
+            { [F("[S1] Especial de Navidad.mkv")] = new() { Num = 901 } })[0];
         Eq(ReindexEstado.Especial, r.Estado, "confirmado sigue siendo un especial");
         Assert(r.AplicableEnBloque, "un especial confirmado sí entra en el lote");
 
         // Un especial que el catálogo no contempla
         var catSinEsp = ReindexCatalog.Parse(CatalogoDePrueba.Replace("\"especial\": true", "\"especial\": false"));
-        r = ReindexEngine.Resolve(new[] { SignalExtractor.Extract(@"C:\S\[S1] Especial de Navidad.mkv") },
+        r = ReindexEngine.Resolve(new[] { SignalExtractor.Extract(F("[S1] Especial de Navidad.mkv")) },
             catSinEsp)[0];
         Eq(ReindexEstado.Conflicto, r.Estado, "especial sin especiales en el catálogo → conflicto, no invento");
 
         // Contadores del diseño: cada fichero cae en exactamente un estado
         var mezcla = ReindexEngine.Resolve(new[]
         {
-            SignalExtractor.Extract(@"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv"),
-            SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv"),
-            SignalExtractor.Extract(@"C:\S\[S1] Especial de Navidad.mkv"),
-            SignalExtractor.Extract(@"C:\S\.mkv"),
+            SignalExtractor.Extract(F("2005-01-10 [10] El interruptor del despotismo.mkv")),
+            SignalExtractor.Extract(F("Las galletas magicas.mkv")),
+            SignalExtractor.Extract(F("[S1] Especial de Navidad.mkv")),
+            SignalExtractor.Extract(F(".mkv")),
         }, cat);
         Eq(4, mezcla.Count, "una resolución por fichero, ni más ni menos");
         Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Limpio), "1 limpio");
@@ -367,12 +367,12 @@ public static class Program
         var plantilla = new LibraryTemplate();
         var ep = cat.PorNum(12)!;
 
-        var f = SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv");
+        var f = SignalExtractor.Extract(F("Las galletas magicas.mkv"));
         Eq("Serie de prueba - S2005E12 - Las galletas mágicas.mkv", plantilla.Render(cat, ep, f),
             "compone el nombre canónico del diseño");
         Assert(plantilla.Render(cat, ep, f)!.EndsWith(".mkv"), "conserva la extensión original");
 
-        var avi = SignalExtractor.Extract(@"C:\S\episodio_438.avi");
+        var avi = SignalExtractor.Extract(F("episodio_438.avi"));
         Assert(plantilla.Render(cat, ep, avi)!.EndsWith(".avi"), "conserva .avi, no lo cambia a .mkv");
 
         // Los títulos de estas series traen «:» y «?» a menudo; Windows no los admite
@@ -524,17 +524,17 @@ public static class Program
             Assert(cat.PorNum(57) != null, "el 57 sí existe (el salto no arrastra a sus vecinos)");
 
             // Identificación real de punta a punta
-            var r = Uno(cat, @"C:\D\2005-04-22 [1] Con calma y con prisa.mkv");
+            var r = Uno(cat, F("2005-04-22 [1] Con calma y con prisa.mkv", "D"));
             Eq(1, r.Episodio?.Num, "identifica el episodio 1 real");
             Eq(ReindexConfianza.Alta, r.Confianza, "el episodio 1 se resuelve en verde");
 
             // El segundo segmento del mismo episodio también lo identifica
-            r = Uno(cat, @"C:\D\La mujer de Nobita.mkv");
+            r = Uno(cat, F("La mujer de Nobita.mkv", "D"));
             Eq(1, r.Episodio?.Num, "un segmento suelto identifica su episodio");
 
             // Rendimiento: el barrido global tiene que ser viable de verdad
             var lote = Enumerable.Range(1, 300)
-                .Select(i => SignalExtractor.Extract($@"C:\D\[{i}] Titulo cualquiera numero {i}.mkv"))
+                .Select(i => SignalExtractor.Extract(F($"[{i}] Titulo cualquiera numero {i}.mkv", "D")))
                 .ToList();
             var reloj = System.Diagnostics.Stopwatch.StartNew();
             var res = ReindexEngine.Resolve(lote, cat);
@@ -570,12 +570,20 @@ public static class Program
             var cat = ReindexCatalog.Load(shin);
             Assert(cat.Advertencias.Any(a => a.Contains("fecha", StringComparison.OrdinalIgnoreCase)),
                 "Shin-chan avisa de que no hay fechas");
-            var r = Uno(cat, @"C:\S\[1] Shin-chan se va de compras.mkv");
+            var r = Uno(cat, F("[1] Shin-chan se va de compras.mkv"));
             Eq(1, r.Episodio?.Num, "identifica el episodio 1 de Shin-chan por título");
         }
     }
 
     // ───────────────────────────── utilidades ─────────────────────────────
+
+    /// <summary>
+    /// Ruta de fixture portable. En Linux la barra invertida NO separa directorios, asi
+    /// que una ruta «C:\S\x.mkv» literal deja a GetFileName devolviendo la cadena entera
+    /// y el extractor no encuentra ni el nombre ni la extension. Componerla con el
+    /// separador del sistema hace que los tests digan lo mismo aqui y en el CI de Linux.
+    /// </summary>
+    private static string F(string nombre, string carpeta = "S") => Path.Combine(carpeta, nombre);
 
     private static ReindexResolution Uno(ReindexCatalog cat, string ruta) =>
         ReindexEngine.Resolve(new[] { SignalExtractor.Extract(ruta) }, cat)[0];
