@@ -1,0 +1,242 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Página «Organizar» — tokens y estilos del handoff de diseño.
+    Va aparte de Theme.xaml solo por tamaño: son los mismos cimientos Nocturne.
+
+    Semáforo: NUNCA solo color. Cada estado lleva glifo + color + palabra, para que
+    funcione con daltonismo y en captura en blanco y negro.
+  -->
+
+  <!-- ══ Semáforo (contrastes medidos sobre Surface #232532) ══ -->
+  <SolidColorBrush x:Key="OrgOk"     Color="#86D8A6"/><!-- 9,0:1 -->
+  <SolidColorBrush x:Key="OrgWarn"   Color="#E3C36B"/><!-- 8,9:1 -->
+  <SolidColorBrush x:Key="OrgDanger" Color="#EC9AA0"/><!-- 7,0:1 -->
+
+  <!-- Chips: texto al 100 %, fondo al 12 % (0x1F), borde al 30 % (0x4D).
+       Precomputados a propósito: calcularlos en vivo por fila costaría en una tabla
+       virtualizada de cientos de elementos. -->
+  <SolidColorBrush x:Key="OrgOkBg"         Color="#1F86D8A6"/>
+  <SolidColorBrush x:Key="OrgOkBorder"     Color="#4D86D8A6"/>
+  <SolidColorBrush x:Key="OrgWarnBg"       Color="#1FE3C36B"/>
+  <SolidColorBrush x:Key="OrgWarnBorder"   Color="#4DE3C36B"/>
+  <SolidColorBrush x:Key="OrgDangerBg"     Color="#1FEC9AA0"/>
+  <SolidColorBrush x:Key="OrgDangerBorder" Color="#4DEC9AA0"/>
+  <SolidColorBrush x:Key="OrgAccentBg"     Color="#1F968AE0"/>
+  <SolidColorBrush x:Key="OrgAccentBorder" Color="#4D968AE0"/>
+
+  <!-- ══ Conmutador de páginas «Comprimir | Organizar» ══ -->
+  <!-- Metáfora de páginas de oficio (DaVinci Resolve), no pestañas de documento. -->
+  <Style x:Key="PageTab" TargetType="RadioButton">
+    <Setter Property="Foreground" Value="{StaticResource Neutral400}"/>
+    <Setter Property="FontSize" Value="12.5"/>
+    <Setter Property="FontWeight" Value="Medium"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Padding" Value="14,6"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border x:Name="b" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}"
+                  BorderThickness="1" BorderBrush="Transparent">
+            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="b" Property="Background" Value="#14E9E9ED"/>
+              <Setter Property="Foreground" Value="{StaticResource Text}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="b" Property="Background" Value="{StaticResource Surface}"/>
+              <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent700}"/>
+              <Setter Property="Foreground" Value="{StaticResource Text}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ══ Chips del resumen-filtro (412 limpios · 173 corregidos · …) ══ -->
+  <!-- Son filtros con estado, por eso ToggleButton y no etiquetas muertas. -->
+  <Style x:Key="FiltroChip" TargetType="ToggleButton">
+    <Setter Property="FontSize" Value="11.5"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Padding" Value="9,3"/>
+    <Setter Property="Margin" Value="0,0,7,0"/>
+    <Setter Property="Foreground" Value="{StaticResource Neutral400}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Divider}"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}">
+            <ContentPresenter VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="b" Property="Opacity" Value="0.82"/>
+            </Trigger>
+            <!-- Activo: se rellena y se marca el borde. El texto ya lleva su propio color
+                 de estado, así que el filtro activo no depende del color para leerse. -->
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="b" Property="Background" Value="{StaticResource Accent800}"/>
+              <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="b" Property="Opacity" Value="0.4"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ══ Tarjeta (catálogo importado, candidato de conflicto) ══ -->
+  <Style x:Key="OrgCard" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource Surface}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Divider}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="8"/>
+    <Setter Property="Padding" Value="14,12"/>
+    <Setter Property="Margin" Value="0,0,0,10"/>
+  </Style>
+
+  <!-- ══ DataGrid ══ -->
+  <!--
+    Es DataGrid y no el ListView del resto de la app por una razón concreta: el resolutor
+    de conflictos se despliega BAJO su fila (RowDetailsTemplate), y GridView no sabe hacer eso.
+  -->
+  <Style x:Key="OrgColHeader" TargetType="DataGridColumnHeader">
+    <Setter Property="Foreground" Value="#99E9E9ED"/>
+    <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="FontWeight" Value="Normal"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="Padding" Value="10,8"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="DataGridColumnHeader">
+          <Border Background="Transparent" BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter VerticalAlignment="Center"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="OrgCell" TargetType="DataGridCell">
+    <Setter Property="Foreground" Value="{StaticResource Text}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="FontSize" Value="12.5"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="DataGridCell">
+          <Border Background="Transparent" Padding="10,0">
+            <ContentPresenter VerticalAlignment="Center"/>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <!-- La selección se pinta en la FILA, no en la celda: si no, WPF mete su azul de
+           sistema por encima y rompe el tema. -->
+      <Trigger Property="IsSelected" Value="True">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource Text}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <Style x:Key="OrgRow" TargetType="DataGridRow">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="DataGridRow">
+          <!-- Listón de 2 px a la izquierda para la fila activa: el diseño no confía el
+               foco solo al fondo. -->
+          <Border x:Name="strip" BorderBrush="Transparent" BorderThickness="2,0,0,0" Background="Transparent"
+                  SnapsToDevicePixels="True">
+            <Border x:Name="fill" Background="Transparent">
+              <StackPanel>
+                <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1">
+                  <DataGridCellsPresenter Margin="0,9"/>
+                </Border>
+                <!-- Aquí se despliega el resolutor de conflictos -->
+                <DataGridDetailsPresenter
+                    Visibility="{TemplateBinding DetailsVisibility}"/>
+              </StackPanel>
+            </Border>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="fill" Property="Background" Value="{StaticResource RowHover}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="fill" Property="Background" Value="{StaticResource RowSelected}"/>
+              <Setter TargetName="strip" Property="BorderBrush" Value="{StaticResource Accent}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="OrgGrid" TargetType="DataGrid">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="RowBackground" Value="Transparent"/>
+    <Setter Property="AlternatingRowBackground" Value="Transparent"/>
+    <Setter Property="GridLinesVisibility" Value="None"/>
+    <Setter Property="HeadersVisibility" Value="Column"/>
+    <Setter Property="AutoGenerateColumns" Value="False"/>
+    <Setter Property="CanUserAddRows" Value="False"/>
+    <Setter Property="CanUserDeleteRows" Value="False"/>
+    <Setter Property="CanUserResizeRows" Value="False"/>
+    <Setter Property="CanUserReorderColumns" Value="False"/>
+    <Setter Property="IsReadOnly" Value="True"/>
+    <Setter Property="SelectionMode" Value="Single"/>
+    <Setter Property="SelectionUnit" Value="FullRow"/>
+    <Setter Property="RowDetailsVisibilityMode" Value="Collapsed"/>
+    <Setter Property="ColumnHeaderStyle" Value="{StaticResource OrgColHeader}"/>
+    <Setter Property="CellStyle" Value="{StaticResource OrgCell}"/>
+    <Setter Property="RowStyle" Value="{StaticResource OrgRow}"/>
+    <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+    <!-- Con cientos de ficheros la virtualización no es un lujo: sin reciclar contenedores
+         el desplazamiento se vuelve pegajoso. -->
+    <Setter Property="EnableRowVirtualization" Value="True"/>
+    <Setter Property="VirtualizingStackPanel.VirtualizationMode" Value="Recycling"/>
+    <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+  </Style>
+
+  <!-- ══ Evidencia ＋ / － de las tarjetas de candidato ══ -->
+  <Style x:Key="EvidenciaMas" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource OrgOk}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Margin" Value="0,0,6,0"/>
+  </Style>
+  <Style x:Key="EvidenciaMenos" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Neutral500}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Margin" Value="0,0,6,0"/>
+  </Style>
+
+  <!-- ══ Texto atenuado de la página ══ -->
+  <Style x:Key="OrgMuted" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Neutral500}"/>
+    <Setter Property="FontSize" Value="12"/>
+  </Style>
+  <Style x:Key="OrgLabel" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Neutral500}"/>
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="Margin" Value="0,0,0,4"/>
+  </Style>
+
+</ResourceDictionary>

@@ -29,6 +29,16 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- Nueva página **Organizar**, que identifica qué episodio es cada fichero comparándolo con
+  un catálogo de la serie y propone su nombre definitivo. Se cambia entre «Comprimir» y
+  «Organizar» desde la barra de título, y la compresión sigue su curso mientras tanto
+  (una píldora avisa del avance). Nada se renombra sin aprobación: primero se simula, se
+  revisa el resultado en una tabla con semáforo —limpio, corregido, especial, conflicto,
+  error— y solo entonces se aplica. Cada lote aplicado se puede deshacer entero, y las
+  decisiones que tomas se recuerdan para no volver a preguntarte lo mismo. (KRO-REIDX)
+
 ## [0.5.0] - 2026-07-21
 
 ### Añadido

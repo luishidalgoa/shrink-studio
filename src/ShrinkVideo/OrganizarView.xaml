@@ -1,0 +1,516 @@
+<UserControl x:Class="ShrinkVideo.OrganizarView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="B2V"/>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/><!-- barra de contexto -->
+      <RowDefinition Height="Auto"/><!-- resumen-filtro -->
+      <RowDefinition Height="*"/>   <!-- inicio / revisión -->
+      <RowDefinition Height="Auto"/><!-- acciones -->
+    </Grid.RowDefinitions>
+
+    <!-- ══════════════ Barra de contexto ══════════════ -->
+    <Grid Grid.Row="0" Margin="16,4,16,10">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="14"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="14"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Carpeta a organizar -->
+      <StackPanel Grid.Column="0">
+        <TextBlock Text="Carpeta a organizar" Style="{StaticResource OrgLabel}"/>
+        <StackPanel Orientation="Horizontal">
+          <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
+                  CornerRadius="8" Height="34" MinWidth="240" HorizontalAlignment="Stretch">
+            <Grid Margin="10,0">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Viewbox Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center">
+                <Path Data="M1.5 3.5h4l1.5 2h7.5v7h-13z" Stroke="{StaticResource Neutral500}" StrokeThickness="1.4" StrokeLineJoin="Round"/>
+              </Viewbox>
+              <TextBox x:Name="txtCarpeta" Grid.Column="1" Style="{StaticResource InlineTextBox}"/>
+            </Grid>
+          </Border>
+          <Button x:Name="btnCarpeta" Style="{StaticResource BtnSecondary}" Width="34" Height="34" Padding="0"
+                  Margin="6,0,0,0" ToolTip="Elegir la carpeta cuyos ficheros quieres organizar">
+            <Viewbox Width="15" Height="15">
+              <Path Data="M1.5 3.5h4l1.5 2h7.5l-2 7h-11z M1.5 3.5v9h11" Stroke="{StaticResource Text}" StrokeThickness="1.4" StrokeLineJoin="Round"/>
+            </Viewbox>
+          </Button>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Serie (catálogo de referencia) -->
+      <StackPanel Grid.Column="2">
+        <TextBlock Text="Serie (catálogo de referencia)" Style="{StaticResource OrgLabel}"/>
+        <StackPanel Orientation="Horizontal">
+          <!-- ItemTemplate explícito y no DisplayMemberPath: la plantilla propia del tema
+               pinta la selección con SelectionBoxItemTemplate, y con DisplayMemberPath se
+               quedaba sin plantilla y enseñaba el nombre del tipo. -->
+          <ComboBox x:Name="cboSerie" Width="215" Height="34" VerticalContentAlignment="Center"
+                    ToolTip="El catálogo contra el que se identifican los ficheros de la carpeta">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Serie}" TextTrimming="CharacterEllipsis"/>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button x:Name="btnCatalogos" Style="{StaticResource BtnSecondary}" Height="34" Margin="6,0,0,0"
+                  Content="Catálogos…"
+                  ToolTip="Importar, revisar o quitar catálogos de referencia"/>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Plantilla de biblioteca -->
+      <StackPanel Grid.Column="4">
+        <TextBlock Text="Plantilla de biblioteca" Style="{StaticResource OrgLabel}"/>
+        <StackPanel Orientation="Horizontal">
+          <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
+                  CornerRadius="8" Height="34" HorizontalAlignment="Stretch" MinWidth="200">
+            <TextBox x:Name="txtPlantilla" Style="{StaticResource InlineTextBox}" Margin="10,0"
+                     FontFamily="{StaticResource FontMono}" FontSize="11.5"
+                     Foreground="{StaticResource Neutral400}"
+                     ToolTip="Cómo se compone el nombre final. No es el «Renombrado libre» de Herramientas: aquí el nombre se construye desde el catálogo."/>
+          </Border>
+          <Button x:Name="btnPlantilla" Style="{StaticResource BtnGhost}" Content="Editar" Margin="6,0,0,0"
+                  ToolTip="Cambiar la plantilla de nombres"/>
+        </StackPanel>
+      </StackPanel>
+    </Grid>
+
+    <!-- ══════════════ Resumen-filtro (solo en revisión) ══════════════ -->
+    <Grid x:Name="filaChips" Grid.Row="1" Margin="16,0,16,10" Visibility="Collapsed">
+      <StackPanel Orientation="Horizontal" x:Name="panelChips">
+        <ToggleButton x:Name="chipLimpios" Style="{StaticResource FiltroChip}">
+          <TextBlock><Run Text="●" Foreground="#86D8A6"/><Run x:Name="runLimpios" Text=" 0 limpios"/></TextBlock>
+        </ToggleButton>
+        <ToggleButton x:Name="chipCorregidos" Style="{StaticResource FiltroChip}">
+          <TextBlock><Run Text="↻" Foreground="#86D8A6"/><Run x:Name="runCorregidos" Text=" 0 corregidos"/></TextBlock>
+        </ToggleButton>
+        <ToggleButton x:Name="chipEspeciales" Style="{StaticResource FiltroChip}">
+          <TextBlock><Run Text="▲" Foreground="#E3C36B"/><Run x:Name="runEspeciales" Text=" 0 especiales"/></TextBlock>
+        </ToggleButton>
+        <ToggleButton x:Name="chipConflictos" Style="{StaticResource FiltroChip}">
+          <TextBlock><Run Text="◆" Foreground="#EC9AA0"/><Run x:Name="runConflictos" Text=" 0 conflictos"/></TextBlock>
+        </ToggleButton>
+        <ToggleButton x:Name="chipErrores" Style="{StaticResource FiltroChip}">
+          <TextBlock><Run Text="✕" Foreground="#EC9AA0"/><Run x:Name="runErrores" Text=" 0 errores"/></TextBlock>
+        </ToggleButton>
+        <ToggleButton x:Name="chipDudas" Style="{StaticResource FiltroChip}" Content="Solo dudas" Margin="6,0,0,0"
+                      ToolTip="Deja solo lo que necesita que decidas tú"/>
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button x:Name="btnAceptarVerdes" Style="{StaticResource BtnSecondary}" Content="Aceptar verdes"
+                Padding="10,5" FontSize="12"
+                ToolTip="Da por buenas todas las filas identificadas con confianza"/>
+        <Button x:Name="btnConfirmarEspeciales" Style="{StaticResource BtnSecondary}" Content="Confirmar especiales…"
+                Padding="10,5" FontSize="12" Margin="8,0,0,0"
+                ToolTip="Revisa uno a uno los especiales, que nunca se aplican solos"/>
+      </StackPanel>
+    </Grid>
+
+    <!-- ══════════════ INICIO: catálogos + ficheros ══════════════ -->
+    <Grid x:Name="vistaInicio" Grid.Row="2" Margin="16,0,16,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Catálogos importados -->
+      <Border Grid.Column="0" Background="{StaticResource Surface}" CornerRadius="8" Padding="14,12">
+        <Grid>
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <Grid Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="CATÁLOGOS IMPORTADOS" FontSize="11" FontWeight="Medium"
+                       Foreground="{StaticResource Neutral500}" VerticalAlignment="Center"/>
+            <Button x:Name="btnImportar" Style="{StaticResource BtnSecondary}" HorizontalAlignment="Right"
+                    Padding="10,5" FontSize="12"
+                    ToolTip="Añadir un catálogo de referencia en formato JSON (esquema reindex/1.0)">
+              <StackPanel Orientation="Horizontal">
+                <Viewbox Width="13" Height="13" Margin="0,0,6,0">
+                  <Path Data="M8 2v8M5 7l3 3 3-3M2.5 13h11" Stroke="{StaticResource Text}" StrokeThickness="1.4"
+                        StrokeStartLineCap="Round" StrokeLineJoin="Round"/>
+                </Viewbox>
+                <TextBlock Text="Importar JSON" VerticalAlignment="Center"/>
+              </StackPanel>
+            </Button>
+          </Grid>
+
+          <!-- Horizontal en «Disabled», no en «Hidden»: con Hidden el contenido se mide con
+               ancho infinito y las advertencias nunca llegan a ajustarse — se cortaban. -->
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+              <ItemsControl x:Name="listaCatalogos">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <!-- Tarjeta de catálogo. Las ADVERTENCIAS van dentro y siempre visibles:
+                         son lo que evita que el usuario confíe de más en el resultado. -->
+                    <Border Style="{StaticResource OrgCard}" Background="{Binding Fondo}"
+                            BorderBrush="{Binding Borde}">
+                      <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                          <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Cat.Serie}" FontSize="13.5" FontWeight="Medium"
+                                       Foreground="{StaticResource Text}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Cat.Resumen}" Style="{StaticResource OrgMuted}"
+                                       FontSize="11.5" Margin="10,1,0,0" VerticalAlignment="Center"/>
+                          </StackPanel>
+                          <Border HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  Background="{StaticResource Accent800}" CornerRadius="6" Padding="8,2"
+                                  Visibility="{Binding Seleccionado, Converter={StaticResource B2V}}">
+                            <TextBlock Text="seleccionado" FontSize="10.5" Foreground="{StaticResource Accent200}"/>
+                          </Border>
+                          <Button Content="Usar" Style="{StaticResource BtnGhost}" HorizontalAlignment="Right"
+                                  VerticalAlignment="Center" FontSize="11.5" Tag="{Binding Cat.Ruta}"
+                                  Click="OnUsarCatalogo"
+                                  Visibility="{Binding NoSeleccionado, Converter={StaticResource B2V}}"/>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Cat.Advertencias}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <!-- Grid y no StackPanel horizontal: un StackPanel horizontal mide a
+                                   sus hijos con ancho infinito, así que TextWrapping no llega a
+                                   actuar nunca y la advertencia salía cortada. -->
+                              <Grid Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                  <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="▲" Foreground="{StaticResource OrgWarn}" FontSize="10.5"
+                                           Margin="0,1,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Grid.Column="1" Text="{Binding}" Foreground="{StaticResource OrgWarn}"
+                                           FontSize="11.5" TextWrapping="Wrap"/>
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Sin catálogos: se explica qué es antes de pedir nada -->
+              <StackPanel x:Name="panelSinCatalogos" Margin="0,10,0,0" Visibility="Collapsed">
+                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Neutral400}" FontSize="12.5" LineHeight="19">
+                  Un <Run FontWeight="Medium" Foreground="{StaticResource Text}">catálogo</Run> es la lista de
+                  episodios de una serie: número, fecha de emisión y títulos. ShrinkStudio compara tus ficheros
+                  con esa lista para saber qué episodio es cada uno.
+                </TextBlock>
+                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Neutral500}" FontSize="12"
+                           Margin="0,10,0,0" LineHeight="18">
+                  Es un archivo JSON con el esquema <Run FontFamily="{StaticResource FontMono}">reindex/1.0</Run>.
+                  Sin catálogo no hay nada con lo que comparar, así que la simulación queda deshabilitada.
+                </TextBlock>
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
+      <!-- Ficheros -->
+      <Border Grid.Column="2" Background="{StaticResource Surface}" CornerRadius="8" Padding="14,12">
+        <Grid>
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <TextBlock Grid.Row="0" Text="FICHEROS" FontSize="11" FontWeight="Medium"
+                     Foreground="{StaticResource Neutral500}" Margin="0,0,0,12"/>
+
+          <Grid Grid.Row="1">
+            <!-- Trazo discontinuo del diseño: marca «aquí falta algo» sin pesar como un marco
+                 sólido. Border no sabe hacer guiones, así que va un Rectangle detrás. -->
+            <Rectangle Stroke="{StaticResource Neutral800}" StrokeThickness="1" RadiusX="8" RadiusY="8"
+                       StrokeDashArray="4 3" SnapsToDevicePixels="True"/>
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="330">
+              <Viewbox Width="38" Height="38" HorizontalAlignment="Center" Margin="0,0,0,16">
+                <Path Data="M1.5 3.5h4l1.5 2h7.5v7h-13z" Stroke="{StaticResource Neutral700}" StrokeThickness="1.1"
+                      StrokeLineJoin="Round"/>
+              </Viewbox>
+              <TextBlock x:Name="lblFicheros" Text="Elige una carpeta para empezar" FontSize="13.5"
+                         Foreground="{StaticResource Text}" HorizontalAlignment="Center" TextAlignment="Center"
+                         TextWrapping="Wrap"/>
+              <!-- La promesa explícita: nada se toca sin aprobación. Es lo que permite
+                   pulsar «Simular» sin miedo. -->
+              <TextBlock Margin="0,10,0,0" FontSize="12" Foreground="{StaticResource Neutral500}"
+                         TextAlignment="Center" TextWrapping="Wrap" LineHeight="18">
+                Nada se renombra sin tu aprobación: <Run FontWeight="Medium" Foreground="{StaticResource Neutral400}">Simular</Run>
+                solo lee los nombres y propone. Después revisas y aplicas.
+              </TextBlock>
+              <Button x:Name="btnSimularGrande" Style="{StaticResource BtnPrimary}" Margin="0,18,0,0"
+                      HorizontalAlignment="Center" IsEnabled="False">
+                <StackPanel Orientation="Horizontal">
+                  <Viewbox Width="14" Height="14" Margin="0,0,6,0">
+                    <Canvas Width="16" Height="16">
+                      <Ellipse Width="9" Height="9" Canvas.Left="2.5" Canvas.Top="2.5" Stroke="#968AE0" StrokeThickness="1.5"/>
+                      <Path Data="M10.5 10.5L14 14" Stroke="#968AE0" StrokeThickness="1.5" StrokeStartLineCap="Round"/>
+                    </Canvas>
+                  </Viewbox>
+                  <TextBlock Text="Simular identificación" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- ══════════════ REVISIÓN: la tabla de triaje ══════════════ -->
+    <Grid x:Name="vistaRevision" Grid.Row="2" Margin="16,0,16,0" Visibility="Collapsed">
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+      <!-- Banner de aviso cuando el lote viene mayoritariamente dudoso -->
+      <Border x:Name="bannerAviso" Grid.Row="0" Background="{StaticResource OrgWarnBg}"
+              BorderBrush="{StaticResource OrgWarnBorder}" BorderThickness="1" CornerRadius="8"
+              Padding="12,9" Margin="0,0,0,10" Visibility="Collapsed">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="▲" Foreground="{StaticResource OrgWarn}" VerticalAlignment="Top" Margin="0,1,9,0"/>
+          <TextBlock x:Name="lblBannerAviso" Foreground="{StaticResource OrgWarn}" FontSize="12.5"
+                     TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Banda de resultado tras aplicar -->
+      <Border x:Name="bannerAplicado" Grid.Row="0" Background="{StaticResource OrgOkBg}"
+              BorderBrush="{StaticResource OrgOkBorder}" BorderThickness="1" CornerRadius="8"
+              Padding="12,9" Margin="0,0,0,10" Visibility="Collapsed">
+        <Grid>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="✓" Foreground="{StaticResource OrgOk}" VerticalAlignment="Center" Margin="0,0,9,0"/>
+            <TextBlock x:Name="lblBannerAplicado" Foreground="{StaticResource OrgOk}" FontSize="12.5"
+                       VerticalAlignment="Center"/>
+          </StackPanel>
+          <Button x:Name="btnDeshacerBanda" Style="{StaticResource BtnGhost}" HorizontalAlignment="Right"
+                  Content="Deshacer este lote" FontSize="12"/>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="1" Background="{StaticResource Surface}" CornerRadius="8" ClipToBounds="True">
+        <!-- El resolutor se despliega al seleccionar la fila; el propio detalle se oculta
+             para las filas que no tienen nada que resolver. -->
+        <DataGrid x:Name="tabla" Style="{StaticResource OrgGrid}"
+                  RowDetailsVisibilityMode="VisibleWhenSelected">
+          <DataGrid.Columns>
+
+            <!-- ESTADO — chip: glifo + palabra + color, nunca solo color -->
+            <DataGridTemplateColumn Header="ESTADO" Width="112">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Background="{Binding EstadoBg}" BorderBrush="{Binding EstadoBorde}" BorderThickness="1"
+                          CornerRadius="6" Padding="8,3" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="{Binding EstadoGlifo}" Foreground="{Binding EstadoFg}" FontSize="10.5"
+                                 VerticalAlignment="Center" Margin="0,0,5,0"/>
+                      <TextBlock Text="{Binding EstadoTexto}" Foreground="{Binding EstadoFg}" FontSize="11.5"
+                                 VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+
+            <!-- FICHERO ORIGINAL -->
+            <DataGridTemplateColumn Header="FICHERO ORIGINAL" Width="1.1*">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Original}" Foreground="{StaticResource Neutral300}"
+                             TextTrimming="CharacterEllipsis" ToolTip="{Binding Res.Archivo.Path}"/>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+
+            <!-- PROPUESTA -->
+            <DataGridTemplateColumn Header="PROPUESTA" Width="1.6*">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Propuesta}" Foreground="{Binding PropuestaFg}"
+                             TextTrimming="CharacterEllipsis" ToolTip="{Binding Propuesta}">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                          <!-- Solo se destaca lo que de verdad va a cambiar -->
+                          <DataTrigger Binding="{Binding PropuestaDestacada}" Value="True">
+                            <Setter Property="FontWeight" Value="Medium"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+
+            <!-- POR QUÉ — evidencia corta; la prosa completa, en el tooltip -->
+            <DataGridTemplateColumn Header="POR QUÉ" Width="250">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding PorQue}" Foreground="{StaticResource Neutral500}" FontSize="12"
+                             TextTrimming="CharacterEllipsis" ToolTip="{Binding Explicacion}"/>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+          </DataGrid.Columns>
+
+          <!-- ══ Resolutor de conflictos, desplegado BAJO la fila ══ -->
+          <DataGrid.RowDetailsTemplate>
+            <DataTemplate>
+              <Border Background="{StaticResource Bg}" BorderBrush="{StaticResource Divider}" BorderThickness="0,1,0,1"
+                      Padding="16,14"
+                      Visibility="{Binding TieneDetalle, Converter={StaticResource B2V}}">
+                <StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                    <TextBlock Text="RESOLVER CONFLICTO" FontSize="11" FontWeight="Medium"
+                               Foreground="{StaticResource Accent400}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Original}" FontSize="12.5" Foreground="{StaticResource Text}"
+                               Margin="12,0,0,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Explicacion}" Style="{StaticResource OrgMuted}"
+                               Margin="10,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                  </StackPanel>
+
+                  <!-- Tarjetas de candidato, con la evidencia a favor y en contra -->
+                  <ItemsControl ItemsSource="{Binding Res.Alternativas}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}"
+                                BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,10,0">
+                          <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                              <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="Medium"
+                                         Foreground="{StaticResource Text}">
+                                <Run Text="E"/><Run Text="{Binding Episodio.Num, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding Episodio.Temporada, Mode=OneWay}"/>
+                              </TextBlock>
+                            </Grid>
+                            <TextBlock Text="{Binding Episodio.TituloCompleto}" Style="{StaticResource OrgMuted}"
+                                       TextWrapping="Wrap" Margin="0,0,0,10"/>
+                            <ItemsControl ItemsSource="{Binding Evidencia}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                  <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"
+                                             Foreground="{StaticResource Neutral400}"/>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Style="{StaticResource BtnSecondary}" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                    FontSize="12" Padding="10,5" Click="OnElegirCandidato" Tag="{Binding Episodio}">
+                              <TextBlock><Run Text="Elegir E"/><Run Text="{Binding Episodio.Num, Mode=OneWay}"/></TextBlock>
+                            </Button>
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                    <CheckBox x:Name="chkRecordar" Content="Recordar esta decisión para este fichero"
+                              Foreground="{StaticResource Neutral400}" FontSize="12" VerticalAlignment="Center"/>
+                    <Button Content="Elegir otro episodio…" Style="{StaticResource BtnGhost}" FontSize="12"
+                            Margin="16,0,0,0" Click="OnElegirAMano"/>
+                    <Button Content="Dejarlo como está" Style="{StaticResource BtnGhost}" FontSize="12"
+                            Margin="8,0,0,0" Click="OnDejarComoEsta"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </DataGrid.RowDetailsTemplate>
+        </DataGrid>
+      </Border>
+    </Grid>
+
+    <!-- ══════════════ Barra de acciones ══════════════ -->
+    <Grid Grid.Row="3" Margin="16,10,16,8">
+      <StackPanel Orientation="Horizontal">
+        <Button x:Name="btnSimular" Style="{StaticResource BtnPrimary}" Margin="0,0,8,0" IsEnabled="False"
+                ToolTip="Lee los nombres y propone. No toca ningún fichero.">
+          <StackPanel Orientation="Horizontal">
+            <Viewbox Width="14" Height="14" Margin="0,0,6,0">
+              <Canvas Width="16" Height="16">
+                <Ellipse Width="9" Height="9" Canvas.Left="2.5" Canvas.Top="2.5" Stroke="#968AE0" StrokeThickness="1.5"/>
+                <Path Data="M10.5 10.5L14 14" Stroke="#968AE0" StrokeThickness="1.5" StrokeStartLineCap="Round"/>
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="Simular" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+
+        <Button x:Name="btnAplicar" Style="{StaticResource BtnPrimary}" Margin="0,0,8,0" IsEnabled="False"
+                ToolTip="Renombra solo lo identificado con confianza y lo que hayas confirmado. Las dudas se quedan como están.">
+          <StackPanel Orientation="Horizontal">
+            <Viewbox Width="14" Height="14" Margin="0,0,6,0">
+              <Path Data="M2.5 8.5l4 4 7-9" Stroke="#968AE0" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeLineJoin="Round"/>
+            </Viewbox>
+            <TextBlock x:Name="lblAplicar" Text="Aplicar" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+
+        <Button x:Name="btnDeshacer" Style="{StaticResource BtnGhostMuted}" IsEnabled="False"
+                ToolTip="Devuelve los ficheros del último lote a su nombre anterior">
+          <StackPanel Orientation="Horizontal">
+            <Viewbox Width="14" Height="14" Margin="0,0,6,0">
+              <Path Data="M3 8a5 5 0 1 1 1.6 3.7M3 4.5V8h3.5" Stroke="{StaticResource Neutral500}" StrokeThickness="1.4"
+                    StrokeStartLineCap="Round" StrokeLineJoin="Round"/>
+            </Viewbox>
+            <TextBlock x:Name="lblDeshacer" Text="Deshacer último lote" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+        <TextBlock x:Name="lblEstadoOrg" Text="Elige una carpeta y un catálogo" VerticalAlignment="Center"
+                   FontSize="12" Foreground="{StaticResource Neutral500}" Margin="0,0,12,0"/>
+        <Button x:Name="btnMemoria" Style="{StaticResource BtnGhostMuted}" Content="Memoria de decisiones…"
+                ToolTip="Ver y olvidar las decisiones que has ido tomando"/>
+      </StackPanel>
+    </Grid>
+
+    <!-- ══════════════ Confirmación (superpuesta, no MessageBox) ══════════════ -->
+    <!-- Va dentro de la ventana a propósito: un MessageBox del sistema rompería el tema
+         y sacaría al usuario del contexto justo en la decisión más delicada. -->
+    <Grid x:Name="overlayConfirmar" Grid.RowSpan="4" Background="#B0000000" Visibility="Collapsed"
+          Panel.ZIndex="10">
+      <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
+              CornerRadius="12" MaxWidth="560" VerticalAlignment="Center" HorizontalAlignment="Center"
+              Padding="24,20">
+        <StackPanel>
+          <TextBlock Text="Aplicar el renombrado" FontSize="16" FontWeight="Medium"
+                     Foreground="{StaticResource Text}" Margin="0,0,0,14"/>
+
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Text="✓" Foreground="{StaticResource OrgOk}" Margin="0,0,9,0" VerticalAlignment="Top"/>
+            <TextBlock x:Name="lblConfSeRenombra" Foreground="{StaticResource Text}" FontSize="13"
+                       TextWrapping="Wrap"/>
+          </StackPanel>
+
+          <StackPanel x:Name="filaNoSeToca" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Text="—" Foreground="{StaticResource Neutral500}" Margin="0,0,9,0" VerticalAlignment="Top"/>
+            <TextBlock x:Name="lblConfNoSeToca" Foreground="{StaticResource Neutral400}" FontSize="13"
+                       TextWrapping="Wrap"/>
+          </StackPanel>
+
+          <Border Background="{StaticResource Accent900}" BorderBrush="{StaticResource Accent800}" BorderThickness="1"
+                  CornerRadius="8" Padding="12,9" Margin="0,8,0,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="↺" Foreground="{StaticResource Accent300}" Margin="0,0,9,0" VerticalAlignment="Top"/>
+              <TextBlock Foreground="{StaticResource Accent200}" FontSize="12.5" TextWrapping="Wrap"
+                         Text="Se guarda un registro del lote antes de tocar nada: podrás deshacerlo entero cuando quieras."/>
+            </StackPanel>
+          </Border>
+
+          <CheckBox x:Name="chkRecordarDecisiones" Margin="0,14,0,0" Foreground="{StaticResource Neutral400}"
+                    FontSize="12.5" Visibility="Collapsed"/>
+
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button x:Name="btnConfCancelar" Style="{StaticResource BtnSecondary}" Content="Cancelar"/>
+            <Button x:Name="btnConfAceptar" Style="{StaticResource BtnPrimary}" Content="Aplicar" Margin="8,0,0,0"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

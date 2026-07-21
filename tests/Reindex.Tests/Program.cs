@@ -21,6 +21,8 @@ public static class Program
         CargaDeCatalogo();
         Cascada();
         ReglasDeLote();
+        Plantilla();
+        Almacen();
         CatalogosReales();
 
         Console.WriteLine($"\n── {_ok} pasan · {_fallos} fallan ──");
@@ -323,6 +325,17 @@ public static class Program
         Assert(r.Episodio?.Especial == true, "el especial apunta a un episodio especial del catálogo");
         Assert(r.Episodio?.Num != 12, "un especial no aterriza en la numeración regular");
 
+        // Un especial recién identificado NO se aplica solo; confirmado (override) sí.
+        // Es la regla «Aplicar toca verdes + confirmados» del diseño.
+        r = Uno(cat, @"C:\S\[S1] Especial de Navidad.mkv");
+        Assert(!r.AplicableEnBloque, "un especial sin confirmar no entra en el lote");
+        r = ReindexEngine.Resolve(
+            new[] { SignalExtractor.Extract(@"C:\S\[S1] Especial de Navidad.mkv") }, cat,
+            new Dictionary<string, ReindexOverride>
+            { [@"C:\S\[S1] Especial de Navidad.mkv"] = new() { Num = 901 } })[0];
+        Eq(ReindexEstado.Especial, r.Estado, "confirmado sigue siendo un especial");
+        Assert(r.AplicableEnBloque, "un especial confirmado sí entra en el lote");
+
         // Un especial que el catálogo no contempla
         var catSinEsp = ReindexCatalog.Parse(CatalogoDePrueba.Replace("\"especial\": true", "\"especial\": false"));
         r = ReindexEngine.Resolve(new[] { SignalExtractor.Extract(@"C:\S\[S1] Especial de Navidad.mkv") },
@@ -343,6 +356,144 @@ public static class Program
         Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Especial), "1 especial");
         Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Error), "1 error");
         Assert(mezcla.All(x => !string.IsNullOrWhiteSpace(x.Motivo)), "toda fila tiene su «por qué»");
+    }
+
+    // ─────────────────── Plantilla de biblioteca ───────────────────
+
+    private static void Plantilla()
+    {
+        Seccion("Plantilla de biblioteca");
+        var cat = ReindexCatalog.Parse(CatalogoDePrueba);
+        var plantilla = new LibraryTemplate();
+        var ep = cat.PorNum(12)!;
+
+        var f = SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv");
+        Eq("Serie de prueba - S2005E12 - Las galletas mágicas.mkv", plantilla.Render(cat, ep, f),
+            "compone el nombre canónico del diseño");
+        Assert(plantilla.Render(cat, ep, f)!.EndsWith(".mkv"), "conserva la extensión original");
+
+        var avi = SignalExtractor.Extract(@"C:\S\episodio_438.avi");
+        Assert(plantilla.Render(cat, ep, avi)!.EndsWith(".avi"), "conserva .avi, no lo cambia a .mkv");
+
+        // Los títulos de estas series traen «:» y «?» a menudo; Windows no los admite
+        var catRaro = ReindexCatalog.Parse(CatalogoDePrueba.Replace(
+            "Las galletas mágicas", "¿Dónde está Nobita?: la película"));
+        var epRaro = catRaro.PorNum(12)!;
+        var nombre = plantilla.Render(catRaro, epRaro, f)!;
+        Assert(!nombre.Contains(':') && !nombre.Contains('?'),
+            "quita los caracteres que Windows prohíbe en un nombre");
+        Assert(!nombre.Contains("  "), "no deja espacios dobles donde estaban los símbolos");
+
+        // Un episodio con varios segmentos los junta, como en la propuesta del mockup
+        var catSeg = ReindexCatalog.Parse(CatalogoDePrueba.Replace(
+            "\"es\": [\"Las galletas mágicas\"]", "\"es\": [\"El cometa\", \"Nieve en agosto\"]"));
+        Assert(plantilla.Render(catSeg, catSeg.PorNum(12)!, f)!.Contains("El cometa + Nieve en agosto"),
+            "junta los segmentos de un episodio multi-historia");
+
+        // Patrón a medida
+        Eq("S2005E12.mkv", new LibraryTemplate("S<temp>E<num>").Render(cat, ep, f), "acepta un patrón propio");
+        Eq("Serie de prueba - S2005E12 - Las galletas mágicas.mkv",
+            new LibraryTemplate("   ").Render(cat, ep, f), "un patrón vacío cae al de por defecto");
+
+        // Nunca un fichero sin nombre
+        Assert(new LibraryTemplate("...").Render(cat, ep, f) is null,
+            "un patrón que no deja nada devuelve null en vez de crear «.mkv»");
+
+        // Nombres larguísimos: recorta sin acercarse al límite de ruta
+        var catLargo = ReindexCatalog.Parse(CatalogoDePrueba.Replace(
+            "Las galletas mágicas", new string('A', 400)));
+        var largo = plantilla.Render(catLargo, catLargo.PorNum(12)!, f)!;
+        Assert(largo.Length <= 155, $"recorta los títulos kilométricos ({largo.Length} caracteres)");
+    }
+
+    // ─────────────────── Almacén: catálogos, decisiones, diario ───────────────────
+
+    private static void Almacen()
+    {
+        Seccion("Almacén en disco");
+
+        var temporal = Path.Combine(Path.GetTempPath(), "shrinkstudio-test-" + Guid.NewGuid().ToString("N")[..8]);
+        ReindexStore.RaizOverride = temporal;
+        try
+        {
+            // — catálogos —
+            var origen = Path.Combine(temporal, "entrada.json");
+            Directory.CreateDirectory(temporal);
+            File.WriteAllText(origen, CatalogoDePrueba, System.Text.Encoding.UTF8);
+
+            var guardado = ReindexStore.ImportarCatalogo(origen);
+            Eq("Serie de prueba", guardado.Serie, "importa y describe el catálogo");
+            Eq(6, guardado.Episodios, "cuenta los episodios");
+            Eq(1, guardado.Especiales, "cuenta los especiales");
+            Assert(guardado.Advertencias.Count > 0, "arrastra las advertencias a la tarjeta");
+            Eq(1, ReindexStore.ListarCatalogos().Count, "el catálogo importado aparece en la lista");
+
+            // Un JSON inválido no debe dejar rastro en la carpeta de catálogos
+            var malo = Path.Combine(temporal, "malo.json");
+            File.WriteAllText(malo, "{ no soy un catalogo ");
+            Lanza<ReindexCatalogException>(() => ReindexStore.ImportarCatalogo(malo),
+                "rechaza importar un JSON inválido");
+            Eq(1, ReindexStore.ListarCatalogos().Count, "el JSON inválido no se copió");
+
+            // — memoria de decisiones —
+            Eq(0, ReindexStore.CargarDecisiones().Count, "sin decisiones al principio");
+            ReindexStore.GuardarDecisiones(new Dictionary<string, ReindexOverride>
+            {
+                ["huella-1"] = new() { Num = 72, Temporada = 2007, Serie = "Serie de prueba",
+                                       FechaDecision = "2026-07-21", NombreOriginal = "algo.mkv" },
+            });
+            var leidas = ReindexStore.CargarDecisiones();
+            Eq(1, leidas.Count, "guarda y relee las decisiones");
+            Eq(72, leidas["huella-1"].Num, "conserva el número decidido");
+            Eq("2026-07-21", leidas["huella-1"].FechaDecision, "conserva la fecha de la decisión");
+            Eq("algo.mkv", leidas["huella-1"].NombreOriginal, "conserva el nombre original (trazabilidad)");
+
+            // — diario de lote y deshacer —
+            var carpeta = Path.Combine(temporal, "videos");
+            Directory.CreateDirectory(carpeta);
+            var viejo = Path.Combine(carpeta, "viejo.mkv");
+            var nuevo = Path.Combine(carpeta, "Serie - S2005E12 - Nuevo.mkv");
+            File.WriteAllText(viejo, "contenido");
+
+            var lote = new LoteJournal
+            {
+                Id = "20260721-143200", Fecha = "2026-07-21", Hora = "14:32",
+                Serie = "Serie de prueba", Carpeta = carpeta,
+                Movimientos = { new MovimientoJournal { De = viejo, A = nuevo } },
+            };
+            var rutaJournal = ReindexStore.EscribirJournal(lote);
+            Assert(File.Exists(rutaJournal), "el diario se escribe ANTES de renombrar");
+
+            File.Move(viejo, nuevo);   // el renombrado de verdad
+            Assert(File.Exists(nuevo) && !File.Exists(viejo), "el fichero quedó renombrado");
+
+            var recuperado = ReindexStore.UltimoLote();
+            Assert(recuperado != null, "recupera el último lote del disco");
+            Eq("Deshacer lote 14:32 (1)", recuperado!.Etiqueta, "la etiqueta del botón persistente");
+
+            var (devueltos, fallidos) = ReindexStore.Deshacer(recuperado);
+            Eq(1, devueltos, "deshacer devuelve el fichero");
+            Eq(0, fallidos, "sin fallos al deshacer");
+            Assert(File.Exists(viejo) && !File.Exists(nuevo), "el fichero recuperó su nombre original");
+
+            // Deshacer dos veces no puede duplicar nada ni reventar
+            var (dev2, fall2) = ReindexStore.Deshacer(recuperado);
+            Eq(0, dev2, "deshacer otra vez no mueve nada");
+            Eq(1, fall2, "y lo cuenta como no realizable, sin excepción");
+            Assert(File.Exists(viejo), "el fichero sigue donde debía");
+
+            // Si el nombre viejo está ocupado, NO se machaca
+            File.WriteAllText(nuevo, "otro");
+            var (dev3, fall3) = ReindexStore.Deshacer(recuperado);
+            Eq(0, dev3, "no deshace si el destino está ocupado");
+            Eq(1, fall3, "lo cuenta como fallido");
+            Eq("contenido", File.ReadAllText(viejo), "el fichero original quedó intacto");
+        }
+        finally
+        {
+            ReindexStore.RaizOverride = null;
+            try { Directory.Delete(temporal, recursive: true); } catch { }
+        }
     }
 
     // ─────────────────── Integración con los catálogos reales ───────────────────

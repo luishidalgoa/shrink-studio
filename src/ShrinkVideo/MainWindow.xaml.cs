@@ -107,6 +107,12 @@ public partial class MainWindow : Window
         lst.PreviewMouseMove += Lst_MouseMove;
         lst.PreviewMouseLeftButtonUp += Lst_MouseUp;
 
+        // conmutador de páginas «Comprimir | Organizar»
+        tabComprimir.Checked += (_, _) => CambiarPagina(organizar: false);
+        tabOrganizar.Checked += (_, _) => CambiarPagina(organizar: true);
+        pageOrganizar.Log += AppendLog;
+        pillFondo.MouseLeftButtonUp += (_, _) => tabComprimir.IsChecked = true;
+
         tabDetalle.MouseLeftButtonUp += (_, _) => ShowSideTab(false);
         tabEstim.MouseLeftButtonUp += (_, _) => ShowSideTab(true);
         foreach (var c in new[] { cboFmt, cboCodec, cboQ, cboRes, cboAud })
@@ -903,6 +909,8 @@ public partial class MainWindow : Window
         tglLog.IsChecked = true;
         txtLog.Clear();
         lblProg.Text = $"Procesando {sel.Count} vídeo(s)…";
+        ActualizarTextoPildora(0, sel.Count, 0);
+        ActualizarPildoraFondo();
 
         var reporter = new Reporter(this, deleteOriginals);
         try
@@ -927,6 +935,9 @@ public partial class MainWindow : Window
             btnPause.IsEnabled = false; btnPause.Content = "Pausar";
             progRow.Visibility = Visibility.Collapsed;
             _cts?.Dispose(); _cts = null;
+            // La píldora pasa a «✓ N hechos» un momento y se retira sola: si desapareciera
+            // de golpe, quien estuviera en «Organizar» no llegaría a saber que terminó.
+            AnunciarFinEnPildora(sel.Count);
         }
     }
 
@@ -1010,6 +1021,68 @@ public partial class MainWindow : Window
         txtLog.ScrollToEnd();
     }
 
+    // ─────────────────────── páginas de oficio ───────────────────────
+
+    /// <summary>
+    /// Cambia entre «Comprimir» y «Organizar». Las dos páginas comparten ventana, barra de
+    /// título y registro, pero cada una tiene su lista y su ciclo de vida: cambiar de página
+    /// NO detiene lo que estuviera corriendo en la otra.
+    /// </summary>
+    private void CambiarPagina(bool organizar)
+    {
+        var comprimir = organizar ? Visibility.Collapsed : Visibility.Visible;
+        rowOrigen.Visibility = comprimir;
+        rowOpciones.Visibility = comprimir;
+        rowTabla.Visibility = comprimir;
+        rowAcciones.Visibility = comprimir;
+        // La barra de progreso solo reaparece si de verdad hay algo comprimiendo
+        progRow.Visibility = organizar ? Visibility.Collapsed
+                                       : (_running ? Visibility.Visible : Visibility.Collapsed);
+
+        pageOrganizar.Visibility = organizar ? Visibility.Visible : Visibility.Collapsed;
+        ActualizarPildoraFondo();
+    }
+
+    /// <summary>
+    /// La píldora de la barra de título solo tiene sentido cuando hay compresión en marcha y
+    /// el usuario NO la está mirando: si estás en «Comprimir» ya ves la barra de progreso, y
+    /// repetirlo sería ruido.
+    /// </summary>
+    private void ActualizarPildoraFondo()
+    {
+        bool enOtraPagina = pageOrganizar.Visibility == Visibility.Visible;
+        pillFondo.Visibility = _running && enOtraPagina ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Texto de la píldora: «Comprimiendo 3/8 · 31 %».</summary>
+    private void ActualizarTextoPildora(int hecho, int total, double fraccion)
+    {
+        lblPill.Text = total > 0
+            ? $"Comprimiendo {hecho}/{total} · {fraccion * 100:0} %"
+            : "Comprimiendo";
+    }
+
+    /// <summary>
+    /// Al acabar, la píldora dice «✓ N hechos» unos segundos y se retira. Quitarla de golpe
+    /// dejaría a quien esté en «Organizar» sin enterarse de que terminó.
+    /// </summary>
+    private void AnunciarFinEnPildora(int total)
+    {
+        if (pillFondo.Visibility != Visibility.Visible) return;
+
+        pillDot.Visibility = Visibility.Collapsed;
+        lblPill.Text = $"✓ {total} hecho{(total == 1 ? "" : "s")}";
+
+        var reloj = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+        reloj.Tick += (s, _) =>
+        {
+            reloj.Stop();
+            pillFondo.Visibility = Visibility.Collapsed;
+            pillDot.Visibility = Visibility.Visible;
+        };
+        reloj.Start();
+    }
+
     // reporter que marshaliza el avance del motor al hilo de la UI
     private sealed class Reporter : IEngineReporter
     {
@@ -1017,10 +1090,25 @@ public partial class MainWindow : Window
         private readonly bool _del;
         public Reporter(MainWindow w, bool deleteOriginals) { _w = w; _del = deleteOriginals; }
         public void Log(string line) => _w.Dispatcher.BeginInvoke(() => _w.AppendLog(line));
+        // El índice y el total se guardan para la píldora de la barra de título: cuando el
+        // usuario se va a «Organizar» deja de ver la barra de progreso, y esa píldora es lo
+        // único que le dice que la compresión sigue viva.
+        private int _idx, _total;
+
         public void FileStart(int i, int t, string name, double dur) =>
-            _w.Dispatcher.BeginInvoke(() => { _w.lblProg.Text = $"[{i}/{t}] {name}"; _w.bar.Value = 0; });
+            _w.Dispatcher.BeginInvoke(() =>
+            {
+                _idx = i; _total = t;
+                _w.lblProg.Text = $"[{i}/{t}] {name}";
+                _w.bar.Value = 0;
+                _w.ActualizarTextoPildora(i, t, 0);
+            });
         public void FileProgress(double frac, string raw) =>
-            _w.Dispatcher.BeginInvoke(() => _w.bar.Value = frac);
+            _w.Dispatcher.BeginInvoke(() =>
+            {
+                _w.bar.Value = frac;
+                _w.ActualizarTextoPildora(_idx, _total, frac);
+            });
 
         // Borrado iteración a iteración: en cuanto un archivo se comprime OK, su original
         // se envía a la Papelera (en segundo plano, sin bloquear la codificación siguiente).

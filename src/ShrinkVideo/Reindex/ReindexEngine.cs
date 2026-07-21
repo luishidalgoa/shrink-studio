@@ -66,20 +66,36 @@ public sealed class ReindexResolution
     /// <summary>Otros episodios plausibles, para corregir con un clic.</summary>
     public IReadOnlyList<ReindexCandidato> Alternativas { get; set; } = Array.Empty<ReindexCandidato>();
 
-    /// <summary>¿Se puede aplicar sin intervención? Solo lo verde y que además cambie algo.</summary>
+    /// <summary>
+    /// ¿Se puede aplicar sin más intervención? «Verdes + confirmados»: los especiales entran
+    /// solo cuando alguien los ha confirmado, porque nacen en Revisar y únicamente una
+    /// decisión humana (o un override guardado) los sube a Alta.
+    /// </summary>
     public bool AplicableEnBloque => Confianza == ReindexConfianza.Alta
-                                     && Estado is ReindexEstado.Limpio or ReindexEstado.Corregido;
+        && Estado is ReindexEstado.Limpio or ReindexEstado.Corregido or ReindexEstado.Especial;
     /// <summary>¿Necesita a una persona? Es el filtro «Solo dudas» del diseño.</summary>
     public bool EsDuda => Confianza != ReindexConfianza.Alta;
 }
 
-/// <summary>Una decisión que el usuario ya tomó y que no se le vuelve a preguntar.</summary>
+/// <summary>
+/// Una decisión que el usuario ya tomó y que no se le vuelve a preguntar. Se guarda con el
+/// nombre original al lado por trazabilidad: dentro de un año, «episodio 72» sin más no le
+/// dirá nada a nadie.
+/// </summary>
 public sealed class ReindexOverride
 {
+    [System.Text.Json.Serialization.JsonPropertyName("num")]
     public required int Num { get; init; }
+    [System.Text.Json.Serialization.JsonPropertyName("temporada")]
     public int? Temporada { get; init; }
+    [System.Text.Json.Serialization.JsonPropertyName("serie")]
     public string Serie { get; init; } = "";
+    /// <summary>«usuario» o «auto-confirmado».</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("origen")]
     public string Origen { get; init; } = "usuario";
+    [System.Text.Json.Serialization.JsonPropertyName("fecha_decision")]
+    public string FechaDecision { get; init; } = "";
+    [System.Text.Json.Serialization.JsonPropertyName("nombre_original")]
     public string NombreOriginal { get; init; } = "";
 }
 
