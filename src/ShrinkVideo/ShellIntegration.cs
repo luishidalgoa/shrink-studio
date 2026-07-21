@@ -26,6 +26,43 @@ internal static class ShellIntegration
     private static string KeyPath(string ext) =>
         $@"Software\Classes\SystemFileAssociations\{ext}\shell\{VerbName}";
 
+    // ---------- «Enviar a» ----------
+    // Complementa al menú contextual y es más robusto: la carpeta SendTo se lee en vivo
+    // (no hay caché de menús que refrescar) y el Explorador pasa TODOS los archivos
+    // seleccionados de una vez, sin el tope que el menú clásico impone a las selecciones
+    // grandes.
+
+    private static string SendToLink => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        @"Microsoft\Windows\SendTo", "ShrinkStudio.lnk");
+
+    public static bool SendToExists() => File.Exists(SendToLink);
+
+    public static bool CreateSendTo()
+    {
+        if (string.IsNullOrEmpty(ExePath) || !File.Exists(ExePath)) return false;
+        try
+        {
+            var type = Type.GetTypeFromProgID("WScript.Shell");
+            if (type == null) return false;
+            dynamic shell = Activator.CreateInstance(type)!;
+            dynamic sc = shell.CreateShortcut(SendToLink);
+            sc.TargetPath = ExePath;
+            sc.IconLocation = ExePath + ",0";
+            sc.Description = "Añadir estos vídeos a la lista de ShrinkStudio";
+            sc.WorkingDirectory = Path.GetDirectoryName(ExePath);
+            sc.Save();
+            return File.Exists(SendToLink);
+        }
+        catch { return false; }
+    }
+
+    public static bool RemoveSendTo()
+    {
+        try { if (File.Exists(SendToLink)) File.Delete(SendToLink); return true; }
+        catch { return false; }
+    }
+
     /// <summary>¿Está la entrada puesta y apuntando a este mismo ejecutable?</summary>
     public static bool IsRegistered()
     {
@@ -56,6 +93,7 @@ internal static class ShellIntegration
                 using var cmd = verb.CreateSubKey("command");
                 cmd.SetValue(null, $"\"{ExePath}\" \"%1\"");
             }
+            CreateSendTo();                 // además, atajo en «Enviar a»
             ShellNotify.AssociationsChanged();
             return true;
         }
@@ -72,6 +110,7 @@ internal static class ShellIntegration
                 try { Registry.CurrentUser.DeleteSubKeyTree(KeyPath(ext), throwOnMissingSubKey: false); }
                 catch { }
             }
+            RemoveSendTo();
             ShellNotify.AssociationsChanged();
             return true;
         }

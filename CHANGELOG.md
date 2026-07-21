@@ -35,6 +35,8 @@ es un acuerdo de buena voluntad: está verificado.
   ShrinkStudio», y aparecen directamente en la lista de la app. Funciona tanto si la app estaba
   cerrada como si ya la tenías abierta, y no duplica ventanas ni filas repetidas. Se activa desde
   Preferencias → General.
+- **Atajo en «Enviar a»**, que se activa junto al anterior. Es la vía más fiable: aparece al
+  momento sin reiniciar el Explorador y admite selecciones grandes, que el menú clásico recorta.
 
 ### Cambiado
 
