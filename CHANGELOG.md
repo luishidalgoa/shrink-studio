@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-21
+
 ### Añadido
 
 - **Un botón «← Volver» para salir de la simulación** y regresar a la pantalla de inicio. Antes,
