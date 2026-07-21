@@ -60,6 +60,7 @@ public partial class OrganizarView : UserControl
         btnFormato.Click += (_, _) => AbrirEspecificacion();
         btnEjemplo.Click += (_, _) => GuardarEjemplo();
         btnPrompt.Click += (_, _) => AbrirGeneradorDePrompt();
+        btnVolver.Click += (_, _) => VolverAlInicio();
         btnSimular.Click += (_, _) => Simular();
         btnSimularGrande.Click += (_, _) => Simular();
         btnAplicar.Click += (_, _) => PedirConfirmacion();
@@ -305,7 +306,31 @@ public partial class OrganizarView : UserControl
         lblVistaPrevia.Text = nombre == null
             ? "⚠ Esa plantilla no deja nombre: añade alguna marca o texto"
             : "Quedaría: " + nombre;
+
+        // El «Quedaría:» se corta casi siempre —estos títulos son larguísimos— así que el
+        // ejemplo entero va también al globo, que es donde cabe entero.
+        var globo = nombre == null
+            ? ExplicacionPlantilla
+            : $"{ExplicacionPlantilla}\n\nCon «{_catalogoCargado.Serie}» quedaría:\n{nombre}";
+
+        txtPlantilla.ToolTip = Globo(globo);
+        lblVistaPrevia.ToolTip = Globo(globo);
     }
+
+    private const string ExplicacionPlantilla =
+        "Cómo se compone el nombre final. No es el «Renombrado libre» de Herramientas: " +
+        "aquí el nombre se construye desde el catálogo.";
+
+    /// <summary>
+    /// Un globo con el texto ajustado. Cada llamada crea el suyo: un mismo elemento visual no
+    /// puede colgar de dos sitios, así que compartirlo dejaría el segundo en blanco.
+    /// </summary>
+    private static TextBlock Globo(string texto) => new()
+    {
+        Text = texto,
+        MaxWidth = 460,
+        TextWrapping = TextWrapping.Wrap,
+    };
 
     // ─────────────────────────── catálogos ───────────────────────────
 
@@ -427,6 +452,21 @@ public partial class OrganizarView : UserControl
         }
         catch (Exception ex) { Aviso($"La simulación falló: {ex.Message}"); }
         finally { ActualizarEstado(); }
+    }
+
+    /// <summary>
+    /// Descarta la simulación y vuelve a la pantalla de inicio.
+    ///
+    /// No se pregunta nada porque no se pierde nada: las decisiones que hayas tomado a mano
+    /// se guardan en disco en cuanto las tomas, y al volver a simular se reaplican solas
+    /// («Lo decidiste tú antes»). Lo único que se tira es el cálculo, que se rehace en
+    /// segundos.
+    /// </summary>
+    private void VolverAlInicio()
+    {
+        MostrarInicio();
+        ActualizarContadores();
+        ActualizarEstado();
     }
 
     private void MostrarInicio()

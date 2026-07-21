@@ -29,6 +29,23 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **Un botón «← Volver» para salir de la simulación** y regresar a la pantalla de inicio. Antes,
+  una vez simulabas te quedabas en la tabla y la única salida era cambiar de página y volver.
+  No pregunta nada porque no se pierde nada: las decisiones que hayas tomado a mano se guardan
+  en cuanto las tomas y se reaplican solas al volver a simular. La carpeta elegida se conserva.
+
+### Corregido
+
+- **Las marcas de la plantilla salían dentadas.** Cada una empezaba en una sangría distinta,
+  así que la lista se leía como texto centrado en vez de como una tabla. La plantilla de los
+  botones clavaba su contenido al centro e ignoraba a quien pidiera otra cosa — le pasaba
+  igual a la lista de idiomas.
+- **El ejemplo del nombre final ya se puede leer entero.** La línea «Quedaría:» se corta casi
+  siempre porque estos títulos son larguísimos; ahora el nombre completo está también en el
+  globo de ayuda del campo, junto con la explicación de para qué sirve.
+
 ## [0.8.0] - 2026-07-21
 
 ### Añadido
