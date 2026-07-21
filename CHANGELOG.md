@@ -50,6 +50,14 @@ es un acuerdo de buena voluntad: está verificado.
   lanzar la tanda.
 - La lista vacía ahora explica qué hacer en vez de ser un hueco en negro.
 
+### Corregido
+
+- **Los MP4 salían sin subtítulos, y además no eran MP4 de verdad.** El archivo temporal
+  se creaba siempre con extensión `.mkv`, y como ffmpeg decide el formato por la extensión,
+  el resultado era un Matroska con el nombre cambiado. Ahora el MP4 es un MP4 y conserva
+  los subtítulos de texto. Los de imagen (los de los DVD y Blu-ray) no caben en MP4: se
+  descartan avisándote, en vez de tumbar la compresión entera.
+
 ## [0.5.0] - 2026-07-21
 
 ### Añadido
