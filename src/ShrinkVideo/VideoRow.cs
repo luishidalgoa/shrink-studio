@@ -10,10 +10,8 @@ public sealed class VideoRow : INotifyPropertyChanged
     private void N([CallerMemberName] string? p = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
 
-    private bool _sel = true;
     private string _estado = "…", _codec = "", _audio = "", _subs = "", _dur = "";
 
-    public bool Sel { get => _sel; set { _sel = value; N(); } }
     public string Estado { get => _estado; set { _estado = value; N(); } }
     public string Codec { get => _codec; set { _codec = value; N(); } }
     public string Audio { get => _audio; set { _audio = value; N(); } }

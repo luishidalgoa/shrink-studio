@@ -59,6 +59,31 @@
           </Border>
           <TextBlock Text="ShrinkStudio" FontSize="15" FontWeight="Medium" Foreground="{StaticResource Text}" VerticalAlignment="Center" Margin="10,0,0,0"/>
           <TextBlock x:Name="lblVersion" Text="v0.3.0" FontSize="11" Foreground="{StaticResource Neutral600}" VerticalAlignment="Center" Margin="8,2,0,0"/>
+          <Menu x:Name="menuBar" VerticalAlignment="Center" Margin="20,0,0,0" Background="Transparent"
+                WindowChrome.IsHitTestVisibleInChrome="True">
+            <MenuItem Header="Archivo">
+              <MenuItem x:Name="miPickSrc" Header="Elegir carpeta de origen…"/>
+              <MenuItem x:Name="miAddFiles" Header="Añadir archivos…"/>
+              <MenuItem x:Name="miOpenDest" Header="Abrir carpeta de destino"/>
+              <Separator/>
+              <MenuItem x:Name="miExit" Header="Salir"/>
+            </MenuItem>
+            <MenuItem Header="Selección">
+              <MenuItem x:Name="miSelAll" Header="Seleccionar todo"/>
+              <MenuItem x:Name="miSelNone" Header="Quitar selección"/>
+              <MenuItem x:Name="miSelInvert" Header="Invertir selección"/>
+              <Separator/>
+              <MenuItem x:Name="miDelSel" Header="Enviar selección a la Papelera"/>
+            </MenuItem>
+            <MenuItem Header="Herramientas">
+              <MenuItem x:Name="miPrefs" Header="Preferencias…"/>
+              <Separator/>
+              <MenuItem x:Name="miCheckUpd" Header="Buscar actualizaciones"/>
+            </MenuItem>
+            <MenuItem Header="Ayuda">
+              <MenuItem x:Name="miAbout" Header="Acerca de ShrinkStudio"/>
+            </MenuItem>
+          </Menu>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True">
           <Button x:Name="btnMin" Style="{StaticResource BtnTitle}">
@@ -195,26 +220,28 @@
       <!-- ══ Tabla + panel lateral ══ -->
       <Grid Grid.Row="4" Margin="16,10,16,0">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="262"/></Grid.ColumnDefinitions>
-        <Border Background="{StaticResource Surface}" CornerRadius="8" Padding="0,4">
-          <ListView x:Name="lst" Style="{StaticResource TableView}" SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
-            <ListView.View>
-              <GridView ColumnHeaderContainerStyle="{StaticResource ColHeader}">
-                <GridViewColumn Width="40">
-                  <GridViewColumn.CellTemplate><DataTemplate>
-                    <CheckBox IsChecked="{Binding Sel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="12,0,0,0"/>
-                  </DataTemplate></GridViewColumn.CellTemplate>
-                </GridViewColumn>
-                <GridViewColumn Header="VÍDEO" Width="300" DisplayMemberBinding="{Binding Name}"/>
-                <GridViewColumn Header="CARPETA" Width="130" DisplayMemberBinding="{Binding Dir}"/>
-                <GridViewColumn Header="TAMAÑO" Width="80" DisplayMemberBinding="{Binding SizeMB}"/>
-                <GridViewColumn Header="DURACIÓN" Width="76" DisplayMemberBinding="{Binding Dur}"/>
-                <GridViewColumn Header="CÓDEC" Width="64" DisplayMemberBinding="{Binding Codec}"/>
-                <GridViewColumn Header="AUDIO" Width="88" DisplayMemberBinding="{Binding Audio}"/>
-                <GridViewColumn Header="SUBS" Width="64" DisplayMemberBinding="{Binding Subs}"/>
-                <GridViewColumn Header="ESTADO" Width="104" DisplayMemberBinding="{Binding Estado}"/>
-              </GridView>
-            </ListView.View>
-          </ListView>
+        <Border Background="{StaticResource Surface}" CornerRadius="8" Padding="0,4" ClipToBounds="True">
+          <Grid>
+            <ListView x:Name="lst" Style="{StaticResource TableView}" SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
+              <ListView.View>
+                <GridView ColumnHeaderContainerStyle="{StaticResource ColHeader}">
+                  <GridViewColumn Header="VÍDEO" Width="316" DisplayMemberBinding="{Binding Name}"/>
+                  <GridViewColumn Header="CARPETA" Width="130" DisplayMemberBinding="{Binding Dir}"/>
+                  <GridViewColumn Header="TAMAÑO" Width="80" DisplayMemberBinding="{Binding SizeMB}"/>
+                  <GridViewColumn Header="DURACIÓN" Width="76" DisplayMemberBinding="{Binding Dur}"/>
+                  <GridViewColumn Header="CÓDEC" Width="64" DisplayMemberBinding="{Binding Codec}"/>
+                  <GridViewColumn Header="AUDIO" Width="88" DisplayMemberBinding="{Binding Audio}"/>
+                  <GridViewColumn Header="SUBS" Width="64" DisplayMemberBinding="{Binding Subs}"/>
+                  <GridViewColumn Header="ESTADO" Width="104" DisplayMemberBinding="{Binding Estado}"/>
+                </GridView>
+              </ListView.View>
+            </ListView>
+            <!-- banda de selección (rubber-band), estilo explorador -->
+            <Canvas x:Name="marqueeCanvas" IsHitTestVisible="False">
+              <Border x:Name="marquee" Visibility="Collapsed" Background="#33968AE0"
+                      BorderBrush="{StaticResource Accent}" BorderThickness="1" CornerRadius="1"/>
+            </Canvas>
+          </Grid>
         </Border>
 
         <Grid Grid.Column="1" Margin="10,0,0,0">
@@ -295,13 +322,13 @@
           <Border Grid.Row="1" Background="{StaticResource Surface}" CornerRadius="8" Padding="8">
             <StackPanel>
               <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                <Button x:Name="btnMarkAll" Style="{StaticResource BtnSecondary}" Content="Marcar todos" FontSize="12" Padding="5,6" Width="112" Margin="0,0,6,0"/>
-                <Button x:Name="btnMarkNone" Style="{StaticResource BtnSecondary}" Content="Desmarcar" FontSize="12" Padding="5,6" Width="112"/>
+                <Button x:Name="btnMarkAll" Style="{StaticResource BtnSecondary}" Content="Seleccionar todo" FontSize="12" Padding="5,6" Width="112" Margin="0,0,6,0"/>
+                <Button x:Name="btnMarkNone" Style="{StaticResource BtnSecondary}" Content="Quitar selección" FontSize="12" Padding="5,6" Width="112"/>
               </StackPanel>
-              <Button x:Name="btnDelSel" Style="{StaticResource BtnSecondary}" HorizontalContentAlignment="Left" FontSize="12" Padding="10,6" Margin="0,0,0,6" ToolTip="Enviar los marcados a la Papelera">
+              <Button x:Name="btnDelSel" Style="{StaticResource BtnSecondary}" HorizontalContentAlignment="Left" FontSize="12" Padding="10,6" Margin="0,0,0,6" ToolTip="Enviar la selección a la Papelera">
                 <StackPanel Orientation="Horizontal">
                   <Viewbox Width="13" Height="13" Margin="0,0,7,0"><Path Data="M2.5 4h11 M5.5 4V2.5h5V4 M4 4l.8 9.5h6.4L12 4 M6.7 6.5v4.5 M9.3 6.5v4.5" Stroke="{StaticResource Neutral400}" StrokeThickness="1.4" StrokeLineJoin="Round" StrokeStartLineCap="Round"/></Viewbox>
-                  <TextBlock Text="Eliminar marcados" VerticalAlignment="Center"/>
+                  <TextBlock Text="Eliminar selección" VerticalAlignment="Center"/>
                 </StackPanel>
               </Button>
               <Button x:Name="btnDelDir" Style="{StaticResource BtnSecondary}" HorizontalContentAlignment="Left" FontSize="12" Padding="10,6" ToolTip="Enviar una carpeta entera a la Papelera">
@@ -332,7 +359,7 @@
           <Button x:Name="btnRun" Style="{StaticResource BtnPrimary}" Margin="0,0,8,0">
             <StackPanel Orientation="Horizontal">
               <Viewbox Width="14" Height="14" Margin="0,0,6,0"><Path Data="M2 2l4 4M6 3.5V6H3.5M14 14l-4-4M10 12.5V10h2.5" Stroke="#968AE0" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeLineJoin="Round"/></Viewbox>
-              <TextBlock Text="Comprimir marcados" VerticalAlignment="Center"/>
+              <TextBlock Text="Comprimir selección" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
           <Button x:Name="btnPause" Style="{StaticResource BtnSecondary}" Content="Pausar" IsEnabled="False" Margin="0,0,8,0"/>

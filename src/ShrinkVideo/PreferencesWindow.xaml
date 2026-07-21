@@ -1,0 +1,88 @@
+<Window x:Class="ShrinkVideo.PreferencesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Preferencias" Width="580" Height="470" WindowStyle="None" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}" Background="Transparent">
+  <Border Background="{StaticResource Bg}" BorderBrush="{StaticResource Divider}" BorderThickness="1" CornerRadius="10">
+    <Grid Margin="0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/><!-- header -->
+        <RowDefinition Height="*"/><!-- tabs -->
+        <RowDefinition Height="Auto"/><!-- footer -->
+      </Grid.RowDefinitions>
+
+      <!-- header (arrastrable) -->
+      <Grid x:Name="header" Grid.Row="0" Height="46" Background="Transparent">
+        <TextBlock Text="Preferencias" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" Margin="18,0,0,0"/>
+        <Button x:Name="btnX" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"
+                Width="30" Height="30" Background="Transparent" BorderThickness="0" Cursor="Hand" Foreground="{StaticResource Neutral500}">
+          <Path Data="M2,2 L11,11 M11,2 L2,11" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                StrokeThickness="1.3" Width="13" Height="13" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Button>
+      </Grid>
+
+      <TabControl Grid.Row="1" Margin="18,0,18,0">
+        <!-- ══ General ══ -->
+        <TabItem Header="General">
+          <StackPanel>
+            <TextBlock Text="Preset por defecto al abrir" FontSize="11" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
+            <ComboBox x:Name="cboDefPreset" Width="320" HorizontalAlignment="Left" Margin="0,0,0,16"/>
+
+            <TextBlock Text="Idioma de audio por defecto" FontSize="11" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
+            <TextBlock Text="Se marca como pista de audio por defecto (código ISO, p. ej. spa, eng, por)." FontSize="10.5" Foreground="{StaticResource Neutral600}" Margin="0,0,0,4"/>
+            <TextBox x:Name="txtDefLang" Width="140" HorizontalAlignment="Left" Margin="0,0,0,18"/>
+
+            <CheckBox x:Name="chkRecurse" Content="Analizar subcarpetas por defecto" Margin="0,0,0,10"/>
+            <CheckBox x:Name="chkUpdates" Content="Buscar actualizaciones al abrir la app"/>
+          </StackPanel>
+        </TabItem>
+
+        <!-- ══ Al comprimir ══ -->
+        <TabItem Header="Al comprimir">
+          <StackPanel>
+            <TextBlock Text="Cuando termine de comprimir cada archivo…" FontSize="12" Foreground="{StaticResource Neutral400}" Margin="0,0,0,10"/>
+            <RadioButton x:Name="rbAsk" GroupName="after" Content="Preguntarme cada vez (antes de empezar)"/>
+            <RadioButton x:Name="rbRecycle" GroupName="after" Content="Enviar el original a la Papelera automáticamente"/>
+            <RadioButton x:Name="rbKeep" GroupName="after" Content="Conservar los originales"/>
+            <Border Background="{StaticResource Field}" CornerRadius="8" Padding="12,10" Margin="0,16,0,0">
+              <StackPanel>
+                <TextBlock TextWrapping="Wrap" FontSize="11.5" Foreground="{StaticResource Neutral500}"
+                           Text="Los originales se envían a la Papelera de reciclaje (recuperables); nunca se borran de forma definitiva."/>
+                <TextBlock TextWrapping="Wrap" FontSize="11.5" Foreground="{StaticResource Neutral500}" Margin="0,6,0,0"
+                           Text="El borrado ocurre en cuanto la versión comprimida de cada archivo está lista y verificada — archivo por archivo, no al final."/>
+                <TextBlock TextWrapping="Wrap" FontSize="11.5" Foreground="{StaticResource Neutral600}" Margin="0,6,0,0"
+                           Text="Nunca se elimina un original si el comprimido se guardaría en su misma ruta."/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </TabItem>
+
+        <!-- ══ Rendimiento y disco ══ -->
+        <TabItem Header="Rendimiento y disco">
+          <StackPanel>
+            <TextBlock Text="Margen mínimo de disco antes de pausar" FontSize="11" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+              <TextBox x:Name="txtMinFree" Width="90" HorizontalAlignment="Left"/>
+              <TextBlock Text="MB" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{StaticResource Neutral500}"/>
+            </StackPanel>
+            <TextBlock TextWrapping="Wrap" FontSize="10.5" Foreground="{StaticResource Neutral600}" Margin="0,0,0,18"
+                       Text="Si el espacio libre baja de este margen, la compresión se pausa y se reanuda sola al liberar espacio."/>
+
+            <CheckBox x:Name="chkHw" Content="Usar aceleración por hardware (GPU) si está disponible"/>
+            <TextBlock TextWrapping="Wrap" FontSize="10.5" Foreground="{StaticResource Neutral600}" Margin="0,6,0,0"
+                       Text="Desactívalo solo si tu GPU produce artefactos. Por CPU la compresión es bastante más lenta."/>
+          </StackPanel>
+        </TabItem>
+      </TabControl>
+
+      <!-- footer -->
+      <Border Grid.Row="2" BorderBrush="{StaticResource Divider}" BorderThickness="0,1,0,0" Padding="18,12">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button x:Name="btnCancel" Style="{StaticResource BtnSecondary}" Content="Cancelar" Width="100" Margin="0,0,8,0"/>
+          <Button x:Name="btnSave" Style="{StaticResource BtnPrimary}" Content="Guardar" Width="100" IsDefault="True"/>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Border>
+</Window>

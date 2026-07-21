@@ -465,4 +465,154 @@
     </Setter>
   </Style>
 
+  <!-- ══ Barra de menú (oscura) ══ -->
+  <Style TargetType="Menu">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Foreground" Value="{StaticResource Neutral400}"/>
+    <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+    <Setter Property="FontSize" Value="12.5"/>
+  </Style>
+
+  <Style TargetType="Separator">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Separator">
+          <Border Height="1" Background="{StaticResource Divider}" Margin="8,4"/>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style TargetType="MenuItem">
+    <Setter Property="Foreground" Value="{StaticResource Neutral300}"/>
+    <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+    <Setter Property="FontSize" Value="12.5"/>
+    <Setter Property="Padding" Value="10,6"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="MenuItem">
+          <Border x:Name="wrap" Background="Transparent" CornerRadius="5" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock x:Name="chk" Grid.Column="0" Text="✓" FontSize="11" VerticalAlignment="Center"
+                         Foreground="{StaticResource Accent200}" Visibility="Collapsed"/>
+              <ContentPresenter x:Name="hdr" Grid.Column="1" ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+              <TextBlock x:Name="arrow" Grid.Column="2" Text="›" FontSize="14" Margin="16,0,0,0" VerticalAlignment="Center"
+                         Foreground="{StaticResource Neutral500}" Visibility="Collapsed"/>
+              <Popup x:Name="PART_Popup" AllowsTransparency="True" Focusable="False" IsOpen="{TemplateBinding IsSubmenuOpen}"
+                     Placement="Bottom" HorizontalOffset="0" VerticalOffset="2" PopupAnimation="Fade">
+                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
+                        CornerRadius="8" Padding="4" MinWidth="180" Margin="0,0,10,10">
+                  <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.5" Color="#000000"/></Border.Effect>
+                  <ItemsPresenter/>
+                </Border>
+              </Popup>
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Role" Value="TopLevelHeader">
+              <Setter TargetName="chk" Property="Visibility" Value="Collapsed"/>
+              <Setter Property="Padding" Value="11,7"/>
+            </Trigger>
+            <Trigger Property="Role" Value="SubmenuHeader">
+              <Setter TargetName="arrow" Property="Visibility" Value="Visible"/>
+              <Setter TargetName="PART_Popup" Property="Placement" Value="Right"/>
+              <Setter TargetName="PART_Popup" Property="VerticalOffset" Value="-6"/>
+            </Trigger>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="wrap" Property="Background" Value="{StaticResource Accent900}"/>
+              <Setter Property="Foreground" Value="{StaticResource Accent200}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="chk" Property="Visibility" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.4"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ══ TabControl / TabItem (oscuro, subrayado accent) ══ -->
+  <Style TargetType="TabControl">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabControl">
+          <DockPanel>
+            <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1">
+              <TabPanel IsItemsHost="True" Panel.ZIndex="1" Margin="0" Background="Transparent"/>
+            </Border>
+            <ContentPresenter ContentSource="SelectedContent" Margin="0,14,0,0"/>
+          </DockPanel>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style TargetType="TabItem">
+    <Setter Property="Foreground" Value="{StaticResource Neutral500}"/>
+    <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+    <Setter Property="FontSize" Value="12.5"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabItem">
+          <Border x:Name="b" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="12,7" Margin="0,0,4,0">
+            <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Foreground" Value="{StaticResource Neutral300}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/>
+              <Setter Property="Foreground" Value="{StaticResource Accent300}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ══ RadioButton (oscuro) ══ -->
+  <Style TargetType="RadioButton">
+    <Setter Property="Foreground" Value="{StaticResource Text}"/>
+    <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+    <Setter Property="FontSize" Value="12.5"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Margin" Value="0,4"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <StackPanel Orientation="Horizontal" Background="Transparent">
+            <Grid Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0">
+              <Ellipse x:Name="ring" Stroke="{StaticResource Neutral600}" StrokeThickness="1.5"/>
+              <Ellipse x:Name="dot" Width="8" Height="8" Fill="{StaticResource Accent}" Visibility="Collapsed"/>
+            </Grid>
+            <ContentPresenter VerticalAlignment="Center"/>
+          </StackPanel>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="ring" Property="Stroke" Value="{StaticResource Accent400}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="ring" Property="Stroke" Value="{StaticResource Accent}"/>
+              <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
 </ResourceDictionary>
