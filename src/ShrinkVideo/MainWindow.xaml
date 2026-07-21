@@ -26,8 +26,12 @@
       </Grid.RowDefinitions>
 
       <!-- ══ Banner de actualización ══ -->
+      <!-- IsHitTestVisibleInChrome es imprescindible: esta barra cae dentro de los 40 px
+           de CaptionHeight, que WindowChrome reserva para arrastrar la ventana. Sin esto
+           el área se traga los clics y los botones no responden. -->
       <Border x:Name="updateBar" Grid.Row="0" Background="{StaticResource Accent900}" BorderBrush="{StaticResource Accent800}"
-              BorderThickness="0,0,0,1" Padding="16,8" Visibility="Collapsed">
+              BorderThickness="0,0,0,1" Padding="16,8" Visibility="Collapsed"
+              WindowChrome.IsHitTestVisibleInChrome="True">
         <StackPanel Orientation="Horizontal">
           <Viewbox Width="15" Height="15" VerticalAlignment="Center">
             <Path Data="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3M3.5 3.5l2 2M10.5 10.5l2 2M12.5 3.5l-2 2M5.5 10.5l-2 2"
