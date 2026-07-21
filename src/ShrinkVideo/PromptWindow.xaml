@@ -81,24 +81,26 @@
             </TextBlock.ToolTip>
           </TextBlock>
 
+          <!-- Los elegidos a la vista y la lista en un emergente. Tenerla siempre abierta
+               se comía media ventana y acababa pisando la vista previa: son 183 idiomas, y
+               lo normal es tocar esto una vez y olvidarse. Mismo patrón que «Marcas». -->
           <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}"
-                  BorderThickness="1" CornerRadius="8" Padding="8,7">
-            <StackPanel>
+                  BorderThickness="1" CornerRadius="8" Padding="8,6" MinHeight="46">
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
 
-              <!-- Los elegidos, siempre a la vista: son la respuesta, y sin ellos habría que
-                   recorrer la lista entera para saber qué llevas marcado. -->
-              <ItemsControl x:Name="listaSeleccionados" Margin="0,0,0,6">
+              <ItemsControl x:Name="listaSeleccionados" VerticalAlignment="Center">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <Border Background="{StaticResource Accent900}" BorderBrush="{StaticResource Accent700}"
-                            BorderThickness="1" CornerRadius="6" Padding="7,2" Margin="0,0,5,5">
+                            BorderThickness="1" CornerRadius="6" Padding="7,2" Margin="0,2,5,2">
                       <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding Nombre}" FontSize="11.5" VerticalAlignment="Center"
                                    Foreground="{StaticResource Accent200}"/>
-                        <Button Style="{StaticResource BtnGhostMuted}" Content="✕" FontSize="9"
+                        <Button Style="{StaticResource BtnGhostMuted}" Content="&#x2715;" FontSize="9"
                                 Padding="4,1" Margin="5,0,-4,0" Click="OnQuitarIdioma"
                                 Tag="{Binding Codigo}" ToolTip="Quitar este idioma"/>
                       </StackPanel>
@@ -107,38 +109,50 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
 
-              <TextBox x:Name="txtBuscarIdioma" Margin="0,0,0,6"
-                       ToolTip="Escribe el nombre o el código: «japones», «ja», «catal»…"/>
+              <ToggleButton x:Name="btnAnadirIdioma" Grid.Column="1" Style="{StaticResource FiltroChip}"
+                            VerticalAlignment="Center" Margin="6,0,0,0" Padding="9,3" FontSize="11.5"
+                            Content="+ Anadir" ToolTip="Buscar y anadir idiomas"/>
 
-              <ScrollViewer MaxHeight="126" VerticalScrollBarVisibility="Auto">
-                <ItemsControl x:Name="listaResultados">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Button Style="{StaticResource BtnGhostMuted}" HorizontalContentAlignment="Stretch"
-                              Padding="8,4" Click="OnAlternarIdioma" Tag="{Binding Codigo}">
-                        <Grid>
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="16"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                          </Grid.ColumnDefinitions>
-                          <TextBlock Text="{Binding Marca}" FontSize="11" VerticalAlignment="Center"
-                                     Foreground="{StaticResource Accent}"/>
-                          <TextBlock Grid.Column="1" Text="{Binding Nombre}" FontSize="12"
-                                     VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                          <TextBlock Grid.Column="2" Text="{Binding Codigo}" FontSize="11"
-                                     VerticalAlignment="Center" Margin="8,0,0,0"
-                                     FontFamily="{StaticResource FontMono}"
-                                     Foreground="{StaticResource Neutral500}"/>
-                        </Grid>
-                      </Button>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </ScrollViewer>
-
-              <TextBlock x:Name="lblSinResultados" FontSize="11.5" Margin="4,4,0,2"
-                         Foreground="{StaticResource Neutral500}" Visibility="Collapsed"
-                         Text="Ningún idioma se llama así"/>
-            </StackPanel>
+              <Popup x:Name="popIdiomas" PlacementTarget="{Binding ElementName=btnAnadirIdioma}"
+                     Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
+                     IsOpen="{Binding IsChecked, ElementName=btnAnadirIdioma, Mode=TwoWay}"
+                     HorizontalOffset="-232">
+                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Neutral800}"
+                        BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,4,12,12" Width="320">
+                  <StackPanel>
+                    <TextBox x:Name="txtBuscarIdioma" Margin="0,0,0,6"
+                             ToolTip="Escribe el nombre o el codigo"/>
+                    <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                      <ItemsControl x:Name="listaResultados">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Button Style="{StaticResource BtnGhostMuted}" HorizontalContentAlignment="Stretch"
+                                    Padding="8,4" Click="OnAlternarIdioma" Tag="{Binding Codigo}">
+                              <Grid>
+                                <Grid.ColumnDefinitions>
+                                  <ColumnDefinition Width="16"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Marca}" FontSize="11" VerticalAlignment="Center"
+                                           Foreground="{StaticResource Accent}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Nombre}" FontSize="12"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Codigo}" FontSize="11"
+                                           VerticalAlignment="Center" Margin="8,0,0,0"
+                                           FontFamily="{StaticResource FontMono}"
+                                           Foreground="{StaticResource Neutral500}"/>
+                              </Grid>
+                            </Button>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                    <TextBlock x:Name="lblSinResultados" FontSize="11.5" Margin="4,4,0,2"
+                               Foreground="{StaticResource Neutral500}" Visibility="Collapsed"
+                               Text="Ningun idioma se llama asi"/>
+                  </StackPanel>
+                </Border>
+              </Popup>
+            </Grid>
           </Border>
         </StackPanel>
       </Grid>

@@ -41,6 +41,16 @@ public partial class PromptWindow : Window
         cboSalida.SelectionChanged += (_, _) => Refrescar();
         txtBuscarIdioma.TextChanged += (_, _) => RefrescarIdiomas();
 
+        // Al abrir: lista limpia y cursor dentro. Si conservara lo escrito, reabrir enseñaría
+        // cuatro resultados de la búsqueda anterior y parecería que no hay más idiomas.
+        // El foco va aplazado porque durante Opened el emergente aún no puede recibirlo.
+        popIdiomas.Opened += (_, _) =>
+        {
+            txtBuscarIdioma.Text = "";
+            Dispatcher.BeginInvoke(new Action(() => txtBuscarIdioma.Focus()),
+                System.Windows.Threading.DispatcherPriority.Input);
+        };
+
         btnCerrar.Click += (_, _) => Close();
         btnCopiar.Click += (_, _) => Copiar();
         btnAbrirFuente.Click += (_, _) => AbrirFuente();
