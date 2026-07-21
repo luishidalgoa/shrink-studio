@@ -19,6 +19,9 @@
   -->
   <ItemGroup>
     <Compile Include="..\..\src\ShrinkVideo\Reindex\*.cs" LinkBase="Reindex" />
+    <!-- La caja de pasos no depende de WPF a proposito: su logica —el orden en que se
+         encienden y que pasa cuando algo falla— se testea aqui sin levantar una ventana. -->
+    <Compile Include="..\..\src\ShrinkVideo\Pasos.cs" />
   </ItemGroup>
 
 </Project>
