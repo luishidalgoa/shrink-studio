@@ -211,20 +211,24 @@
                             <TextBlock Text="{Binding Cat.Resumen}" Style="{StaticResource OrgMuted}"
                                        FontSize="11.5" Margin="10,1,0,0" VerticalAlignment="Center"/>
                           </StackPanel>
-                          <Border HorizontalAlignment="Right" VerticalAlignment="Center"
-                                  Background="{StaticResource Accent800}" CornerRadius="6" Padding="8,2"
-                                  Visibility="{Binding Seleccionado, Converter={StaticResource B2V}}">
-                            <TextBlock Text="seleccionado" FontSize="10.5" Foreground="{StaticResource Accent200}"/>
-                          </Border>
+                          <!-- Los tres en UNA fila. Antes iban alineados a la derecha en la
+                               misma celda: «seleccionado» y «Usar» son excluyentes y no
+                               chocaban, pero «Quitar» sale siempre y quedaba encima de ambos.
+                               Con fondo sólido, además: transparentes sobre el título de al
+                               lado no había quien los leyera. -->
                           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                                       VerticalAlignment="Center">
-                            <Button Content="Usar" Style="{StaticResource BtnGhost}" FontSize="11.5"
-                                    Tag="{Binding Cat.Ruta}" Click="OnUsarCatalogo"
+                            <Border Background="{StaticResource Accent800}" CornerRadius="6" Padding="8,2"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding Seleccionado, Converter={StaticResource B2V}}">
+                              <TextBlock Text="seleccionado" FontSize="10.5"
+                                         Foreground="{StaticResource Accent200}"/>
+                            </Border>
+                            <Button Content="Usar" Style="{StaticResource BtnSecondary}" FontSize="11.5"
+                                    Padding="10,3" Tag="{Binding Cat.Ruta}" Click="OnUsarCatalogo"
                                     Visibility="{Binding NoSeleccionado, Converter={StaticResource B2V}}"/>
-                            <!-- Quitar: borra SOLO la copia que usa la app. El JSON del que se
-                                 importó es del usuario y no se toca. -->
-                            <Button Style="{StaticResource BtnGhostMuted}" FontSize="11.5" Padding="7,3"
-                                    Margin="4,0,0,0" Content="Quitar" Tag="{Binding Cat.Ruta}"
+                            <Button Style="{StaticResource BtnSecondary}" FontSize="11.5" Padding="10,3"
+                                    Margin="6,0,0,0" Content="Quitar" Tag="{Binding Cat.Ruta}"
                                     Click="OnQuitarCatalogo"
                                     ToolTip="Quitar este catálogo de la app (no borra tu fichero JSON)"/>
                           </StackPanel>

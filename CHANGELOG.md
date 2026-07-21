@@ -62,6 +62,13 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **En las tarjetas de catálogo, «Usar», «Quitar» y «seleccionado» se dibujaban unos encima
+  de otros.** Iban los tres pegados a la derecha en el mismo sitio; mientras «Quitar» no
+  existía no se notaba, porque los otros dos nunca salen a la vez. Ahora van en fila y con
+  fondo sólido: transparentes sobre el título de al lado no había quien los leyera.
+- **La lista de idiomas ya no ocupa media ventana ni pisa la vista previa.** Estaba siempre
+  desplegada —183 idiomas— cuando lo normal es tocarla una vez y olvidarse. Ahora se ven las
+  etiquetas de los elegidos y el buscador se abre con «+ Añadir», igual que el menú de marcas.
 - **Un fichero que ya se llama exactamente como debe sale en verde y no cuenta como
   pendiente.** Antes el color lo decidía la confianza de la identificación, así que un
   fichero al que no había que tocarle nada podía salir en ámbar. Y es al revés: que el
