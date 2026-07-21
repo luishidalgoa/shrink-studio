@@ -40,6 +40,10 @@
         <ControlTemplate TargetType="RadioButton">
           <Border x:Name="b" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}"
                   BorderThickness="1" BorderBrush="Transparent">
+            <Border.Effect>
+              <DropShadowEffect ShadowDepth="0" BlurRadius="14" Color="{StaticResource c.glow}" Opacity="0"
+                                RenderingBias="Performance"/>
+            </Border.Effect>
             <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
           </Border>
           <ControlTemplate.Triggers>
@@ -47,10 +51,30 @@
               <Setter TargetName="b" Property="Background" Value="#14E9E9ED"/>
               <Setter Property="Foreground" Value="{StaticResource Text}"/>
             </Trigger>
+            <!-- La página activa se queda encendida: es el único indicador de en qué
+                 oficio estás, y conviene que se vea sin buscarlo. -->
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="b" Property="Background" Value="{StaticResource Surface}"/>
               <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent700}"/>
               <Setter Property="Foreground" Value="{StaticResource Text}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="b"
+                                     Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
+                                     To="0.42" Duration="0:0:0.18"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="b"
+                                     Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>

@@ -124,7 +124,7 @@
       </Grid.ColumnDefinitions>
 
       <!-- Catálogos importados -->
-      <Border Grid.Column="0" Background="{StaticResource Surface}" CornerRadius="8" Padding="14,12">
+      <Border Grid.Column="0" Background="{StaticResource SurfaceGlass}" CornerRadius="8" Padding="14,12">
         <Grid>
           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
           <Grid Grid.Row="0" Margin="0,0,0,12">
@@ -215,7 +215,7 @@
       </Border>
 
       <!-- Ficheros -->
-      <Border Grid.Column="2" Background="{StaticResource Surface}" CornerRadius="8" Padding="14,12">
+      <Border Grid.Column="2" Background="{StaticResource SurfaceGlass}" CornerRadius="8" Padding="14,12">
         <Grid>
           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
           <TextBlock Grid.Row="0" Text="FICHEROS" FontSize="11" FontWeight="Medium"
@@ -289,7 +289,7 @@
         </Grid>
       </Border>
 
-      <Border Grid.Row="1" Background="{StaticResource Surface}" CornerRadius="8" ClipToBounds="True">
+      <Border Grid.Row="1" Background="{StaticResource SurfaceGlass}" CornerRadius="8" ClipToBounds="True">
         <!-- El resolutor se despliega al seleccionar la fila; el propio detalle se oculta
              para las filas que no tienen nada que resolver. -->
         <DataGrid x:Name="tabla" Style="{StaticResource OrgGrid}"

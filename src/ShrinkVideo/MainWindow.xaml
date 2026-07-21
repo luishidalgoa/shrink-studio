@@ -26,6 +26,29 @@
         <RowDefinition Height="Auto"/><!-- log -->
       </Grid.RowDefinitions>
 
+      <!-- ══ Luz ambiental ══
+           Tres manchas radiales muy tenues detrás de TODO (RowSpan de las 8 filas,
+           sin participar en el hit-test). Son brochas, no efectos: no obligan a WPF
+           a componer superficies intermedias, así que salen prácticamente gratis.
+           El latido va en la opacidad del conjunto, muy lento y de recorrido corto
+           (0,82→1 en 9 s): a esa velocidad se percibe como que la sala respira, no
+           como una animación pidiendo atención. -->
+      <Grid x:Name="ambiente" Grid.Row="0" Grid.RowSpan="8" IsHitTestVisible="False" Panel.ZIndex="-1">
+        <Grid.Triggers>
+          <EventTrigger RoutedEvent="Loaded">
+            <BeginStoryboard>
+              <Storyboard>
+                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.82" To="1" Duration="0:0:9"
+                                 AutoReverse="True" RepeatBehavior="Forever"/>
+              </Storyboard>
+            </BeginStoryboard>
+          </EventTrigger>
+        </Grid.Triggers>
+        <Rectangle Fill="{StaticResource AmbienteA}"/>
+        <Rectangle Fill="{StaticResource AmbienteB}"/>
+        <Rectangle Fill="{StaticResource AmbienteC}"/>
+      </Grid>
+
       <!-- ══ Banner de actualización ══ -->
       <!-- IsHitTestVisibleInChrome es imprescindible: esta barra cae dentro de los 40 px
            de CaptionHeight, que WindowChrome reserva para arrastrar la ventana. Sin esto
@@ -50,7 +73,8 @@
       <!-- ══ Barra de título ══ -->
       <Grid Grid.Row="1" Height="40">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
-          <Border Width="26" Height="26" CornerRadius="8" VerticalAlignment="Center">
+          <Border Width="26" Height="26" CornerRadius="8" VerticalAlignment="Center"
+                  Effect="{StaticResource HaloMarca}"><!-- el logotipo es la única pieza con neón permanente -->
             <Border.Background>
               <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#968AE0" Offset="0"/><GradientStop Color="#5D5294" Offset="1"/>
@@ -138,11 +162,20 @@
             <StackPanel Orientation="Horizontal">
               <Ellipse x:Name="pillDot" Width="7" Height="7" Fill="{StaticResource Accent}" VerticalAlignment="Center"
                        Margin="0,0,8,0">
+                <Ellipse.Effect>
+                  <DropShadowEffect ShadowDepth="0" BlurRadius="10" Color="#968AE0" Opacity="0.9"
+                                    RenderingBias="Performance"/>
+                </Ellipse.Effect>
                 <Ellipse.Triggers>
                   <EventTrigger RoutedEvent="Loaded">
                     <BeginStoryboard>
                       <Storyboard>
                         <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.4" Duration="0:0:1.2"
+                                         AutoReverse="True" RepeatBehavior="Forever"/>
+                        <!-- El halo late con el punto, en el mismo compás: si el brillo
+                             fuera por libre, el conjunto parecería dos cosas distintas. -->
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.BlurRadius)"
+                                         From="12" To="4" Duration="0:0:1.2"
                                          AutoReverse="True" RepeatBehavior="Forever"/>
                       </Storyboard>
                     </BeginStoryboard>
