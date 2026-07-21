@@ -4,7 +4,9 @@
         Title="Renombrar salida" Width="820" Height="640" WindowStyle="None" ResizeMode="CanResize"
         MinWidth="700" MinHeight="520" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}" Background="Transparent">
-  <Border Background="{StaticResource Bg}" BorderBrush="{StaticResource Divider}" BorderThickness="1" CornerRadius="10">
+  <!-- 8 px: el mismo radio que Windows 11 recorta por fuera, para que el borde dibujado
+       y el recorte del sistema coincidan en vez de pelearse en la esquina. -->
+  <Border Background="{StaticResource Bg}" BorderBrush="{StaticResource Divider}" BorderThickness="1" CornerRadius="8">
     <Grid Margin="0">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/><!-- header -->
