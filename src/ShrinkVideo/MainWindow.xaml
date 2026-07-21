@@ -15,9 +15,16 @@
 
   <Border x:Name="rootBorder" Background="{StaticResource Bg}">
     <Grid Margin="0">
+      <!-- La barra de título va la PRIMERA y no se mueve de ahí. WindowChrome reserva
+           para arrastrar los primeros CaptionHeight píxeles de la VENTANA, no de la
+           barra: con el aviso de actualización encima, esa franja se la comía el aviso
+           (que además es no-arrastrable para que respondan sus botones) y la barra de
+           título quedaba fuera. Resultado: no se podía mover la ventana de ninguna de
+           las dos formas. Con la barra siempre arriba, el arrastre, el doble clic para
+           maximizar y el Aero Snap siguen siendo los del sistema, sin parches. -->
       <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/><!-- banner -->
         <RowDefinition Height="Auto"/><!-- titlebar -->
+        <RowDefinition Height="Auto"/><!-- banner -->
         <RowDefinition Height="Auto"/><!-- origen/destino -->
         <RowDefinition Height="Auto"/><!-- opciones -->
         <RowDefinition Height="*"/><!-- tabla+lateral -->
@@ -50,10 +57,11 @@
       </Grid>
 
       <!-- ══ Banner de actualización ══ -->
-      <!-- IsHitTestVisibleInChrome es imprescindible: esta barra cae dentro de los 40 px
-           de CaptionHeight, que WindowChrome reserva para arrastrar la ventana. Sin esto
-           el área se traga los clics y los botones no responden. -->
-      <Border x:Name="updateBar" Grid.Row="0" Background="{StaticResource Accent900}" BorderBrush="{StaticResource Accent800}"
+      <!-- Va DEBAJO de la barra de título: puesto encima se quedaba con la franja que
+           WindowChrome reserva para arrastrar y la ventana dejaba de poder moverse.
+           IsHitTestVisibleInChrome ya no hace falta aquí, pero se conserva por si algún
+           día vuelve a caer dentro de esa franja: no cuesta nada y evita repetir el fallo. -->
+      <Border x:Name="updateBar" Grid.Row="1" Background="{StaticResource Accent900}" BorderBrush="{StaticResource Accent800}"
               BorderThickness="0,0,0,1" Padding="16,8" Visibility="Collapsed"
               WindowChrome.IsHitTestVisibleInChrome="True">
         <StackPanel Orientation="Horizontal">
@@ -71,7 +79,7 @@
       </Border>
 
       <!-- ══ Barra de título ══ -->
-      <Grid Grid.Row="1" Height="40">
+      <Grid Grid.Row="0" Height="40">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
           <Border Width="26" Height="26" CornerRadius="8" VerticalAlignment="Center"
                   Effect="{StaticResource HaloMarca}"><!-- el logotipo es la única pieza con neón permanente -->

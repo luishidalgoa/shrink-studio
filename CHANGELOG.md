@@ -29,6 +29,13 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Con el aviso de actualización en pantalla no se podía mover la ventana.** El aviso se
+  colocaba encima de la barra de título y se quedaba con la franja que Windows reserva para
+  arrastrar, así que no valía ni arrastrar por el aviso ni por la barra. Ahora el aviso va
+  debajo y la ventana se mueve como siempre.
+
 ## [0.6.0] - 2026-07-21
 
 ### Añadido
