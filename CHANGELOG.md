@@ -29,6 +29,15 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **El formato del catálogo está documentado y se comprueba al importar.** Un botón
+  «¿Qué formato?» abre la especificación con todos los campos, las reglas y un ejemplo
+  completo, y «Crear ejemplo…» te guarda un catálogo válido para que lo edites en vez de
+  escribirlo a ciegas. Si el archivo tiene fallos, se te dicen **todos juntos** y con el
+  episodio concreto: números repetidos (que antes hacían perder un episodio en silencio),
+  fechas imposibles o números negativos.
+
 ### Corregido
 
 - **Con el aviso de actualización en pantalla no se podía mover la ventana.** El aviso se

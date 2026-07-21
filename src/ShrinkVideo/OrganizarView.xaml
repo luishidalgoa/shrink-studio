@@ -130,17 +130,27 @@
           <Grid Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="CATÁLOGOS IMPORTADOS" FontSize="11" FontWeight="Medium"
                        Foreground="{StaticResource Neutral500}" VerticalAlignment="Center"/>
-            <Button x:Name="btnImportar" Style="{StaticResource BtnSecondary}" HorizontalAlignment="Right"
-                    Padding="10,5" FontSize="12"
-                    ToolTip="Añadir un catálogo de referencia en formato JSON (esquema reindex/1.0)">
-              <StackPanel Orientation="Horizontal">
-                <Viewbox Width="13" Height="13" Margin="0,0,6,0">
-                  <Path Data="M8 2v8M5 7l3 3 3-3M2.5 13h11" Stroke="{StaticResource Text}" StrokeThickness="1.4"
-                        StrokeStartLineCap="Round" StrokeLineJoin="Round"/>
-                </Viewbox>
-                <TextBlock Text="Importar JSON" VerticalAlignment="Center"/>
-              </StackPanel>
-            </Button>
+            <!-- La ayuda del formato va SIEMPRE visible, no solo cuando no hay catálogos:
+                 la duda «¿y esto cómo se escribe?» aparece justo al ir a importar. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button x:Name="btnFormato" Style="{StaticResource BtnGhost}" Padding="8,5" FontSize="12"
+                      Content="¿Qué formato?" Margin="0,0,8,0"
+                      ToolTip="Abre la especificación del catálogo: campos, reglas y un ejemplo completo"/>
+              <Button x:Name="btnEjemplo" Style="{StaticResource BtnSecondary}" Padding="10,5" FontSize="12"
+                      Content="Crear ejemplo…" Margin="0,0,8,0"
+                      ToolTip="Guarda un catálogo de ejemplo válido para que lo edites con tus episodios"/>
+              <Button x:Name="btnImportar" Style="{StaticResource BtnSecondary}"
+                      Padding="10,5" FontSize="12"
+                      ToolTip="Añadir un catálogo de referencia en formato JSON (esquema reindex/1.0)">
+                <StackPanel Orientation="Horizontal">
+                  <Viewbox Width="13" Height="13" Margin="0,0,6,0">
+                    <Path Data="M8 2v8M5 7l3 3 3-3M2.5 13h11" Stroke="{StaticResource Text}" StrokeThickness="1.4"
+                          StrokeStartLineCap="Round" StrokeLineJoin="Round"/>
+                  </Viewbox>
+                  <TextBlock Text="Importar JSON" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
+            </StackPanel>
           </Grid>
 
           <!-- Horizontal en «Disabled», no en «Hidden»: con Hidden el contenido se mide con
@@ -207,6 +217,14 @@
                            Margin="0,10,0,0" LineHeight="18">
                   Es un archivo JSON con el esquema <Run FontFamily="{StaticResource FontMono}">reindex/1.0</Run>.
                   Sin catálogo no hay nada con lo que comparar, así que la simulación queda deshabilitada.
+                </TextBlock>
+                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Neutral500}" FontSize="12"
+                           Margin="0,10,0,0" LineHeight="18">
+                  Lo mínimo es la serie y una lista de episodios con su número y su título; la fecha de
+                  emisión no hace falta, pero es la pista más fiable que hay. Pulsa
+                  <Run FontWeight="Medium" Foreground="{StaticResource Accent}">Crear ejemplo…</Run> para
+                  partir de uno válido, o <Run FontWeight="Medium" Foreground="{StaticResource Accent}">¿Qué formato?</Run>
+                  para ver todos los campos y las reglas.
                 </TextBlock>
               </StackPanel>
             </StackPanel>

@@ -30,7 +30,11 @@ public sealed class CatalogEpisode
 
     internal void Precompute()
     {
-        FechaParsed = DateOnly.TryParse(Fecha, System.Globalization.CultureInfo.InvariantCulture,
+        // Mismo formato exacto que exige la validación: si aceptara más de lo que se valida,
+        // las dos reglas podrían separarse con el tiempo y el catálogo diría una cosa y el
+        // motor entendería otra.
+        FechaParsed = DateOnly.TryParseExact(Fecha, "yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var d) ? d : null;
 
         var visibles = new List<string>();
@@ -81,6 +85,47 @@ public sealed class ReindexCatalog
     public static ReindexCatalog Load(string path) => Parse(File.ReadAllText(path, System.Text.Encoding.UTF8));
 
     /// <summary>
+    /// Catálogo de ejemplo que la app ofrece como punto de partida. Vive aquí, junto a las
+    /// reglas que debe cumplir, y no en la vista: así un test puede comprobar que sigue
+    /// siendo válido. Entregar un ejemplo que no importa sería el peor recibimiento posible.
+    ///
+    /// Cubre las tres formas que más confunden al escribir el primero: un episodio con
+    /// varios segmentos, uno simple y un especial.
+    /// </summary>
+    public const string Ejemplo = """
+    {
+      "esquema": "reindex/1.0",
+      "serie": "Mi serie (2005)",
+      "clave": "oficial",
+      "notas": "Cambia «serie» por el nombre que quieres que aparezca en los ficheros.",
+      "episodios": [
+        {
+          "num": 1,
+          "temporada": 2005,
+          "fecha": "2005-04-22",
+          "especial": false,
+          "titulos": {
+            "es": ["Primer episodio", "Segunda historia del mismo episodio"]
+          },
+          "aliases": []
+        },
+        {
+          "num": 2,
+          "temporada": 2005,
+          "fecha": "2005-04-29",
+          "titulos": { "es": ["Segundo episodio"] }
+        },
+        {
+          "num": 901,
+          "temporada": 2005,
+          "especial": true,
+          "titulos": { "es": ["Especial de Navidad"] }
+        }
+      ]
+    }
+    """;
+
+    /// <summary>
     /// Lee un catálogo. Lanza <see cref="ReindexCatalogException"/> si el esquema es de
     /// una versión mayor que no entendemos; los campos desconocidos se ignoran, para que
     /// un catálogo más nuevo con extras siga funcionando.
@@ -110,10 +155,65 @@ public sealed class ReindexCatalog
                 $"El catálogo usa el esquema {esquema} y esta versión de ShrinkStudio solo entiende " +
                 $"hasta reindex/{EsquemaMayorSoportado}.x. Actualiza la app.");
 
+        if (string.IsNullOrWhiteSpace(cat.Serie))
+            throw new ReindexCatalogException(
+                "Falta el campo «serie». Es el nombre que se escribirá en los ficheros, así que no puede ir vacío.");
+
         if (cat.Episodios.Count == 0) throw new ReindexCatalogException("El catálogo no tiene episodios.");
 
+        cat.Validar();
         cat.Index();
         return cat;
+    }
+
+    /// <summary>
+    /// Comprueba los episodios uno a uno y junta TODOS los fallos antes de rendirse. Un
+    /// catálogo escrito a mano suele traer varios errores del mismo tipo; enseñarlos de uno
+    /// en uno obliga a importar, corregir y reimportar sin final.
+    /// </summary>
+    private void Validar()
+    {
+        var fallos = new List<string>();
+        var numerosVistos = new Dictionary<int, int>();   // num → posición donde salió primero
+
+        for (int i = 0; i < Episodios.Count; i++)
+        {
+            var e = Episodios[i];
+            string donde = $"episodio en la posición {i + 1}";
+
+            if (e.Num < 0)
+            {
+                fallos.Add($"{donde}: «num» es {e.Num}; tiene que ser un entero mayor o igual que 0.");
+            }
+            else if (numerosVistos.TryGetValue(e.Num, out var primera))
+            {
+                // El índice se construye con «por número», así que un repetido borraría al
+                // anterior sin decir nada y perderías un episodio entero.
+                fallos.Add($"{donde}: el número {e.Num} ya lo usa el de la posición {primera}. " +
+                           "Cada «num» debe ser único: si se repite, un episodio pisa al otro.");
+            }
+            else numerosVistos[e.Num] = i + 1;
+
+            if (e.Fecha != null && !DateOnly.TryParseExact(e.Fecha, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out _))
+                fallos.Add($"{donde} (nº {e.Num}): la fecha «{e.Fecha}» no vale; " +
+                           "tiene que ser una fecha real en formato AAAA-MM-DD.");
+
+            if (e.Temporada is < 0)
+                fallos.Add($"{donde} (nº {e.Num}): «temporada» es {e.Temporada}; no puede ser negativa.");
+
+            if (fallos.Count >= 20)
+            {
+                fallos.Add("…y puede que haya más: se ha parado de comprobar en el fallo 20.");
+                break;
+            }
+        }
+
+        if (fallos.Count > 0)
+            throw new ReindexCatalogException(
+                (fallos.Count == 1 ? "El catálogo tiene un problema:" : $"El catálogo tiene {fallos.Count} problemas:")
+                + "\n\n• " + string.Join("\n• ", fallos));
     }
 
     private void Index()
