@@ -29,6 +29,24 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Los botones del aviso de actualización no respondían.** «Actualizar ahora» y «Después»
+  caían dentro de la franja que Windows reserva para arrastrar la ventana, que se tragaba
+  los clics.
+- **«Buscar actualizaciones» se quedaba colgado en «Buscando…»** cuando sí había versión
+  nueva: el mensaje no se actualizaba nunca.
+- **Se decía «ya tienes la última versión» aunque no hubiera habido conexión.** Ahora se
+  distingue entre estar al día y no haber podido comprobarlo, y se explica el motivo.
+- **El actualizador podía descargar el archivo equivocado.** Cogía el primer `.exe` del
+  release y, desde que también se publica la herramienta de terminal para Windows, ese
+  podía no ser el instalador.
+
+### Cambiado
+
+- Más información durante la actualización: se ve qué archivo se descarga, con barra de
+  progreso, y se avisa de que la app se cerrará para instalar.
+
 ### Cambiado
 
 - La herramienta de terminal ocupa ahora **13 MB en vez de 68**: se recorta el runtime que
