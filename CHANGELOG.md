@@ -31,6 +31,11 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **La plantilla admite relleno con ceros y separador propio: `<num:000>` y `<título: ┃ >`.**
+  Sin esto no se podía describir una biblioteca que ya estuviera ordenada con otra
+  convención, y entonces salía todo como pendiente de renombrar aunque el trabajo estuviera
+  hecho. El caso que lo destapó: ficheros `S2005E001 - A ┃ B`, que la app sabía **leer** —la
+  barra `┃` ya era separador de historias— pero no sabía **escribir**.
 - **Los catálogos dicen de qué fichero salieron y cuándo, y se pueden quitar.** La app trabaja
   con una copia del JSON que importas, así que si luego editas el original tu copia se queda
   vieja sin que nada lo delate: ahora cada tarjeta lo dice. Y «Quitar» lo saca de la app sin
@@ -57,6 +62,12 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **Un fichero que ya se llama exactamente como debe sale en verde y no cuenta como
+  pendiente.** Antes el color lo decidía la confianza de la identificación, así que un
+  fichero al que no había que tocarle nada podía salir en ámbar. Y es al revés: que el
+  nombre coincida entero con el que produciría la plantilla es la confirmación más fuerte
+  que hay. El recuento lo dice aparte («46 ya estaban bien»), para que no parezca que se han
+  perdido por el camino.
 - **Volver a pinchar una fila abierta la cierra.** Antes el desplegable se quedaba abierto y
   la única forma de recogerlo era abrir otro. Los botones de dentro siguen funcionando: solo
   cierra el clic sobre la fila, no sobre sus opciones.

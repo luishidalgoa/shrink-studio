@@ -474,7 +474,11 @@ public partial class OrganizarView : UserControl
         btnAplicar.IsEnabled = listos > 0;
         btnAceptarVerdes.IsEnabled = listos > 0;
 
-        lblEstadoOrg.Text = $"{_filas.Count} ficheros · {listos} listos para aplicar · {dudas} por despachar";
+        // Los que ya estaban bien se dicen aparte: si no, «383 listos · 165 por despachar» sobre
+        // 548 deja 0 sin explicar y parece que se han perdido por el camino.
+        int hechos = _filas.Count(f => f.SinCambios);
+        lblEstadoOrg.Text = $"{_filas.Count} ficheros · {listos} listos para aplicar · {dudas} por despachar"
+                            + (hechos > 0 ? $" · {hechos} ya estaban bien" : "");
 
         // Si la mayoría son dudas, se dice de frente en vez de dejar que lo descubra fila a fila
         if (_filas.Count > 0 && dudas > _filas.Count / 2)
