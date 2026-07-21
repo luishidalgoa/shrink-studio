@@ -55,10 +55,12 @@
                 <GradientStop Color="#968AE0" Offset="0"/><GradientStop Color="#5D5294" Offset="1"/>
               </LinearGradientBrush>
             </Border.Background>
-            <Viewbox Width="14" Height="14">
+            <!-- mismo glifo, mismas proporciones y mismos colores que Assets\app.ico -->
+            <Viewbox Width="15" Height="15">
               <Canvas Width="16" Height="16">
-                <Path Data="M6.2 5l4.2 3-4.2 3z" Fill="#F5F4FF"/>
-                <Path Data="M2 5.5L3.5 8 2 10.5M14 5.5L12.5 8 14 10.5" Stroke="#F5F4FF" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                <Path Data="M5.7 4.3L11 8 5.7 11.7z" Fill="#F5F4FF"/>
+                <Path Data="M2 5.5L3.5 8 2 10.5M14 5.5L12.5 8 14 10.5" Stroke="#F5F4FF" StrokeThickness="1.5"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
               </Canvas>
             </Viewbox>
           </Border>

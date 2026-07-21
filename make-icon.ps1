@@ -1,8 +1,19 @@
-# Genera Assets\app.ico con GDI+ (sin dependencias externas).
-# Icono: squircle con degradado turquesa->teal, botón play central y
-# flechas de compresión en las esquinas. Multi-resolución (16..256).
+# Genera el icono de ShrinkStudio con GDI+ (sin dependencias externas).
+#
+# El glifo es EL MISMO que luce la barra de título de la app: squircle con el
+# degradado morado de la paleta Nocturne (Accent #968AE0 -> Accent700 #5D5294),
+# un play central y dos chevrones que lo aprietan por los lados — la metáfora de
+# comprimir. Antes el icono era turquesa y no se parecía en nada al de la app.
+#
+# Salidas: src\ShrinkVideo\Assets\app.ico (multi-resolución 16..256),
+#          src\ShrinkVideo\Assets\app-256.png y docs\icon.png (README/repo).
 Add-Type -AssemblyName System.Drawing
 $ErrorActionPreference = "Stop"
+
+# Paleta: exactamente los mismos valores que Theme.xaml
+$Accent    = [System.Drawing.Color]::FromArgb(255, 150, 138, 224)   # #968AE0
+$Accent700 = [System.Drawing.Color]::FromArgb(255,  93,  82, 148)   # #5D5294
+$Ink       = [System.Drawing.Color]::FromArgb(255, 245, 244, 255)   # #F5F4FF
 
 function Render([int]$S) {
     $bmp = New-Object System.Drawing.Bitmap($S, $S)
@@ -11,10 +22,10 @@ function Render([int]$S) {
     $g.InterpolationMode = 'HighQualityBicubic'
     $g.PixelOffsetMode   = 'HighQuality'
 
-    # --- squircle de fondo con degradado ---
+    # --- squircle de fondo ---
     $m = [float]($S * 0.055)
     $side = [float]($S - 2*$m)
-    $rad = [float]($side * 0.28)
+    $rad = [float]($side * 0.30)          # misma redondez que el logo de la barra de título
     $rect = New-Object System.Drawing.RectangleF($m, $m, $side, $side)
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
     $d = $rad * 2
@@ -24,60 +35,50 @@ function Render([int]$S) {
     $path.AddArc($rect.X, $rect.Bottom - $d, $d, $d, 90, 90)
     $path.CloseFigure()
 
-    $c1 = [System.Drawing.Color]::FromArgb(255, 22, 224, 180)   # turquesa vivo
-    $c2 = [System.Drawing.Color]::FromArgb(255, 9, 92, 92)      # teal profundo
-    $grad = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, $c1, $c2, 55.0)
+    # degradado en diagonal, como el LinearGradientBrush 0,0 -> 1,1 del XAML
+    $grad = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, $Accent, $Accent700, 45.0)
     $g.FillPath($grad, $path)
 
-    # brillo superior sutil
+    # brillo superior muy sutil, para que no quede plano
     $glow = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-        $rect, [System.Drawing.Color]::FromArgb(60, 255, 255, 255),
+        $rect, [System.Drawing.Color]::FromArgb(46, 255, 255, 255),
         [System.Drawing.Color]::FromArgb(0, 255, 255, 255), 90.0)
     $g.FillPath($glow, $path)
-
     $g.SetClip($path)
 
-    $cx = [float]($S * 0.5); $cy = [float]($S * 0.5)
+    # --- glifo, definido sobre un lienzo de 16x16 igual que en el XAML ---
+    # En tamaños pequeños los chevrones se emborronan: se quitan y el play se
+    # agranda, que es lo único que se distingue a 16 px.
+    $conChevrones = $S -ge 32
+    $escala = if ($conChevrones) { 0.62 } else { 0.42 }
+    $gs = [float]($S * $escala)
+    $u  = [float]($gs / 16.0)
+    $gx = [float](($S - $gs) / 2)
+    $gy = [float](($S - $gs) / 2)
 
-    # --- flechas de compresión en las esquinas (solo si hay sitio) ---
-    if ($S -ge 44) {
-        $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(235, 233, 255, 246), [float]($S*0.052))
+    $P = { param([float]$x, [float]$y) New-Object System.Drawing.PointF(($gx + $x*$u), ($gy + $y*$u)) }
+    $brush = New-Object System.Drawing.SolidBrush($Ink)
+
+    if ($conChevrones) {
+        # play, algo mayor que en la barra de título para que sea el protagonista
+        $tri = [System.Drawing.PointF[]]@((& $P 5.7 4.3), (& $P 11.0 8.0), (& $P 5.7 11.7))
+        $g.FillPolygon($brush, $tri)
+
+        $pen = New-Object System.Drawing.Pen($Ink, [float](1.5*$u))
         $pen.StartCap = 'Round'; $pen.EndCap = 'Round'; $pen.LineJoin = 'Round'
-        $off = [float]($S * 0.205)   # distancia de la esquina al vértice de la flecha
-        $arm = [float]($S * 0.086)   # largo de cada brazo del ángulo
-        $corners = @(
-            @{ x=$off;      y=$off;      sx= 1; sy= 1 },  # sup-izq -> apunta abajo-der
-            @{ x=$S-$off;   y=$off;      sx=-1; sy= 1 },  # sup-der
-            @{ x=$off;      y=$S-$off;   sx= 1; sy=-1 },  # inf-izq
-            @{ x=$S-$off;   y=$S-$off;   sx=-1; sy=-1 }   # inf-der
-        )
-        foreach ($k in $corners) {
-            $bx = [float]$k.x; $by = [float]$k.y; $sx = [float]$k.sx; $sy = [float]$k.sy
-            $tipx = [float]($bx + $sx*$arm); $tipy = [float]($by + $sy*$arm)   # punta hacia el centro
-            # cabeza de flecha (abre hacia la esquina), apuntando al centro
-            $g.DrawLines($pen, [System.Drawing.PointF[]]@(
-                (New-Object System.Drawing.PointF($bx, $tipy)),
-                (New-Object System.Drawing.PointF($tipx, $tipy)),
-                (New-Object System.Drawing.PointF($tipx, $by))
-            ))
-            # cola hacia la esquina
-            $g.DrawLine($pen, $tipx, $tipy, [float]($bx - $sx*$arm*0.5), [float]($by - $sy*$arm*0.5))
-        }
+        # chevrón izquierdo: M2 5.5 L3.5 8 L2 10.5   (apunta hacia dentro)
+        $g.DrawLines($pen, [System.Drawing.PointF[]]@((& $P 2.0 5.5), (& $P 3.5 8.0), (& $P 2.0 10.5)))
+        # chevrón derecho: M14 5.5 L12.5 8 L14 10.5
+        $g.DrawLines($pen, [System.Drawing.PointF[]]@((& $P 14.0 5.5), (& $P 12.5 8.0), (& $P 14.0 10.5)))
+        $pen.Dispose()
+    }
+    else {
+        # solo el play, centrado y más grande
+        $tri = [System.Drawing.PointF[]]@((& $P 4.0 2.5), (& $P 12.5 8.0), (& $P 4.0 13.5))
+        $g.FillPolygon($brush, $tri)
     }
 
-    # --- botón play central ---
-    $pr = [float]($S * 0.205)   # radio del círculo
-    $circle = New-Object System.Drawing.RectangleF(($cx-$pr), ($cy-$pr), ($pr*2), ($pr*2))
-    $g.FillEllipse((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(245, 244, 255, 251))), $circle)
-
-    $t = [float]($pr * 0.62)
-    $tri = [System.Drawing.PointF[]]@(
-        (New-Object System.Drawing.PointF(($cx - $t*0.55), ($cy - $t))),
-        (New-Object System.Drawing.PointF(($cx - $t*0.55), ($cy + $t))),
-        (New-Object System.Drawing.PointF(($cx + $t*0.95), $cy))
-    )
-    $g.FillPolygon((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 8, 60, 52))), $tri)
-
+    $brush.Dispose()
     $g.Dispose()
     return $bmp
 }
@@ -109,8 +110,12 @@ for ($i=0; $i -lt $sizes.Count; $i++) {
 foreach ($p in $pngs) { $bw.Write($p) }
 $bw.Flush(); $fs.Close()
 
-# PNG grande para el README / vista previa
+# PNG grande: vista previa interna y portada del README
 $big = Render 256
 $big.Save((Join-Path $PSScriptRoot "src\ShrinkVideo\Assets\app-256.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$docs = Join-Path $PSScriptRoot "docs"
+if (-not (Test-Path $docs)) { New-Item -ItemType Directory $docs | Out-Null }
+$big.Save((Join-Path $docs "icon.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $big.Dispose()
+
 "Icono generado: $out ($([math]::Round((Get-Item $out).Length/1KB,1)) KB)"

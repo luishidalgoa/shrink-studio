@@ -49,6 +49,13 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Cambiado
 
+- **Icono nuevo, en el morado de la app.** El anterior era turquesa y no se parecía en nada al
+  logotipo que luce la propia ventana: eran dos identidades distintas en el mismo producto. Ahora
+  el icono del programa, el del instalador, el de los accesos directos y el del repositorio son el
+  mismo glifo morado que ya usaba la barra de título.
+
+### Cambiado
+
 - La herramienta de terminal ocupa ahora **13 MB en vez de 68**: se recorta el runtime que
   se empaqueta con ella.
 - En Windows, la herramienta de terminal se descarga como un `.exe` suelto, sin comprimir.
