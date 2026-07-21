@@ -24,6 +24,54 @@ public static class Estimator
 {
     private static readonly string[] Mp4Audio = { "aac", "ac3", "eac3", "mp3", "alac" };
 
+    /// <summary>Bits por píxel·frame de referencia (HEVC a CRF 28, imagen real típica).</summary>
+    public const double BaseBpp = 0.040;
+
+    /// <summary>
+    /// Corrección por complejidad del contenido (1 = imagen real típica). CRF fija la
+    /// CALIDAD, no el tamaño: con los mismos ajustes, la animación o el material plano
+    /// pesan la mitad que una película con grano. Ninguna fórmula puede adivinarlo, así
+    /// que este factor se calibra midiendo una muestra real del vídeo.
+    /// </summary>
+    public static double ComplexityFactor = 1.0;
+
+    /// <summary>Resolución de salida (tras el posible reescalado) y fps.</summary>
+    private static (int w, int h, double fps) OutputGeometry(VideoRow r, EncodeOptions o)
+    {
+        int outH = r.Height, outW = r.Width;
+        if (o.MaxHeight > 0 && r.Height > o.MaxHeight)
+        {
+            double scale = (double)o.MaxHeight / r.Height;
+            outH = o.MaxHeight;
+            outW = (int)Math.Round(r.Width * scale / 2) * 2;
+        }
+        return (outW, outH, r.Fps > 1 ? r.Fps : 25);
+    }
+
+    /// <summary>Bitrate de vídeo que predice el modelo, en kbps (0 si no hay datos).</summary>
+    public static int ModelVideoKbps(VideoRow r, EncodeOptions o, double complexity)
+    {
+        if (!r.Probed || r.Width <= 0 || r.Height <= 0) return 0;
+        var (w, h, fps) = OutputGeometry(r, o);
+        int crf = o.Quality > 0 ? o.Quality : 27;
+        double codecFactor = o.VideoCodec switch { "h264" => 1.8, "av1" => 0.65, _ => 1.0 };
+        double bpp = BaseBpp * complexity * Math.Pow(2, (28.0 - crf) / 6.0) * codecFactor;
+        int kbps = (int)(bpp * w * h * fps / 1000.0);
+        if (r.VideoBitrateKbps > 0) kbps = Math.Min(kbps, r.VideoBitrateKbps);   // no recomprimir "hacia arriba"
+        return Math.Max(kbps, 120);
+    }
+
+    /// <summary>
+    /// A partir de un bitrate de vídeo medido de verdad, deduce el factor de complejidad
+    /// del contenido para que las estimaciones siguientes acierten.
+    /// </summary>
+    public static double FactorFromMeasurement(VideoRow r, EncodeOptions o, int measuredKbps)
+    {
+        int model = ModelVideoKbps(r, o, 1.0);
+        if (model <= 0 || measuredKbps <= 0) return 1.0;
+        return Math.Clamp((double)measuredKbps / model, 0.15, 4.0);
+    }
+
     /// <summary>Cuántas pistas de audio se conservan según los idiomas elegidos.</summary>
     private static int KeptAudioTracks(VideoRow r, EncodeOptions o)
     {
@@ -58,26 +106,9 @@ public static class Estimator
         }
         if (r.Width <= 0 || r.Height <= 0) { e.Valid = false; return e; }
 
-        // Resolución de salida (posible reescalado)
-        int outH = r.Height, outW = r.Width;
-        if (o.MaxHeight > 0 && r.Height > o.MaxHeight)
-        {
-            double scale = (double)o.MaxHeight / r.Height;
-            outH = o.MaxHeight;
-            outW = (int)Math.Round(r.Width * scale / 2) * 2;
-        }
-        double fps = r.Fps > 1 ? r.Fps : 25;
-
-        // Calidad efectiva (CRF). 0 = automático → referencia 27.
-        int crf = o.Quality > 0 ? o.Quality : 27;
-        // Eficiencia relativa a HEVC
-        double codecFactor = o.VideoCodec switch { "h264" => 1.8, "av1" => 0.65, _ => 1.0 };
-        // bits por píxel·frame (HEVC a CRF 28); cada -6 de CRF duplica el bitrate
-        double bpp = 0.05 * Math.Pow(2, (28.0 - crf) / 6.0) * codecFactor;
-
-        int estVideoKbps = (int)(bpp * outW * outH * fps / 1000.0);
-        if (r.VideoBitrateKbps > 0) estVideoKbps = Math.Min(estVideoKbps, r.VideoBitrateKbps); // no "recomprimir hacia arriba"
-        estVideoKbps = Math.Max(estVideoKbps, 120);
+        var (outW, outH, _) = OutputGeometry(r, o);
+        int crf = o.Quality > 0 ? o.Quality : 27;   // 0 = automático → referencia 27
+        int estVideoKbps = ModelVideoKbps(r, o, ComplexityFactor);
 
         // ¿el audio se copia tal cual o se recodifica? (WebM siempre Opus; MP4 no copia FLAC/PCM…)
         bool webm = o.Container == "webm";

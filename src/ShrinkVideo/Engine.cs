@@ -57,6 +57,9 @@ public sealed class FileResult
     public long InBytes { get; set; }
     public long? OutBytes { get; set; }
     public string Status { get; set; } = "";
+    public string SourcePath { get; set; } = "";   // ruta del original
+    public string OutputPath { get; set; } = "";   // ruta del comprimido resultante
+    public bool Ok => OutBytes is > 0;
 }
 
 /// <summary>Reporta el avance de la compresión a la UI.</summary>
@@ -126,7 +129,7 @@ public sealed class Engine
         if (_cachedEncoder.TryGetValue(codec, out var cached)) return cached;
         var (hw, sw) = Candidates(codec);
         var (_, encList, _) = await RunAsync(Ffmpeg, new[] { "-hide_banner", "-encoders" });
-        foreach (var cand in hw)
+        foreach (var cand in AllowHardware ? hw : Array.Empty<string>())
         {
             if (!encList.Contains(cand)) continue;
             var (code, _, _) = await RunAsync(Ffmpeg, new[]
@@ -217,6 +220,11 @@ public sealed class Engine
     {
         "m4a" => ".m4a", "flac" => ".flac", "opus" => ".opus", _ => ".mp3",
     };
+
+    /// <summary>Extensión del archivo de salida según el formato elegido (la usa también la vista previa de renombrado).</summary>
+    public static string OutputExtension(EncodeOptions opt) => opt.AudioOnly ? AudioExt(opt.AudioFormat)
+        : opt.Container == "mp4" ? ".mp4"
+        : opt.Container == "webm" ? ".webm" : ".mkv";
     private static List<string> AudioOnlyArgs(EncodeOptions opt)
     {
         int br = opt.AudioBitrate > 0 ? opt.AudioBitrate : 192;
@@ -328,6 +336,8 @@ public sealed class Engine
         bool subsAll = opt.SubLangs == null || opt.SubLangs.Count == 0 || opt.SubLangs.Contains("all");
 
         int total = files.Count, n = 0;
+        int renamedCount = 0;                                              // contador de la regla de renombrado
+        var usedOutputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in files)
         {
             ct.ThrowIfCancellationRequested();
@@ -335,10 +345,22 @@ public sealed class Engine
             var fi = new FileInfo(f);
             string name = fi.Name;
             string outDir = opt.Output ?? Path.Combine(fi.DirectoryName!, "comprimido");
-            string ext = opt.AudioOnly ? AudioExt(opt.AudioFormat)
-                       : opt.Container == "mp4" ? ".mp4"
-                       : opt.Container == "webm" ? ".webm" : ".mkv";
-            string outPath = Path.Combine(outDir, Path.GetFileNameWithoutExtension(name) + ext);
+            string ext = OutputExtension(opt);
+
+            // nombre de salida, con la regla de renombrado (estilo PowerRename) si la hay
+            string outName = Path.GetFileNameWithoutExtension(name) + ext;
+            string? renamedTo = null;
+            if (opt.NameRule is { } rule && rule.HasEffect)
+            {
+                DateTime created;
+                try { created = fi.CreationTime; } catch { created = DateTime.Now; }
+                if (rule.Apply(outName, renamedCount, created) is { } nuevo)
+                {
+                    outName = renamedTo = nuevo;
+                    renamedCount++;
+                }
+            }
+            string outPath = UniqueOutput(Path.Combine(outDir, outName), usedOutputs);
 
             if (File.Exists(outPath) && !opt.Force) { rep.Log($"[{n}/{total}] {name} → ya hecho, salto"); continue; }
             if (StillDownloading(f)) { rep.Log($"[{n}/{total}] {name} → descargando aún, salto"); continue; }
@@ -371,6 +393,7 @@ public sealed class Engine
                 if (opt.DryRun) { rep.Log($"[{n}/{total}] {name} → solo audio → {opt.AudioFormat}"); continue; }
                 rep.Log($"[{n}/{total}] {name}");
                 rep.Log($"    extrayendo audio ({audio.Count} pista/s) → {opt.AudioFormat}");
+                if (renamedTo != null) rep.Log($"    renombrado → {Path.GetFileName(outPath)}");
                 rep.FileStart(n, total, name, durSec);
                 Directory.CreateDirectory(outDir);
                 string atmp = outPath + ".tmp" + ext;
@@ -388,7 +411,7 @@ public sealed class Engine
                         File.Move(atmp, outPath);
                         long ob = new FileInfo(outPath).Length;
                         rep.Log($"    OK  audio → {ob / 1048576.0:n1} MB");
-                        var ar = new FileResult { Name = name, InBytes = fi.Length, OutBytes = ob, Status = "audio" };
+                        var ar = new FileResult { Name = name, InBytes = fi.Length, OutBytes = ob, Status = "audio", SourcePath = f, OutputPath = outPath };
                         results.Add(ar); rep.FileDone(ar);
                     }
                     else { try { if (File.Exists(atmp)) File.Delete(atmp); } catch { } rep.Log($"    ERROR al extraer audio (código {acode})"); }
@@ -446,6 +469,7 @@ public sealed class Engine
 
             rep.Log($"[{n}/{total}] {name}");
             rep.Log($"    {infoLine}");
+            if (renamedTo != null) rep.Log($"    renombrado → {Path.GetFileName(outPath)}");
             rep.FileStart(n, total, name, durSec);
 
             Directory.CreateDirectory(outDir);
@@ -484,14 +508,14 @@ public sealed class Engine
                     long inB = fi.Length, outB = new FileInfo(outPath).Length;
                     int pct = (int)Math.Round(100 - (outB / (double)Math.Max(inB, 1) * 100));
                     rep.Log($"    OK  {inB / 1048576} MB → {outB / 1048576} MB  (-{pct}%)");
-                    var r = new FileResult { Name = name, InBytes = inB, OutBytes = outB, Status = $"-{pct}%" };
+                    var r = new FileResult { Name = name, InBytes = inB, OutBytes = outB, Status = $"-{pct}%", SourcePath = f, OutputPath = outPath };
                     results.Add(r); rep.FileDone(r);
                 }
                 else
                 {
                     try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
                     rep.Log($"    ERROR al codificar (código {code})");
-                    var r = new FileResult { Name = name, InBytes = fi.Length, OutBytes = null, Status = "ERROR" };
+                    var r = new FileResult { Name = name, InBytes = fi.Length, OutBytes = null, Status = "ERROR", SourcePath = f, OutputPath = outPath };
                     results.Add(r); rep.FileDone(r);
                 }
             }
@@ -505,6 +529,91 @@ public sealed class Engine
         return results;
     }
 
+    /// <summary>
+    /// Mide el bitrate de vídeo REAL codificando varias muestras cortas repartidas por el
+    /// vídeo con los ajustes elegidos. Es la única forma fiable de anticipar el tamaño:
+    /// CRF fija la calidad, no el tamaño, así que el peso depende del contenido y ninguna
+    /// fórmula lo adivina. Devuelve kbps (0 si no se pudo medir).
+    /// </summary>
+    public async Task<int> MeasureVideoBitrateAsync(string input, EncodeOptions opt, IEngineReporter rep,
+                                                    CancellationToken ct, int samples = 3, int secondsEach = 8)
+    {
+        var pr = await ProbeFullAsync(input);
+        var video = pr?.Streams.FirstOrDefault(s => s.CodecType == "video" && !CoverCodecs.Contains(s.CodecName));
+        if (pr == null || video == null) return 0;
+        double dur = double.TryParse(pr.Format?.Duration, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0;
+        if (dur < 4) return 0;
+
+        string vcodec = opt.Container == "webm" ? "vp9" : opt.VideoCodec;
+        var encoder = await SelectEncoderAsync(vcodec);
+        int quality = opt.Quality > 0 ? opt.Quality : (IsHardware(encoder) ? 27 : 23);
+        var encArgs = EncoderArgs(encoder, quality);
+
+        // repartimos las muestras por el 90% central (evita cabecera y créditos)
+        samples = Math.Max(1, samples);
+        double start0 = dur * 0.05, usable = dur * 0.90;
+        if (usable < (double)samples * secondsEach) secondsEach = Math.Max(2, (int)(usable / samples));
+
+        string dir = Path.Combine(Path.GetTempPath(), "shrinkvideo_measure");
+        Directory.CreateDirectory(dir);
+        long totalBytes = 0; double totalSecs = 0;
+        try
+        {
+            for (int i = 0; i < samples; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                double at = start0 + usable * (i + 0.5) / samples - secondsEach / 2.0;
+                at = Math.Clamp(at, 0, Math.Max(0, dur - secondsEach));
+                string tmp = Path.Combine(dir, $"m{i}_{Guid.NewGuid():N}.mkv");
+                var a = new List<string>
+                {
+                    "-hide_banner", "-loglevel", "error", "-y",
+                    "-ss", at.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+                    "-i", input,
+                    "-t", secondsEach.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    "-map", $"0:{video.Index}", "-an", "-sn",
+                };
+                if (opt.MaxHeight > 0 && (video.Height ?? 0) > opt.MaxHeight)
+                    a.AddRange(new[] { "-vf", $"scale=-2:{opt.MaxHeight}" });
+                a.AddRange(encArgs);
+                a.Add(tmp);
+
+                var (code, _) = await RunFfmpegAsync(a, 0, rep, ct);
+                if (code == 0 && File.Exists(tmp))
+                {
+                    totalBytes += new FileInfo(tmp).Length;
+                    totalSecs += secondsEach;
+                }
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                rep.FileProgress((i + 1.0) / samples, "");
+            }
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+
+        if (totalSecs <= 0 || totalBytes <= 0) return 0;
+        // Cada muestra empieza con un fotograma clave, así que salen algo "caras"
+        // respecto a una codificación continua: descontamos ese sesgo.
+        const double SampleKeyframeBias = 0.94;
+        return (int)Math.Round(totalBytes * 8.0 / totalSecs / 1000.0 * SampleKeyframeBias);
+    }
+
+    /// <summary>
+    /// Evita que dos vídeos distintos acaben escribiendo en el mismo archivo dentro de
+    /// la misma tanda (posible al renombrar): al segundo se le añade " (2)", " (3)"…
+    /// </summary>
+    private static string UniqueOutput(string path, HashSet<string> used)
+    {
+        if (used.Add(path)) return path;
+        string dir = Path.GetDirectoryName(path) ?? "";
+        string bn = Path.GetFileNameWithoutExtension(path);
+        string ex = Path.GetExtension(path);
+        for (int i = 2; ; i++)
+        {
+            var cand = Path.Combine(dir, $"{bn} ({i}){ex}");
+            if (used.Add(cand)) return cand;
+        }
+    }
+
     // ---------- pausa / reanudación del FFmpeg en curso ----------
     private Process? _active;
     public void Pause()  { var p = _active; if (p is { HasExited: false }) ProcessControl.Suspend(p); }
@@ -515,7 +624,24 @@ public sealed class Engine
         new(@"time=(\d+):(\d+):(\d+)\.(\d+)", RegexOptions.Compiled);
 
     // ---------- detección y espera por disco lleno ----------
-    private const long MinFreeBytes = 200L * 1024 * 1024;   // margen mínimo de disco: 200 MB
+    // Margen mínimo de disco antes de pausar (configurable desde Preferencias). Por defecto 200 MB.
+    internal static long MinFreeBytes = 200L * 1024 * 1024;
+
+    // ¿Se permite usar codificadores por hardware? (configurable desde Preferencias)
+    public static bool AllowHardware = true;
+
+    /// <summary>
+    /// ¿Debe enviarse el original a la Papelera tras comprimir? Solo si está activado, la
+    /// compresión fue correcta, y el comprimido NO es el propio original (evita autoborrado
+    /// cuando la salida coincide con la entrada).
+    /// </summary>
+    public static bool ShouldRecycleSource(bool enabled, FileResult r) =>
+        enabled && r.Ok
+        && !string.IsNullOrEmpty(r.SourcePath)
+        && !string.Equals(
+            Path.GetFullPath(r.SourcePath),
+            string.IsNullOrEmpty(r.OutputPath) ? "\0" : Path.GetFullPath(r.OutputPath),
+            StringComparison.OrdinalIgnoreCase);
 
     internal static bool IsDiskFull(string err) =>
         err.Contains("No space left", StringComparison.OrdinalIgnoreCase) ||

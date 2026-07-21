@@ -3,14 +3,69 @@ using System.Runtime.InteropServices;
 
 namespace ShrinkVideo;
 
-/// <summary>Suspender/reanudar un proceso (para pausar FFmpeg sin perder el progreso).</summary>
+/// <summary>
+/// Suspender/reanudar un proceso (para pausar FFmpeg sin perder el progreso).
+/// En Windows via ntdll; en Linux/macOS con las señales SIGSTOP/SIGCONT.
+/// </summary>
 internal static class ProcessControl
 {
     [DllImport("ntdll.dll")] private static extern int NtSuspendProcess(IntPtr handle);
     [DllImport("ntdll.dll")] private static extern int NtResumeProcess(IntPtr handle);
+    [DllImport("libc", EntryPoint = "kill", SetLastError = true)] private static extern int UnixKill(int pid, int sig);
 
-    public static void Suspend(Process p) { try { NtSuspendProcess(p.Handle); } catch { } }
-    public static void Resume(Process p) { try { NtResumeProcess(p.Handle); } catch { } }
+    // Los números de señal NO coinciden entre sistemas:
+    //   Linux → SIGSTOP 19, SIGCONT 18   ·   macOS/BSD → SIGSTOP 17, SIGCONT 19
+    private static int SigStop => OperatingSystem.IsMacOS() ? 17 : 19;
+    private static int SigCont => OperatingSystem.IsMacOS() ? 19 : 18;
+
+    public static void Suspend(Process p)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows()) NtSuspendProcess(p.Handle);
+            else UnixKill(p.Id, SigStop);
+        }
+        catch { }
+    }
+
+    public static void Resume(Process p)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows()) NtResumeProcess(p.Handle);
+            else UnixKill(p.Id, SigCont);
+        }
+        catch { }
+    }
+}
+
+/// <summary>Traer al frente la ventana de la instancia que ya está abierta (instancia única).</summary>
+internal static class WindowActivation
+{
+    private const int SW_RESTORE = 9;
+
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern bool AllowSetForegroundWindow(int dwProcessId);
+
+    /// <summary>Restaura la ventana si estaba minimizada (conservando maximizado) y la pone delante.</summary>
+    public static void BringToFront(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero) return;
+        try
+        {
+            if (IsIconic(hWnd)) ShowWindow(hWnd, SW_RESTORE);   // SW_RESTORE respeta si estaba maximizada
+            SetForegroundWindow(hWnd);
+        }
+        catch { }
+    }
+
+    /// <summary>Cede a otro proceso el derecho a ponerse en primer plano (lo llama la instancia nueva).</summary>
+    public static void AllowForeground(int pid)
+    {
+        try { AllowSetForegroundWindow(pid); } catch { }
+    }
 }
 
 /// <summary>Enviar archivos/carpetas a la Papelera de reciclaje (sin dependencia de VisualBasic).</summary>
