@@ -90,6 +90,7 @@ public partial class OrganizarView : UserControl
         }
 
         tabla.PreviewKeyDown += OnTablaKeyDown;
+        tabla.PreviewMouseLeftButtonDown += OnTablaClic;
 
         // Con la ventana estrecha, el rótulo de la sección se recortaba a un par de puntos
         // suspensivos, que queda peor que no estar: los botones de al lado ya dicen de qué
@@ -130,6 +131,14 @@ public partial class OrganizarView : UserControl
 
         if (_catalogoElegido != null)
             _catalogoElegido = _catalogos.FirstOrDefault(c => c.Ruta == _catalogoElegido.Ruta);
+
+        // La de la última vez antes que «la primera de la lista»: con dos catálogos, arrancar
+        // siempre en el alfabéticamente primero significa elegir a mano en cada arranque.
+        if (_catalogoElegido == null)
+        {
+            var ultima = ReindexStore.CargarUltimoCatalogo();
+            _catalogoElegido = _catalogos.FirstOrDefault(c => c.Ruta == ultima);
+        }
         _catalogoElegido ??= _catalogos.FirstOrDefault();
 
         cboSerie.SelectedItem = _catalogoElegido;
@@ -157,6 +166,7 @@ public partial class OrganizarView : UserControl
     {
         if (cat == null || cat.Ruta == _catalogoElegido?.Ruta) return;
         _catalogoElegido = cat;
+        ReindexStore.GuardarUltimoCatalogo(cat.Ruta);
         cboSerie.SelectedItem = cat;
         PintarTarjetas();
         CargarCatalogoElegido();
@@ -168,6 +178,34 @@ public partial class OrganizarView : UserControl
     {
         if (sender is FrameworkElement fe && fe.Tag is string ruta)
             ElegirCatalogo(_catalogos.FirstOrDefault(c => c.Ruta == ruta));
+    }
+
+    /// <summary>
+    /// Saca un catálogo de la app. Se pregunta antes porque no hay «deshacer» para esto, y se
+    /// dice de dónde salió: si el JSON original sigue en su sitio, volver a importarlo es
+    /// trivial, y saberlo cambia por completo lo que cuesta decir que sí.
+    /// </summary>
+    private void OnQuitarCatalogo(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not string ruta) return;
+
+        var cat = _catalogos.FirstOrDefault(c => c.Ruta == ruta);
+        if (cat == null) return;
+
+        var deDonde = cat.OrigenRuta.Length > 0
+            ? $"\n\nSe importó de:\n{cat.OrigenRuta}\n\nEse fichero NO se borra: podrás volver a importarlo."
+            : "\n\nNo consta de qué fichero se importó, así que para recuperarlo tendrás que buscarlo tú.";
+
+        if (!DialogWindow.Confirmar(Window.GetWindow(this), "Quitar catálogo",
+                $"¿Quitar «{cat.Serie}» de la app?{deDonde}")) return;
+
+        if (ReindexStore.BorrarCatalogo(ruta))
+        {
+            Escribir($"Catálogo quitado: «{cat.Serie}».");
+            if (_catalogoElegido?.Ruta == ruta) _catalogoElegido = null;
+            Recargar();
+        }
+        else Aviso("Ese catálogo ya no estaba.");
     }
 
     // ─────────────────────────── carpeta ───────────────────────────
@@ -466,6 +504,31 @@ public partial class OrganizarView : UserControl
     /// Solo se separa si hay más de una carpeta: con una sola, la banda repetiría lo que ya
     /// dice el cuadro de la carpeta y se comería una fila por nada.
     /// </summary>
+    /// <summary>
+    /// Volver a pinchar una fila ya abierta la cierra. Sin esto, el resolutor se queda
+    /// desplegado y la única forma de recogerlo es abrir otra fila.
+    ///
+    /// Solo cuenta el clic sobre una CELDA: dentro del desplegable hay botones («Cambiar a
+    /// E318»), y si el clic ahí también cerrara la fila, elegir un candidato sería imposible.
+    /// </summary>
+    private void OnTablaClic(object sender, MouseButtonEventArgs e)
+    {
+        var celda = Ascender<DataGridCell>(e.OriginalSource as DependencyObject);
+        if (celda == null) return;
+
+        var fila = Ascender<DataGridRow>(celda);
+        if (fila is not { IsSelected: true }) return;
+
+        tabla.SelectedItem = null;
+        e.Handled = true;
+    }
+
+    private static T? Ascender<T>(DependencyObject? d) where T : DependencyObject
+    {
+        while (d != null && d is not T) d = VisualTreeHelper.GetParent(d);
+        return d as T;
+    }
+
     /// <returns>Cuántas temporadas han quedado separadas. 0 = no hay nada que separar.</returns>
     private int RecalcularSeparadores()
     {

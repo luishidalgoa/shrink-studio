@@ -216,11 +216,26 @@
                                   Visibility="{Binding Seleccionado, Converter={StaticResource B2V}}">
                             <TextBlock Text="seleccionado" FontSize="10.5" Foreground="{StaticResource Accent200}"/>
                           </Border>
-                          <Button Content="Usar" Style="{StaticResource BtnGhost}" HorizontalAlignment="Right"
-                                  VerticalAlignment="Center" FontSize="11.5" Tag="{Binding Cat.Ruta}"
-                                  Click="OnUsarCatalogo"
-                                  Visibility="{Binding NoSeleccionado, Converter={StaticResource B2V}}"/>
+                          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                      VerticalAlignment="Center">
+                            <Button Content="Usar" Style="{StaticResource BtnGhost}" FontSize="11.5"
+                                    Tag="{Binding Cat.Ruta}" Click="OnUsarCatalogo"
+                                    Visibility="{Binding NoSeleccionado, Converter={StaticResource B2V}}"/>
+                            <!-- Quitar: borra SOLO la copia que usa la app. El JSON del que se
+                                 importó es del usuario y no se toca. -->
+                            <Button Style="{StaticResource BtnGhostMuted}" FontSize="11.5" Padding="7,3"
+                                    Margin="4,0,0,0" Content="Quitar" Tag="{Binding Cat.Ruta}"
+                                    Click="OnQuitarCatalogo"
+                                    ToolTip="Quitar este catálogo de la app (no borra tu fichero JSON)"/>
+                          </StackPanel>
                         </Grid>
+
+                        <!-- De qué fichero salió y cuándo. La app trabaja con una COPIA: sin esto
+                             no hay forma de notar que el original se ha editado desde entonces y
+                             que lo que estás usando se ha quedado viejo. -->
+                        <TextBlock Text="{Binding Cat.Procedencia}" Style="{StaticResource OrgMuted}"
+                                   FontSize="11" Margin="0,0,0,6" TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Cat.OrigenRuta}"/>
                         <ItemsControl ItemsSource="{Binding Cat.Advertencias}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -361,6 +376,9 @@
                 <DataTemplate>
                   <Border Background="{Binding EstadoBg}" BorderBrush="{Binding EstadoBorde}" BorderThickness="1"
                           CornerRadius="6" Padding="8,3" HorizontalAlignment="Left">
+                    <Border.ToolTip>
+                      <TextBlock Text="{Binding EstadoTooltip}" MaxWidth="360" TextWrapping="Wrap"/>
+                    </Border.ToolTip>
                     <StackPanel Orientation="Horizontal">
                       <TextBlock Text="{Binding EstadoGlifo}" Foreground="{Binding EstadoFg}" FontSize="10.5"
                                  VerticalAlignment="Center" Margin="0,0,5,0"/>

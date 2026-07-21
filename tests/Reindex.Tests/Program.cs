@@ -708,6 +708,12 @@ public static class Program
             Eq(1, guardado.Especiales, "cuenta los especiales");
             Assert(guardado.Advertencias.Count > 0, "arrastra las advertencias a la tarjeta");
             Eq(1, ReindexStore.ListarCatalogos().Count, "el catálogo importado aparece en la lista");
+            Eq("entrada.json", guardado.Origen, "recuerda de qué fichero salió");
+
+            // — la última serie elegida sobrevive al cierre —
+            Eq(null, ReindexStore.CargarUltimoCatalogo(), "de entrada no hay ninguna elegida");
+            ReindexStore.GuardarUltimoCatalogo(guardado.Ruta);
+            Eq(guardado.Ruta, ReindexStore.CargarUltimoCatalogo(), "se recuerda la elegida");
 
             // Un JSON inválido no debe dejar rastro en la carpeta de catálogos
             var malo = Path.Combine(temporal, "malo.json");
@@ -715,6 +721,14 @@ public static class Program
             Lanza<ReindexCatalogException>(() => ReindexStore.ImportarCatalogo(malo),
                 "rechaza importar un JSON inválido");
             Eq(1, ReindexStore.ListarCatalogos().Count, "el JSON inválido no se copió");
+
+            // — borrar —
+            Assert(ReindexStore.BorrarCatalogo(guardado.Ruta), "borra el catálogo");
+            Eq(0, ReindexStore.ListarCatalogos().Count, "y desaparece de la lista");
+            Eq(null, ReindexStore.CargarUltimoCatalogo(),
+                "al borrar el elegido deja de estarlo: si no, arrancaría apuntando a un fichero que ya no está");
+            Assert(!ReindexStore.BorrarCatalogo(guardado.Ruta), "borrar dos veces no revienta");
+            Assert(File.Exists(origen), "el JSON del que se importó NO se toca: es del usuario");
 
             // — memoria de decisiones —
             Eq(0, ReindexStore.CargarDecisiones().Count, "sin decisiones al principio");
