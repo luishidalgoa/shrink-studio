@@ -76,9 +76,26 @@ public partial class MainWindow : Window
         miSelNone.Click += (_, _) => lst.UnselectAll();
         miSelInvert.Click += (_, _) => InvertSelection();
         miDelSel.Click += (_, _) => DeleteSelected();
+        miRename.Click += (_, _) => OpenRenameDialog();
+        btnRename.Click += (_, _) => OpenRenameDialog();
         miPrefs.Click += (_, _) => OpenPreferences();
         miCheckUpd.Click += async (_, _) => await CheckUpdateAsync(manual: true);
         miAbout.Click += (_, _) => ShowAbout();
+
+        // «Subcarpetas» es el mismo ajuste que el de Preferencias: se mantienen en sync
+        chkRec.Checked += (_, _) => PersistRecurse();
+        chkRec.Unchecked += (_, _) => PersistRecurse();
+
+        // quitar de la lista con Supr + menú contextual de la tabla
+        lst.PreviewKeyDown += Lst_KeyDown;
+        lst.PreviewMouseRightButtonDown += Lst_RightButtonDown;
+        ctxTable.Opened += (_, _) => UpdateContextMenu();
+        miCtxRemove.Click += (_, _) => RemoveSelectedRows();
+        miCtxRecycle.Click += (_, _) => DeleteSelected();
+        miCtxOpenFolder.Click += (_, _) => OpenContainingFolder();
+        miCtxCopyPath.Click += (_, _) => CopySelectedPaths();
+        miCtxSelectAll.Click += (_, _) => lst.SelectAll();
+        miCtxInvert.Click += (_, _) => InvertSelection();
 
         // banda de selección estilo explorador
         lst.PreviewMouseLeftButtonDown += Lst_MouseDown;
@@ -91,6 +108,7 @@ public partial class MainWindow : Window
             c.SelectionChanged += (_, _) => UpdateEstimate();
 
         btnPreview.Click += async (_, _) => await OnPreviewAsync();
+        btnMeasure.Click += async (_, _) => await OnMeasureAsync();
         _scrubTimer.Tick += async (_, _) => { _scrubTimer.Stop(); await ShowScrubFrameAsync(); };
         sldPreview.ValueChanged += (_, _) =>
         {
@@ -124,7 +142,18 @@ public partial class MainWindow : Window
     {
         Engine.MinFreeBytes = _settings.MinFreeMb * 1024L * 1024;
         Engine.AllowHardware = _settings.UseHardware;
+        Estimator.ComplexityFactor = Math.Clamp(_settings.ComplexityFactor, 0.15, 4.0);
         chkRec.IsChecked = _settings.Recurse;
+        UpdateRenameStatus();
+    }
+
+    /// <summary>La casilla «Subcarpetas» y la preferencia son lo mismo: al cambiarla, se guarda.</summary>
+    private void PersistRecurse()
+    {
+        bool v = chkRec.IsChecked == true;
+        if (v == _settings.Recurse) return;   // evita reescribir al aplicar los ajustes
+        _settings.Recurse = v;
+        SettingsStore.Save(_settings);
     }
 
     private void OpenPreferences()
@@ -138,6 +167,43 @@ public partial class MainWindow : Window
             ApplySettings();
             lblProg.Text = "Preferencias guardadas.";
         }
+    }
+
+    // ---------- renombrado de la salida (estilo PowerRename) ----------
+    private void OpenRenameDialog()
+    {
+        string ext = Engine.OutputExtension(BuildOptions());
+        var rows = SelectedRows();
+        if (rows.Count == 0) rows = _rows.ToList();   // sin selección: previsualiza con toda la lista
+
+        var items = rows
+            .Select(r => (name: Path.GetFileNameWithoutExtension(r.Name) + ext, created: SafeCreated(r.Path)))
+            .ToList();
+
+        var dlg = new RenameWindow(_settings.Rename, items,
+                                   _settings.RenameSearchHistory, _settings.RenameReplaceHistory) { Owner = this };
+        if (dlg.ShowDialog() == true && dlg.Result != null)
+        {
+            _settings.Rename = dlg.Result;   // los historiales se mutan dentro del diálogo
+            SettingsStore.Save(_settings);
+            UpdateRenameStatus();
+            lblProg.Text = _settings.Rename.HasEffect
+                ? "Regla de renombrado activa."
+                : "Renombrado desactivado: la salida conserva el nombre original.";
+        }
+    }
+
+    private static DateTime SafeCreated(string path)
+    {
+        try { return File.GetCreationTime(path); } catch { return DateTime.Now; }
+    }
+
+    /// <summary>Refleja en el botón si hay una regla de renombrado activa (para que nunca sea silenciosa).</summary>
+    private void UpdateRenameStatus()
+    {
+        bool on = _settings.Rename.HasEffect;
+        lblRename.Text = on ? "Renombrar salida ✓" : "Renombrar salida";
+        lblRename.Foreground = on ? (Brush)FindResource("Accent300") : (Brush)FindResource("Text");
     }
 
     private void ShowAbout() => MessageBox.Show(this,
@@ -436,6 +502,68 @@ public partial class MainWindow : Window
         }
     }
 
+    // ---------- quitar de la lista / menú contextual ----------
+    private void Lst_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete) return;
+        RemoveSelectedRows();
+        e.Handled = true;
+    }
+
+    /// <summary>Con el botón derecho, si la fila no estaba seleccionada pasa a serlo (como el explorador).</summary>
+    private void Lst_RightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is not { } item) return;
+        if (!item.IsSelected) { lst.UnselectAll(); item.IsSelected = true; }
+    }
+
+    /// <summary>
+    /// Quita las filas de la lista. NO toca los archivos: solo deja de tenerlos en cuenta.
+    /// Para borrar de verdad está «Enviar el archivo a la Papelera», que además pregunta.
+    /// </summary>
+    private void RemoveSelectedRows()
+    {
+        var sel = SelectedRows();
+        if (sel.Count == 0) return;
+        foreach (var r in sel) _rows.Remove(r);
+        lblProg.Text = sel.Count == 1
+            ? "1 vídeo quitado de la lista (el archivo sigue en su sitio)."
+            : $"{sel.Count} vídeos quitados de la lista (los archivos siguen en su sitio).";
+    }
+
+    private void UpdateContextMenu()
+    {
+        int n = SelectedRows().Count;
+        miCtxRemove.IsEnabled = miCtxRecycle.IsEnabled = miCtxCopyPath.IsEnabled = n > 0;
+        miCtxOpenFolder.IsEnabled = n > 0;
+        miCtxInvert.IsEnabled = _rows.Count > 0;
+        miCtxSelectAll.IsEnabled = _rows.Count > 0;
+        miCtxRemove.Header = n > 1 ? $"Quitar {n} de la lista" : "Quitar de la lista";
+        miCtxRecycle.Header = n > 1 ? $"Enviar {n} archivos a la Papelera…" : "Enviar el archivo a la Papelera…";
+    }
+
+    private void OpenContainingFolder()
+    {
+        if (SelectedRows().FirstOrDefault() is not { } r) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{r.Path}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex) { lblProg.Text = "No se pudo abrir la carpeta: " + ex.Message; }
+    }
+
+    private void CopySelectedPaths()
+    {
+        var sel = SelectedRows();
+        if (sel.Count == 0) return;
+        try
+        {
+            Clipboard.SetText(string.Join(Environment.NewLine, sel.Select(r => r.Path)));
+            lblProg.Text = sel.Count == 1 ? "Ruta copiada." : $"{sel.Count} rutas copiadas.";
+        }
+        catch (Exception ex) { lblProg.Text = "No se pudo copiar: " + ex.Message; }
+    }
+
     private void InvertSelection()
     {
         for (int i = 0; i < lst.Items.Count; i++)
@@ -537,6 +665,53 @@ public partial class MainWindow : Window
 
     private static string FmtTime(int sec) => $"{sec / 60}:{sec % 60:D2}";
 
+    // ---------- medición real del tamaño (muestreo) ----------
+    private async Task OnMeasureAsync()
+    {
+        if (lst.SelectedItem is not VideoRow r || !r.Probed)
+        {
+            MessageBox.Show(this, "Selecciona un vídeo analizado.", "Medir", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (_running) { MessageBox.Show(this, "Espera a que termine la compresión en curso.", "Medir", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+
+        var opt = BuildOptions();
+        if (opt.AudioOnly) { MessageBox.Show(this, "En modo «solo audio» el tamaño ya es exacto: no hace falta medir.", "Medir", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+
+        btnMeasure.IsEnabled = false;
+        progRow.Visibility = Visibility.Visible; bar.Value = 0;
+        lblProg.Text = "Midiendo con muestras reales…";
+        lblMeasure.Text = "Codificando 3 fragmentos con estos ajustes…";
+        var cts = new CancellationTokenSource();
+        try
+        {
+            int kbps = await _engine.MeasureVideoBitrateAsync(r.Path, opt, new PreviewReporter(this), cts.Token);
+            if (kbps <= 0)
+            {
+                lblMeasure.Text = "No se pudo medir este vídeo.";
+                lblProg.Text = "No se pudo medir.";
+                return;
+            }
+            // el contenido manda: deducimos su factor de complejidad y recalibramos
+            double factor = Estimator.FactorFromMeasurement(r, opt, kbps);
+            Estimator.ComplexityFactor = factor;
+            _settings.ComplexityFactor = factor;
+            SettingsStore.Save(_settings);
+            UpdateEstimate();
+            lblMeasure.Text = $"Medido: vídeo ≈ {kbps} kbps. Contenido {(factor < 0.85 ? "más fácil" : factor > 1.15 ? "más exigente" : "normal")} " +
+                              $"de lo típico (×{factor:0.00}); el resto de la lista ya usa esta calibración.";
+            lblProg.Text = "Medición aplicada a la estimación.";
+        }
+        catch (OperationCanceledException) { lblMeasure.Text = "Medición cancelada."; }
+        catch (Exception ex) { lblMeasure.Text = "Error al medir: " + ex.Message; }
+        finally
+        {
+            cts.Dispose();
+            btnMeasure.IsEnabled = true;
+            progRow.Visibility = Visibility.Collapsed;
+        }
+    }
+
     // ---------- previsualización de 10 s ----------
     private async Task OnPreviewAsync()
     {
@@ -626,6 +801,7 @@ public partial class MainWindow : Window
             KeepLangs = CheckedLangs(pnlALang),
             Force = chkForce.IsChecked == true,
             DryRun = chkDry.IsChecked == true,
+            NameRule = _settings.Rename,
             VideoCodec = cboCodec.SelectedIndex switch { 1 => "h264", 2 => "av1", _ => "hevc" },
         };
         switch (cboFmt.SelectedIndex)
@@ -726,7 +902,10 @@ public partial class MainWindow : Window
         _applyingPreset = true;
         cboFmt.SelectedIndex = p.Fmt; cboCodec.SelectedIndex = p.Codec;
         cboQ.SelectedIndex = p.Quality; cboRes.SelectedIndex = p.Res; cboAud.SelectedIndex = p.Audio;
-        cboLang.Text = p.Lang; chkRec.IsChecked = p.Recurse;
+        cboLang.Text = p.Lang;
+        // «Subcarpetas» NO se toca aquí: es un ajuste de exploración del disco que manda
+        // el usuario desde Preferencias, no parte de la receta de codificación. Antes el
+        // preset lo reactivaba y pisaba la preferencia.
         _applyingPreset = false;
         UpdateEstimate();
     }
@@ -741,7 +920,7 @@ public partial class MainWindow : Window
         {
             Name = name, Fmt = cboFmt.SelectedIndex, Codec = cboCodec.SelectedIndex,
             Quality = cboQ.SelectedIndex, Res = cboRes.SelectedIndex, Audio = cboAud.SelectedIndex,
-            Lang = cboLang.Text, Recurse = chkRec.IsChecked == true,
+            Lang = cboLang.Text,
         });
         PresetStore.SaveUser(user);
         ReloadPresets(name);

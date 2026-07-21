@@ -25,6 +25,14 @@ public sealed class Settings
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public AfterCompress AfterCompress { get; set; } = AfterCompress.Ask;
 
+    // --- Renombrado de la salida (estilo PowerRename) ---
+    public RenameRule Rename { get; set; } = new();
+    public List<string> RenameSearchHistory { get; set; } = new();    // valores recientes de «Buscar»
+    public List<string> RenameReplaceHistory { get; set; } = new();   // valores recientes de «Reemplazar por»
+
+    /// <summary>Complejidad del contenido aprendida al medir una muestra (1 = imagen real típica).</summary>
+    public double ComplexityFactor { get; set; } = 1.0;
+
     // --- Rendimiento y disco ---
     public int MinFreeMb { get; set; } = 200;            // margen mínimo de disco antes de pausar
     public bool UseHardware { get; set; } = true;        // usar aceleración por hardware si existe

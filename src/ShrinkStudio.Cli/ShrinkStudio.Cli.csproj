@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- net9.0 "a secas": compila y corre en Windows, Linux y macOS -->
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>shrinkstudio</AssemblyName>
+    <RootNamespace>ShrinkVideo</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+
+    <Version>0.4.0</Version>
+    <Product>ShrinkStudio CLI</Product>
+    <Company>luishidalgoa</Company>
+    <Authors>luishidalgoa</Authors>
+    <Description>ShrinkStudio CLI — compresor de vídeo multiplataforma (el mismo motor que la app de escritorio).</Description>
+  </PropertyGroup>
+
+  <!--
+    El motor se comparte con la app WPF ENLAZANDO los ficheros, no copiándolos:
+    así no hay dos versiones que se desincronicen. Se excluye todo lo de interfaz
+    (ventanas, tema) porque WPF solo existe en Windows.
+  -->
+  <ItemGroup>
+    <Compile Include="..\ShrinkVideo\Engine.cs"        Link="Engine.cs" />
+    <Compile Include="..\ShrinkVideo\EncodeOptions.cs" Link="EncodeOptions.cs" />
+    <Compile Include="..\ShrinkVideo\Estimator.cs"     Link="Estimator.cs" />
+    <Compile Include="..\ShrinkVideo\RenameRule.cs"    Link="RenameRule.cs" />
+    <Compile Include="..\ShrinkVideo\VideoRow.cs"      Link="VideoRow.cs" />
+    <Compile Include="..\ShrinkVideo\Native.cs"        Link="Native.cs" />
+  </ItemGroup>
+
+</Project>

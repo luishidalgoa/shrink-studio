@@ -33,7 +33,8 @@
             <TextBlock Text="Se marca como pista de audio por defecto (código ISO, p. ej. spa, eng, por)." FontSize="10.5" Foreground="{StaticResource Neutral600}" Margin="0,0,0,4"/>
             <TextBox x:Name="txtDefLang" Width="140" HorizontalAlignment="Left" Margin="0,0,0,18"/>
 
-            <CheckBox x:Name="chkRecurse" Content="Analizar subcarpetas por defecto" Margin="0,0,0,10"/>
+            <CheckBox x:Name="chkRecurse" Content="Analizar subcarpetas" Margin="0,0,0,10"
+                      ToolTip="Al analizar el origen, entra también en las carpetas de dentro. Es la misma casilla «Subcarpetas» de la ventana principal."/>
             <CheckBox x:Name="chkUpdates" Content="Buscar actualizaciones al abrir la app"/>
           </StackPanel>
         </TabItem>
