@@ -31,6 +31,12 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Los catálogos dicen de qué fichero salieron y cuándo, y se pueden quitar.** La app trabaja
+  con una copia del JSON que importas, así que si luego editas el original tu copia se queda
+  vieja sin que nada lo delate: ahora cada tarjeta lo dice. Y «Quitar» lo saca de la app sin
+  tocar tu fichero, que sigue donde estaba por si quieres volver a importarlo.
+- **Se recuerda la última serie elegida.** Con más de un catálogo, cada arranque empezaba en
+  el primero por orden alfabético y había que volver a elegir.
 - **El selector de idiomas es ahora la norma ISO entera, con buscador.** Antes eran siete
   opciones fijas elegidas a ojo; si tu serie venía titulada en cualquier otro idioma, no
   había forma de decirlo. Ahora se busca por nombre o por código, sin tildes y a medias
@@ -51,6 +57,13 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **Volver a pinchar una fila abierta la cierra.** Antes el desplegable se quedaba abierto y
+  la única forma de recogerlo era abrir otro. Los botones de dentro siguen funcionando: solo
+  cierra el clic sobre la fila, no sobre sus opciones.
+- **Un «Limpio» en ámbar ya explica por qué.** Desconcertaba con razón: la palabra dice que el
+  fichero ya se llama como toca y el color dice que hay algo que mirar. Son dos cosas
+  distintas —el nombre puede estar bien y aun así no ser ese episodio— y ahora el globo de
+  ayuda lo cuenta al pasar por encima.
 - **Los campos de Origen, Destino, Carpeta y Plantilla ya se encienden al escribir en ellos.**
   Eran los únicos que se quedaron sin el haz de foco, porque estaban montados a mano en cada
   pantalla en vez de ser el mismo componente. Ahora lo son, así que lo que se arregle en uno

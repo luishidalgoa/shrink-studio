@@ -147,6 +147,32 @@ public sealed class OrganizarRow : INotifyPropertyChanged
         _ => "Danger",
     };
 
+    /// <summary>
+    /// Explica por qué el color no siempre concuerda con la palabra. Un «Limpio» en ámbar
+    /// desconcierta con razón: dice que el fichero YA se llama como toca, pero que no está
+    /// confirmado que sea ese episodio. Sin decirlo, parece un fallo de la app.
+    /// </summary>
+    public string EstadoTooltip
+    {
+        get
+        {
+            if (Aplicado) return "Renombrado en este lote.";
+
+            var porque = string.IsNullOrWhiteSpace(Res.Motivo) ? "" : $" ({Res.Motivo})";
+            return Res.Confianza switch
+            {
+                ReindexConfianza.Alta =>
+                    $"{EstadoTexto} · identificación segura{porque}.",
+                ReindexConfianza.Revisar =>
+                    $"{EstadoTexto}, pero la identificación NO está confirmada{porque}.\n\n" +
+                    "Va en ámbar por eso: el nombre puede estar ya bien y aun así no ser este episodio. " +
+                    "Ábrela para ver contra qué ha casado.",
+                _ =>
+                    $"{EstadoTexto} · esto lo tienes que decidir tú{porque}.",
+            };
+        }
+    }
+
     public Brush EstadoFg => Rec($"Org{Tono}");
     public Brush EstadoBg => Rec($"Org{Tono}Bg");
     public Brush EstadoBorde => Rec($"Org{Tono}Border");

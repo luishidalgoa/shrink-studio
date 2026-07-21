@@ -9,6 +9,22 @@ public sealed class CatalogoGuardado
 {
     public required string Ruta { get; init; }
     public required string Serie { get; init; }
+
+    /// <summary>
+    /// Fichero del que se importó, con su ruta completa. Importa enseñarlo: el catálogo que
+    /// usa la app es una COPIA, así que si luego editas el original tu copia se queda vieja
+    /// y no hay forma de notarlo si no se dice de dónde salió y cuándo.
+    /// </summary>
+    public string OrigenRuta { get; init; } = "";
+    public string Importado { get; init; } = "";
+
+    /// <summary>Solo el nombre del fichero de origen, para la tarjeta.</summary>
+    public string Origen => OrigenRuta.Length == 0 ? "" : Path.GetFileName(OrigenRuta);
+
+    /// <summary>«desde entrada.json · 21/07/2026» o vacío si viene de antes de guardarse esto.</summary>
+    public string Procedencia => Origen.Length == 0
+        ? "origen desconocido"
+        : $"desde {Origen}" + (Importado.Length > 0 ? $" · {Importado}" : "");
     public int Episodios { get; init; }
     public int Especiales { get; init; }
     public int ConVariosSegmentos { get; init; }
@@ -74,6 +90,12 @@ public static class ReindexStore
     public static string DirLotes => Path.Combine(Raiz, "lotes");
     public static string RutaDecisiones => Path.Combine(Raiz, "decisiones.json");
 
+    /// <summary>De qué fichero salió cada catálogo. Clave = nombre del fichero guardado.</summary>
+    public static string RutaProcedencia => Path.Combine(Raiz, "procedencia.json");
+
+    /// <summary>Qué serie estaba elegida al cerrar.</summary>
+    public static string RutaPreferencias => Path.Combine(Raiz, "organizar.json");
+
     private static readonly JsonSerializerOptions Opciones = new()
     {
         WriteIndented = true,
@@ -96,15 +118,24 @@ public static class ReindexStore
         return lista.OrderBy(c => c.Serie, StringComparer.CurrentCultureIgnoreCase).ToList();
     }
 
-    private static CatalogoGuardado Describir(string ruta, ReindexCatalog cat) => new()
+    private static CatalogoGuardado Describir(string ruta, ReindexCatalog cat)
     {
-        Ruta = ruta,
-        Serie = cat.Serie,
-        Episodios = cat.Episodios.Count,
-        Especiales = cat.Especiales.Count,
-        ConVariosSegmentos = cat.Episodios.Count(e => e.TitulosSalida.Count > 1),
-        Advertencias = cat.Advertencias,
-    };
+        var proc = LeerMapa(RutaProcedencia);
+        proc.TryGetValue(Path.GetFileName(ruta), out var origen);
+        var trozos = (origen ?? "").Split('|');
+
+        return new CatalogoGuardado
+        {
+            Ruta = ruta,
+            OrigenRuta = trozos.Length > 0 ? trozos[0] : "",
+            Importado = trozos.Length > 1 ? trozos[1] : "",
+            Serie = cat.Serie,
+            Episodios = cat.Episodios.Count,
+            Especiales = cat.Especiales.Count,
+            ConVariosSegmentos = cat.Episodios.Count(e => e.TitulosSalida.Count > 1),
+            Advertencias = cat.Advertencias,
+        };
+    }
 
     /// <summary>
     /// Importa un catálogo: lo VALIDA antes de copiarlo, para no dejar basura en la carpeta.
@@ -117,12 +148,81 @@ public static class ReindexStore
         Directory.CreateDirectory(DirCatalogos);
         var destino = Path.Combine(DirCatalogos, NombreSeguro(cat.Serie) + ".reindex.json");
         File.Copy(rutaOrigen, destino, overwrite: true);
+
+        var proc = LeerMapa(RutaProcedencia);
+        proc[Path.GetFileName(destino)] = $"{Path.GetFullPath(rutaOrigen)}|{DateTime.Now:dd/MM/yyyy}";
+        EscribirMapa(RutaProcedencia, proc);
+
         return Describir(destino, cat);
     }
 
-    public static void EliminarCatalogo(string ruta)
+    /// <summary>
+    /// Quita un catálogo de la app. Solo borra LA COPIA: el JSON del que se importó es del
+    /// usuario y no se toca nunca.
+    /// </summary>
+    /// <returns>false si ya no estaba.</returns>
+    public static bool BorrarCatalogo(string ruta)
     {
-        if (File.Exists(ruta)) File.Delete(ruta);
+        if (!File.Exists(ruta)) return false;
+        File.Delete(ruta);
+
+        var proc = LeerMapa(RutaProcedencia);
+        if (proc.Remove(Path.GetFileName(ruta))) EscribirMapa(RutaProcedencia, proc);
+
+        // Si era el elegido, dejarlo apuntado seria arrancar señalando a algo que ya no esta
+        if (string.Equals(CargarUltimoCatalogo(), ruta, StringComparison.OrdinalIgnoreCase))
+            GuardarUltimoCatalogo(null);
+
+        return true;
+    }
+
+    // ───────────────── la serie elegida sobrevive al cierre ─────────────────
+
+    /// <summary>
+    /// La última serie elegida, o null si no hay o si el fichero ya no está. Comprobar que
+    /// exista es la mitad del asunto: un puntero a un catálogo borrado a mano dejaría la
+    /// página arrancando en un estado imposible.
+    /// </summary>
+    public static string? CargarUltimoCatalogo()
+    {
+        var mapa = LeerMapa(RutaPreferencias);
+        if (!mapa.TryGetValue("ultimoCatalogo", out var ruta)) return null;
+        return !string.IsNullOrWhiteSpace(ruta) && File.Exists(ruta) ? ruta : null;
+    }
+
+    public static void GuardarUltimoCatalogo(string? ruta)
+    {
+        var mapa = LeerMapa(RutaPreferencias);
+        if (string.IsNullOrWhiteSpace(ruta)) mapa.Remove("ultimoCatalogo");
+        else mapa["ultimoCatalogo"] = ruta;
+        EscribirMapa(RutaPreferencias, mapa);
+    }
+
+    // ── mapas de texto sueltos (procedencia, preferencias) ──
+    // Ficheros minusculos y de forma libre; un fallo de lectura se traga y se sigue: son
+    // comodidades, no datos que valga la pena defender con un error en pantalla.
+
+    private static Dictionary<string, string> LeerMapa(string ruta)
+    {
+        try
+        {
+            if (!File.Exists(ruta)) return new();
+            var json = File.ReadAllText(ruta, System.Text.Encoding.UTF8);
+            return JsonSerializer.Deserialize(json, ReindexStoreJson.Default.DictionaryStringString) ?? new();
+        }
+        catch { return new(); }
+    }
+
+    private static void EscribirMapa(string ruta, Dictionary<string, string> mapa)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(ruta)!);
+            File.WriteAllText(ruta,
+                JsonSerializer.Serialize(mapa, ReindexStoreJson.Default.DictionaryStringString),
+                System.Text.Encoding.UTF8);
+        }
+        catch { /* ídem */ }
     }
 
     private static string NombreSeguro(string s)
@@ -227,4 +327,5 @@ public static class ReindexStore
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true, WriteIndented = true)]
 [JsonSerializable(typeof(DecisionesArchivo))]
 [JsonSerializable(typeof(LoteJournal))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 internal partial class ReindexStoreJson : JsonSerializerContext { }
