@@ -50,6 +50,58 @@
   <FontFamily x:Key="FontUI">Segoe UI</FontFamily>
   <FontFamily x:Key="FontMono">Consolas</FontFamily>
 
+  <!-- ══ Neón y luz ambiental ══════════════════════════════════════════════════
+       El equivalente WPF del box-shadow en capas es DropShadowEffect con
+       ShadowDepth=0: el desenfoque se reparte a los cuatro lados y queda un halo.
+
+       Dos reglas que se respetan en todo el tema, porque «neón» degenera en ruido
+       con una facilidad pasmosa:
+
+       1. Brilla lo FOCAL, no todo: acción principal, foco del teclado, pestaña
+          activa, progreso y el latido de trabajo en marcha. Nada más.
+       2. JAMÁS dentro de una plantilla de fila. Cada Effect obliga a WPF a
+          componer en una superficie intermedia; multiplicado por cientos de filas
+          virtualizadas, el desplazamiento se vuelve pegajoso.
+  -->
+  <Color x:Key="c.glow">#968AE0</Color>
+
+  <!-- Luz ambiental del fondo: dos manchas radiales muy tenues, una fría arriba a
+       la izquierda y otra violeta abajo a la derecha. Son brochas, no efectos: no
+       cuestan composición y dan la sensación de sala iluminada. -->
+  <RadialGradientBrush x:Key="AmbienteA" Center="0.10,0.02" GradientOrigin="0.10,0.02"
+                       RadiusX="0.62" RadiusY="0.95">
+    <GradientStop Color="#40968AE0" Offset="0"/>
+    <GradientStop Color="#14968AE0" Offset="0.45"/>
+    <GradientStop Color="#00968AE0" Offset="1"/>
+  </RadialGradientBrush>
+  <RadialGradientBrush x:Key="AmbienteB" Center="0.92,1.0" GradientOrigin="0.92,1.0"
+                       RadiusX="0.70" RadiusY="1.0">
+    <GradientStop Color="#357C6BD8" Offset="0"/>
+    <GradientStop Color="#0F7C6BD8" Offset="0.5"/>
+    <GradientStop Color="#007C6BD8" Offset="1"/>
+  </RadialGradientBrush>
+  <!-- Un apunte de cian, al 6 %: es lo que separa «morado tintado» de «neón».
+       Más alpha y empieza a pelearse con la marca. -->
+  <RadialGradientBrush x:Key="AmbienteC" Center="0.72,0.06" GradientOrigin="0.72,0.06"
+                       RadiusX="0.42" RadiusY="0.55">
+    <GradientStop Color="#1A63D2E8" Offset="0"/>
+    <GradientStop Color="#0063D2E8" Offset="1"/>
+  </RadialGradientBrush>
+
+  <!-- Halo suave reutilizable para elementos de marca (el logotipo). Congelado y
+       compartido: no se anima, así que una sola instancia vale para todos. -->
+  <DropShadowEffect x:Key="HaloMarca" ShadowDepth="0" BlurRadius="16" Color="#968AE0" Opacity="0.55"
+                    RenderingBias="Performance"/>
+
+  <!-- Superficie de panel translúcida (86 %). Deja que la luz ambiental atraviese en
+       vez de recortarla: sin esto el fondo solo se ilumina en los márgenes y el centro
+       de la ventana queda plano y apagado.
+       Va aparte de «Surface» a propósito — los menús y los desplegables flotan sobre
+       contenido cualquiera y ahí la translucidez se ve sucia; estos paneles siempre
+       tienen detrás el fondo de la ventana. Con el texto a #E9E9ED el contraste se
+       queda en torno a 12:1, muy por encima de AA. -->
+  <SolidColorBrush x:Key="SurfaceGlass" Color="#DB232532"/>
+
   <!-- Regla horizontal fundida en los extremos (firma Nocturne) -->
   <LinearGradientBrush x:Key="FadedRule" StartPoint="0,0" EndPoint="1,0">
     <GradientStop Color="#00E9E9ED" Offset="0"/>
@@ -74,11 +126,37 @@
         <ControlTemplate TargetType="TextBox">
           <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+            <!-- Halo de foco: aquí el neón no es adorno, señala dónde va a escribir
+                 el teclado, que es justo lo que un borde fino de 1 px cuenta mal. -->
+            <Border.Effect>
+              <DropShadowEffect ShadowDepth="0" BlurRadius="14" Color="{StaticResource c.glow}" Opacity="0"
+                                RenderingBias="Performance"/>
+            </Border.Effect>
             <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Neutral600}"/></Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="b"
+                                     Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
+                                     To="0.5" Duration="0:0:0.15"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="b"
+                                     Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -130,13 +208,57 @@
     </Setter>
   </Style>
 
+  <!-- La acción principal es el único botón que se enciende, y solo al apuntarlo:
+       un neón permanente en cada botón deja de señalar nada. El halo entra en
+       150 ms y sale en 220 ms — se apaga más despacio de lo que prende, que es
+       como se comporta algo que de verdad brilla. -->
   <Style x:Key="BtnPrimary" TargetType="Button" BasedOn="{StaticResource BtnBase}">
     <Setter Property="Foreground" Value="{StaticResource Accent}"/>
     <Setter Property="BorderBrush" Value="{StaticResource Accent}"/>
-    <Style.Triggers>
-      <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{StaticResource HoverPrimary}"/></Trigger>
-      <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{StaticResource PressedPrimary}"/></Trigger>
-    </Style.Triggers>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8"
+                  Padding="{TemplateBinding Padding}">
+            <!-- El efecto se declara aquí dentro, no como recurso compartido: cada
+                 botón necesita su propia instancia para poder animarla por separado. -->
+            <Border.Effect>
+              <DropShadowEffect ShadowDepth="0" BlurRadius="18" Color="{StaticResource c.glow}" Opacity="0"
+                                RenderingBias="Performance"/>
+            </Border.Effect>
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="b" Property="Background" Value="{StaticResource HoverPrimary}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="b"
+                                     Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
+                                     To="0.55" Duration="0:0:0.15"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="b"
+                                     Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="b" Property="Background" Value="{StaticResource PressedPrimary}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="b" Property="Opacity" Value="0.45"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <Style x:Key="BtnSecondary" TargetType="Button" BasedOn="{StaticResource BtnBase}">
@@ -296,6 +418,25 @@
                     <GradientStop Color="#796CBF" Offset="0"/><GradientStop Color="#B5ABFC" Offset="1"/>
                   </LinearGradientBrush>
                 </Border.Background>
+                <!-- La barra de progreso deja un rastro de luz sobre el canal: el
+                     avance se lee de reojo, sin tener que mirar el número. Late muy
+                     despacio (2,6 s) para que sugiera actividad sin distraer de la
+                     tarea que se está haciendo mientras. -->
+                <Border.Effect>
+                  <DropShadowEffect ShadowDepth="0" BlurRadius="12" Color="{StaticResource c.glow}" Opacity="0.5"
+                                    RenderingBias="Performance"/>
+                </Border.Effect>
+                <Border.Triggers>
+                  <EventTrigger RoutedEvent="Loaded">
+                    <BeginStoryboard>
+                      <Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.BlurRadius)"
+                                         From="9" To="17" Duration="0:0:2.6" AutoReverse="True"
+                                         RepeatBehavior="Forever"/>
+                      </Storyboard>
+                    </BeginStoryboard>
+                  </EventTrigger>
+                </Border.Triggers>
               </Border>
             </Grid>
           </Border>

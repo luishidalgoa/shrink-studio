@@ -1,0 +1,206 @@
+using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace ShrinkVideo.Reindex;
+
+/// <summary>Un episodio del catálogo de referencia.</summary>
+public sealed class CatalogEpisode
+{
+    /// <summary>Número DESTINO: el que irá en el nombre final.</summary>
+    [JsonPropertyName("num")] public int Num { get; set; }
+    [JsonPropertyName("temporada")] public int? Temporada { get; set; }
+    /// <summary>Fecha de emisión ISO, o null (Shin-chan no trae fechas).</summary>
+    [JsonPropertyName("fecha")] public string? Fecha { get; set; }
+    [JsonPropertyName("especial")] public bool Especial { get; set; }
+    [JsonPropertyName("emitido_es")] public bool? EmitidoEs { get; set; }
+    /// <summary>
+    /// Títulos por idioma. SIEMPRE arrays: un episodio puede tener 2-3 mini-historias
+    /// («segmentos»), y cualquiera de ellas identifica al episodio.
+    /// </summary>
+    [JsonPropertyName("titulos")] public Dictionary<string, List<string>> Titulos { get; set; } = new();
+    [JsonPropertyName("aliases")] public List<string> Aliases { get; set; } = new();
+
+    // ---- calculado al cargar, no viene del JSON ----
+    [JsonIgnore] public DateOnly? FechaParsed { get; private set; }
+    /// <summary>Todos los títulos comparables (es + lat + aliases), ya normalizados.</summary>
+    [JsonIgnore] public IReadOnlyList<string> TitulosNorm { get; private set; } = Array.Empty<string>();
+    /// <summary>Los mismos títulos sin normalizar, para mostrarlos.</summary>
+    [JsonIgnore] public IReadOnlyList<string> TitulosVisibles { get; private set; } = Array.Empty<string>();
+
+    internal void Precompute()
+    {
+        FechaParsed = DateOnly.TryParse(Fecha, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+
+        var visibles = new List<string>();
+        // el japonés no se compara: los ficheros del usuario vienen en español
+        foreach (var idioma in new[] { "es", "lat" })
+            if (Titulos.TryGetValue(idioma, out var lista))
+                visibles.AddRange(lista.Where(t => !string.IsNullOrWhiteSpace(t)));
+        visibles.AddRange(Aliases.Where(a => !string.IsNullOrWhiteSpace(a)));
+
+        TitulosVisibles = visibles;
+        TitulosNorm = visibles.Select(TitleMatch.Norm).Where(s => s.Length > 0).Distinct().ToList();
+    }
+
+    /// <summary>Título preferente para el nombre final (el primero en español).</summary>
+    public string TituloPrincipal => TitulosVisibles.Count > 0 ? TitulosVisibles[0] : $"Episodio {Num}";
+
+    /// <summary>Todos los segmentos unidos, para mostrar en la propuesta.</summary>
+    public string TituloCompleto => TitulosVisibles.Count > 1
+        ? string.Join(" + ", TitulosVisibles.Take(3))
+        : TituloPrincipal;
+}
+
+/// <summary>Catálogo de referencia de una serie (esquema reindex/1.0).</summary>
+public sealed class ReindexCatalog
+{
+    [JsonPropertyName("esquema")] public string Esquema { get; set; } = "";
+    [JsonPropertyName("serie")] public string Serie { get; set; } = "";
+    /// <summary>Qué significa «num» en esta serie (oficial, segmento, continuo…).</summary>
+    [JsonPropertyName("clave")] public string Clave { get; set; } = "";
+    [JsonPropertyName("notas")] public string Notas { get; set; } = "";
+    [JsonPropertyName("total")] public int Total { get; set; }
+    [JsonPropertyName("episodios")] public List<CatalogEpisode> Episodios { get; set; } = new();
+
+    // ---- índices calculados ----
+    [JsonIgnore] private Dictionary<int, CatalogEpisode> _porNum = new();
+    [JsonIgnore] public IReadOnlyList<CatalogEpisode> Regulares { get; private set; } = Array.Empty<CatalogEpisode>();
+    [JsonIgnore] public IReadOnlyList<CatalogEpisode> Especiales { get; private set; } = Array.Empty<CatalogEpisode>();
+
+    /// <summary>Versión mayor del esquema que esta app sabe leer.</summary>
+    public const int EsquemaMayorSoportado = 1;
+
+    /// <summary>Avisos de esta serie que la UI DEBE enseñar antes de identificar nada.</summary>
+    [JsonIgnore] public IReadOnlyList<string> Advertencias { get; private set; } = Array.Empty<string>();
+
+    public CatalogEpisode? PorNum(int num) => _porNum.TryGetValue(num, out var e) ? e : null;
+    public bool ExisteNum(int num) => _porNum.ContainsKey(num);
+
+    public static ReindexCatalog Load(string path) => Parse(File.ReadAllText(path, System.Text.Encoding.UTF8));
+
+    /// <summary>
+    /// Lee un catálogo. Lanza <see cref="ReindexCatalogException"/> si el esquema es de
+    /// una versión mayor que no entendemos; los campos desconocidos se ignoran, para que
+    /// un catálogo más nuevo con extras siga funcionando.
+    /// </summary>
+    public static ReindexCatalog Parse(string json)
+    {
+        ReindexCatalog? cat;
+        try
+        {
+            cat = JsonSerializer.Deserialize(json, ReindexJsonContext.Default.ReindexCatalog);
+        }
+        catch (JsonException ex)
+        {
+            throw new ReindexCatalogException("El archivo no es un JSON válido: " + ex.Message);
+        }
+        if (cat == null) throw new ReindexCatalogException("El archivo está vacío.");
+
+        // «reindex/1.0» → mayor = 1. Una mayor superior traería reglas que no conocemos.
+        var esquema = cat.Esquema ?? "";
+        if (!esquema.StartsWith("reindex/", StringComparison.OrdinalIgnoreCase))
+            throw new ReindexCatalogException($"No parece un catálogo de reindexado (esquema «{esquema}»).");
+        var version = esquema["reindex/".Length..];
+        int mayor = int.TryParse(version.Split('.')[0], out var m) ? m : -1;
+        if (mayor < 0) throw new ReindexCatalogException($"Versión de esquema irreconocible: «{esquema}».");
+        if (mayor > EsquemaMayorSoportado)
+            throw new ReindexCatalogException(
+                $"El catálogo usa el esquema {esquema} y esta versión de ShrinkStudio solo entiende " +
+                $"hasta reindex/{EsquemaMayorSoportado}.x. Actualiza la app.");
+
+        if (cat.Episodios.Count == 0) throw new ReindexCatalogException("El catálogo no tiene episodios.");
+
+        cat.Index();
+        return cat;
+    }
+
+    private void Index()
+    {
+        foreach (var e in Episodios) e.Precompute();
+
+        // NUNCA iterar 1..Total: la numeración salta valores (56/138/173 en Doraemon 2005)
+        _porNum = new Dictionary<int, CatalogEpisode>();
+        foreach (var e in Episodios) _porNum[e.Num] = e;
+
+        Regulares = Episodios.Where(e => !e.Especial).ToList();
+        Especiales = Episodios.Where(e => e.Especial).ToList();
+        Advertencias = ConstruirAdvertencias();
+    }
+
+    /// <summary>
+    /// Avisos derivados de los datos reales, no solo del texto de «notas»: así el usuario
+    /// ve el peligro concreto de SU catálogo aunque las notas se queden cortas.
+    /// </summary>
+    private List<string> ConstruirAdvertencias()
+    {
+        var avisos = new List<string>();
+
+        var huecos = HuecosDeNumeracion(8);
+        if (huecos.Count > 0)
+            avisos.Add($"La numeración salta el {string.Join(", ", huecos)} — los números vecinos no son consecutivos.");
+
+        int sinFecha = Episodios.Count(e => e.FechaParsed == null);
+        if (sinFecha == Episodios.Count)
+            avisos.Add("Sin fechas de emisión: la identificación dependerá solo del título — espera más dudas.");
+        else if (sinFecha > 0)
+            avisos.Add($"{sinFecha} episodios no tienen fecha: se identificarán solo por título.");
+
+        int sinTemporada = Episodios.Count(e => e.Temporada == null);
+        if (sinTemporada > 0)
+            avisos.Add($"{sinTemporada} episodios no tienen temporada asignada.");
+
+        // Episodios que solo existen en japonés (nunca doblados): el emparejamiento por
+        // título no puede alcanzarlos, así que si el fichero tampoco trae número o fecha
+        // no hay por dónde cogerlo. Conviene saberlo ANTES, no descubrirlo fila a fila.
+        int sinTitulo = Episodios.Count(e => e.TitulosNorm.Count == 0);
+        if (sinTitulo > 0)
+            avisos.Add($"{sinTitulo} episodios solo tienen título en japonés: a esos no se llega " +
+                       "por título, solo por número o fecha.");
+
+        // Remakes: mismo título normalizado en episodios distintos y lejanos en numeración
+        if (TieneRemakes())
+            avisos.Add("Hay remakes: episodios distintos con el mismo título años después.");
+
+        if (Especiales.Count > 0)
+            avisos.Add($"{Especiales.Count} especiales: se numeran aparte y necesitan confirmación manual.");
+
+        return avisos;
+    }
+
+    /// <summary>Números que faltan dentro del rango: no son huecos reales, son saltos oficiales.</summary>
+    public List<int> HuecosDeNumeracion(int maximoAMostrar = int.MaxValue)
+    {
+        var regulares = Regulares.Select(e => e.Num).Where(n => n > 0).OrderBy(n => n).ToList();
+        if (regulares.Count < 2) return new List<int>();
+        var faltan = new List<int>();
+        for (int n = regulares[0]; n <= regulares[^1] && faltan.Count < maximoAMostrar; n++)
+            if (!_porNum.ContainsKey(n)) faltan.Add(n);
+        return faltan;
+    }
+
+    /// <summary>¿Hay títulos repetidos en episodios distintos? (la trampa del remake)</summary>
+    public bool TieneRemakes()
+    {
+        var vistos = new Dictionary<string, int>();
+        foreach (var e in Episodios)
+            foreach (var t in e.TitulosNorm)
+            {
+                if (t.Length < 8) continue;             // títulos muy cortos coinciden por azar
+                if (vistos.TryGetValue(t, out var otro) && Math.Abs(otro - e.Num) > 50) return true;
+                vistos[t] = e.Num;
+            }
+        return false;
+    }
+}
+
+/// <summary>El catálogo no se puede usar, con el motivo en un lenguaje que la UI puede enseñar.</summary>
+public sealed class ReindexCatalogException : Exception
+{
+    public ReindexCatalogException(string mensaje) : base(mensaje) { }
+}
+
+[JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
+[JsonSerializable(typeof(ReindexCatalog))]
+internal partial class ReindexJsonContext : JsonSerializerContext { }
