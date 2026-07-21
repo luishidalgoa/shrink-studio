@@ -1,0 +1,487 @@
+using ShrinkVideo.Reindex;
+
+namespace ShrinkVideo.Reindex.Tests;
+
+/// <summary>
+/// Arnés de tests del motor de reindexado. Sin dependencias externas a propósito: CI lo
+/// compila y lo corre sin restaurar paquetes. Devuelve 1 si algo falla.
+/// </summary>
+public static class Program
+{
+    private static int _ok, _fallos;
+
+    public static int Main(string[] args)
+    {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.WriteLine("── Motor de reindexado ─────────────────────────────\n");
+
+        Normalizacion();
+        SimilitudContraDifflib();
+        ExtraccionDeSeniales();
+        CargaDeCatalogo();
+        Cascada();
+        ReglasDeLote();
+        CatalogosReales();
+
+        Console.WriteLine($"\n── {_ok} pasan · {_fallos} fallan ──");
+        return _fallos == 0 ? 0 : 1;
+    }
+
+    // ───────────────────────────── Fase B: norm() ─────────────────────────────
+
+    private static void Normalizacion()
+    {
+        Seccion("Normalización de títulos");
+
+        Eq("una ciudad de sueno nobitaland", TitleMatch.Norm("Una ciudad de sueño, Nobitaland"),
+            "quita acentos, ñ→n y puntuación");
+        Eq("las galletas magicas", TitleMatch.Norm("Las galletas mágicas"), "diacríticos fuera");
+        Eq("con calma y con prisa", TitleMatch.Norm("Con calma y con prisa (España)"), "sufijo (España)");
+        Eq("el pueblo de nobita", TitleMatch.Norm("El pueblo de Nobita (Hispanoamérica)"), "sufijo (Hispanoamérica)");
+        Eq("la mujer de nobita", TitleMatch.Norm("La mujer de Nobita (segundo doblaje)"), "sufijo (…doblaje)");
+        Eq("la mujer de nobita", TitleMatch.Norm("La mujer de Nobita (primer doblaje)"), "sufijo (primer doblaje)");
+        Eq("nobita 2 el regreso", TitleMatch.Norm("  Nobita   2:  el--regreso!!  "), "colapsa y recorta");
+        Eq("", TitleMatch.Norm("   "), "solo espacios → vacío");
+        Eq("", TitleMatch.Norm(null), "null → vacío");
+        // Los dígitos sobreviven: distinguen «Parte 1» de «Parte 2»
+        Eq("parte 2", TitleMatch.Norm("Parte 2"), "los números se conservan");
+    }
+
+    // ─────────────────── Fase B: sim() == difflib de Python ───────────────────
+
+    /// <summary>
+    /// Valores generados con <c>difflib.SequenceMatcher(None, a, b).ratio()</c> de Python
+    /// 3.12 sobre las cadenas ya normalizadas. Son la referencia con la que se calibraron
+    /// los umbrales 0,78 / 0,86: si esta tabla deja de cuadrar, los umbrales dejan de
+    /// significar lo que dice la epic.
+    /// </summary>
+    private static void SimilitudContraDifflib()
+    {
+        Seccion("Similitud idéntica a difflib (Ratcliff-Obershelp)");
+
+        (string a, string b, double esperado)[] verdad =
+        {
+            ("una ciudad de sueno nobitaland", "una ciudad de sueno nobitaland", 1.0),
+            ("la robochica me ama",            "la robotchica me ama",           0.974358974359),
+            ("el interruptor del despotismo",  "el interruptor de despotismo",   0.982456140351),
+            ("shin chan se va de compras",     "shin chan se va de compra",      0.980392156863),
+            ("trabajo de madres",              "trabajos de madre",              0.941176470588),
+            ("mira que dibujo",                "mira que dibujos",               0.967741935484),
+            ("el interruptor del despotismo",  "el interruptor de la obediencia",0.733333333333),
+            ("una ciudad de sueno nobitaland", "las galletas magicas",           0.28),
+            ("trabajo de madres",              "el interruptor del despotismo",  0.434782608696),
+            ("nobita",                         "doraemon",                       0.142857142857),
+            ("a",                              "a",                              1.0),
+            ("a",                              "b",                              0.0),
+            ("ab",                             "ba",                             0.5),
+            ("abcd",                           "abed",                           0.75),
+            ("",                               "",                               1.0),
+            ("nobita",                         "nobita y el reino",              0.521739130435),
+            ("el regreso de nobita",           "nobita regresa",                 0.470588235294),
+            ("galletas magicas las",           "las galletas magicas",           0.8),
+        };
+
+        foreach (var (a, b, esperado) in verdad)
+        {
+            double real = TitleMatch.Sim(a, b);
+            Assert(Math.Abs(real - esperado) < 1e-9,
+                $"sim(\"{Corta(a)}\", \"{Corta(b)}\") = {real:F6} (difflib: {esperado:F6})");
+        }
+
+        // La cota superior nunca puede mentir por debajo, o descartaría pares buenos
+        foreach (var (a, b, _) in verdad)
+        {
+            var (ba, bb) = (new TitleBag(a), new TitleBag(b));
+            Assert(TitleMatch.CotaSuperior(in ba, in bb) >= TitleMatch.Sim(a, b) - 1e-12,
+                $"la cota superior acota de verdad: \"{Corta(a)}\" vs \"{Corta(b)}\"");
+        }
+    }
+
+    // ───────────────────── Fase A: extracción de señales ─────────────────────
+
+    private static void ExtraccionDeSeniales()
+    {
+        Seccion("Extracción de señales del nombre");
+
+        var f = SignalExtractor.Extract(@"C:\S\2005-04-22 Con calma y con prisa.mkv", "Season 2005");
+        Eq(new DateOnly(2005, 4, 22), f.Fecha, "fecha yyyy-mm-dd al inicio");
+        Eq("Con calma y con prisa", f.TituloNombre, "el título es lo que queda");
+        Eq(2005, f.Temporada, "temporada de la carpeta «Season 2005»");
+        Assert(f.Indice is null, "la fecha no deja un «22» suelto haciéndose pasar por índice");
+
+        f = SignalExtractor.Extract(@"C:\S\[438] La robochica me ama.mkv");
+        Eq(438, f.Indice, "índice entre corchetes");
+        Eq("La robochica me ama", f.TituloNombre, "título tras el índice");
+        Assert(f.SubSegmento is null, "sin sub-segmento");
+
+        f = SignalExtractor.Extract(@"C:\S\[438a] Primera mitad.mkv");
+        Eq(438, f.Indice, "índice de sub-segmento");
+        Eq("a", f.SubSegmento, "letra del sub-segmento");
+
+        f = SignalExtractor.Extract(@"C:\S\[S12] Especial de Navidad.mkv");
+        Assert(f.Especial, "«[S12]» marca especial");
+        Eq(12, f.IndiceEspecial, "número del especial");
+        Eq("Especial de Navidad", f.TituloNombre, "título del especial");
+
+        f = SignalExtractor.Extract(@"C:\S\[S] Especial sin número.mkv");
+        Assert(f.Especial, "«[S]» a secas también marca especial");
+        Assert(f.IndiceEspecial is null, "especial sin número");
+
+        f = SignalExtractor.Extract(@"C:\S\S03E12 Un titulo.mkv", "Serie");
+        Eq(12, f.Indice, "SxxExx → episodio 12");
+
+        f = SignalExtractor.Extract(@"C:\S\E72 Otro titulo.mkv");
+        Eq(72, f.Indice, "«E72» suelto");
+
+        f = SignalExtractor.Extract(@"C:\S\72 - Otro titulo mas.mkv");
+        Eq(72, f.Indice, "número al principio");
+        Eq("Otro titulo mas", f.TituloNombre, "título tras el número inicial");
+
+        f = SignalExtractor.Extract(@"C:\S\[10] Uno ┃ Dos ┃ Tres.mkv");
+        Eq(3, f.Segmentos.Count, "multi-segmento con ┃");
+        Eq("Uno", f.Segmentos[0], "primer segmento limpio");
+        Eq("Tres", f.Segmentos[2], "último segmento limpio");
+
+        f = SignalExtractor.Extract(@"C:\S\[10] Uno | Dos.mkv");
+        Eq(2, f.Segmentos.Count, "multi-segmento con |");
+
+        f = SignalExtractor.Extract(@"C:\S\[10] Titulo simple.mkv");
+        Eq(0, f.Segmentos.Count, "un solo título no se parte");
+
+        foreach (var (carpeta, esperada) in new (string, int?)[]
+                 { ("Season 2007", 2007), ("Temporada 3", 3), ("2007", 2007), ("S03", 3), ("Vídeos", null) })
+        {
+            f = SignalExtractor.Extract($@"C:\S\{carpeta}\algo.mkv", carpeta);
+            Eq(esperada, f.Temporada, $"temporada de la carpeta «{carpeta}»");
+        }
+
+        f = SignalExtractor.Extract(@"C:\S\.mkv", "x");
+        Assert(!f.TieneSeñales, "un nombre sin nada no tiene señales");
+
+        f = SignalExtractor.Extract(@"C:\S\[10] Con meta.mkv", "S", tituloMeta: "  El titulo interno  ");
+        Eq("El titulo interno", f.TituloMeta, "el metadato se recorta");
+    }
+
+    // ─────────────────────── Fase F1: carga del catálogo ───────────────────────
+
+    private static void CargaDeCatalogo()
+    {
+        Seccion("Carga y validación del catálogo");
+
+        var cat = ReindexCatalog.Parse(CatalogoDePrueba);
+        Eq("Serie de prueba", cat.Serie, "lee la serie");
+        Eq(6, cat.Episodios.Count, "lee todos los episodios");
+        Eq(1, cat.Especiales.Count, "separa los especiales");
+        Eq(5, cat.Regulares.Count, "separa los regulares");
+
+        Assert(cat.PorNum(10) != null, "encuentra el episodio 10");
+        Assert(cat.PorNum(13) is null, "el 13 no existe: la numeración salta");
+        Assert(cat.HuecosDeNumeracion().Contains(13), "detecta el hueco del 13");
+        Assert(cat.TieneRemakes(), "detecta el remake (mismo título, 445 números después)");
+        Assert(cat.Advertencias.Any(a => a.Contains("remake", StringComparison.OrdinalIgnoreCase)),
+            "avisa del remake antes de identificar nada");
+
+        // Un catálogo del futuro no se abre a medias: se rechaza con un motivo legible
+        Lanza<ReindexCatalogException>(() => ReindexCatalog.Parse(
+            CatalogoDePrueba.Replace("reindex/1.0", "reindex/2.0")), "rechaza un esquema mayor no soportado");
+        Lanza<ReindexCatalogException>(() => ReindexCatalog.Parse("{\"esquema\":\"otra-cosa/1.0\"}"),
+            "rechaza un esquema desconocido");
+        Lanza<ReindexCatalogException>(() => ReindexCatalog.Parse("{ esto no es json "),
+            "rechaza un JSON roto");
+        Lanza<ReindexCatalogException>(() => ReindexCatalog.Parse("{\"esquema\":\"reindex/1.0\",\"episodios\":[]}"),
+            "rechaza un catálogo sin episodios");
+
+        // Compatibilidad hacia delante: 1.9 sigue siendo mayor 1, y los campos de más se ignoran
+        var futuro = ReindexCatalog.Parse(CatalogoDePrueba
+            .Replace("reindex/1.0", "reindex/1.9")
+            .Replace("\"serie\":", "\"campo_del_futuro\": {\"x\": [1,2]}, \"serie\":"));
+        Eq(6, futuro.Episodios.Count, "un 1.9 con campos desconocidos se lee igual");
+    }
+
+    // ───────────────────────── Fase C: cascada P0-P4 ─────────────────────────
+
+    private static void Cascada()
+    {
+        Seccion("Cascada de resolución");
+        var cat = ReindexCatalog.Parse(CatalogoDePrueba);
+
+        // P1 — número + fecha exacta, y el número ya era el bueno
+        var r = Uno(cat, @"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv");
+        Eq(ReindexEstado.Limpio, r.Estado, "P1 con el número correcto → limpio");
+        Eq(ReindexConfianza.Alta, r.Confianza, "P1 es verde");
+        Eq(ReindexHint.IndiceFecha, r.Hint, "P1 lo resolvió número+fecha");
+
+        // P1 — número + fecha exacta, pero el número del fichero era otro
+        r = Uno(cat, @"C:\S\2005-01-17 [11] La robochica me ama.mkv");
+        Eq(ReindexEstado.Limpio, r.Estado, "P1: el 11 con su fecha es correcto");
+
+        // P2 — sin número, el título manda
+        r = Uno(cat, @"C:\S\Las galletas magicas.mkv");
+        Eq(ReindexEstado.Corregido, r.Estado, "P2 sin número → hay que corregir");
+        Eq(12, r.Episodio?.Num, "P2 identifica el episodio 12 por título");
+        Eq(ReindexConfianza.Alta, r.Confianza, "P2 por encima del umbral es verde");
+        Eq(ReindexHint.Titulo, r.Hint, "P2 lo resolvió el título");
+
+        // P2 — con acentos y sufijo de doblaje de por medio
+        r = Uno(cat, @"C:\S\Las galletas mágicas (España).mkv");
+        Eq(12, r.Episodio?.Num, "P2 aguanta acentos y sufijo de doblaje");
+
+        // P3 — número correcto pero la fecha baila 2 días
+        r = Uno(cat, @"C:\S\2005-01-12 [10] Titulo que no dice nada.mkv");
+        Eq(ReindexConfianza.Revisar, r.Confianza, "P3 (fecha ±2 días) nunca es verde");
+        Eq(ReindexHint.IndiceFechaAprox, r.Hint, "P3 lo resolvió número+fecha aproximada");
+        Eq(10, r.Episodio?.Num, "P3 se queda con el episodio del número");
+
+        // Fecha demasiado lejos: el número deja de valer como prueba
+        r = Uno(cat, @"C:\S\2005-06-30 [10] Titulo que no dice nada.mkv");
+        Assert(r.Confianza != ReindexConfianza.Alta, "una fecha a meses de distancia no se aplica sola");
+
+        // P4 — el título se parece, pero poco
+        r = Uno(cat, @"C:\S\El interruptor de la obediencia.mkv");
+        Eq(ReindexConfianza.Revisar, r.Confianza, "P4 (título flojo) es sugerencia, no automático");
+        Eq(ReindexHint.TituloDebil, r.Hint, "P4 lo marca como título débil");
+        Assert(r.Score < TitleMatch.UmbralTitulo, "P4 va por debajo del umbral");
+
+        // Sin ninguna señal → error, nunca una propuesta inventada
+        r = Uno(cat, @"C:\S\.mkv");
+        Eq(ReindexEstado.Error, r.Estado, "sin señales → error");
+        Assert(r.Episodio is null, "un error no propone episodio");
+
+        // P0 — el override gana a todo, incluso a un número+fecha perfectos
+        var overrides = new Dictionary<string, ReindexOverride>
+        {
+            [@"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv"] = new() { Num = 12 },
+        };
+        r = ReindexEngine.Resolve(
+            new[] { SignalExtractor.Extract(@"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv") },
+            cat, overrides)[0];
+        Eq(12, r.Episodio?.Num, "P0 gana a P1");
+        Eq(ReindexHint.Override, r.Hint, "P0 se marca como decisión del usuario");
+        Eq(ReindexConfianza.Alta, r.Confianza, "una decisión humana es verde");
+    }
+
+    // ──────────────── Reglas transversales y de lote ────────────────
+
+    private static void ReglasDeLote()
+    {
+        Seccion("Reglas transversales (las que vienen de bugs reales)");
+        var cat = ReindexCatalog.Parse(CatalogoDePrueba);
+
+        // Regla 1 — anti-remake: el título encaja igual de bien con el 10 y con el 455.
+        // Elegir el primero de la lista en silencio sería justo el bug que la regla evita.
+        var r = Uno(cat, @"C:\S\[11] El interruptor del despotismo.mkv");
+        Eq(ReindexConfianza.Revisar, r.Confianza, "anti-remake: dos episodios empatan → a revisar");
+        Assert(r.Alternativas.Count > 0, "anti-remake enseña el otro candidato");
+        Assert(r.Motivo.Contains("título"), "el motivo explica el empate");
+
+        // El mismo empate, pero con una fecha que desempata: vuelve a ser automático
+        r = Uno(cat, @"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv");
+        Eq(ReindexConfianza.Alta, r.Confianza, "con fecha exacta el empate de título deja de importar");
+
+        // …pero un remake BIEN numerado no puede salir como duda: comparten título a propósito
+        r = Uno(cat, @"C:\S\2012-05-05 [455] El interruptor del despotismo.mkv");
+        Eq(ReindexConfianza.Alta, r.Confianza, "un remake bien numerado sigue siendo verde");
+        Eq(455, r.Episodio?.Num, "el remake se queda en su propio número");
+
+        // Regla 3 — el nombre y el metadato llevan a episodios distintos
+        var conChoque = SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv", "S",
+            tituloMeta: "La robochica me ama");
+        r = ReindexEngine.Resolve(new[] { conChoque }, cat)[0];
+        Eq(ReindexEstado.Conflicto, r.Estado, "nombre vs metadato en desacuerdo → conflicto");
+        Assert(r.Episodio is null, "un conflicto no elige en silencio");
+        Eq(2, r.Alternativas.Count, "el conflicto enseña las dos lecturas");
+
+        // …y si coinciden, no hay conflicto ninguno
+        var sinChoque = SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv", "S",
+            tituloMeta: "Las galletas mágicas");
+        r = ReindexEngine.Resolve(new[] { sinChoque }, cat)[0];
+        Eq(12, r.Episodio?.Num, "nombre y metadato de acuerdo → sin conflicto");
+
+        // Regla 2 — dos ficheros que reclaman el mismo destino
+        var lote = ReindexEngine.Resolve(new[]
+        {
+            SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv"),
+            SignalExtractor.Extract(@"C:\S\Las galletas mágicas (España).mkv"),
+        }, cat);
+        Eq(1, lote.Count(x => x.Estado == ReindexEstado.Conflicto), "el duplicado cae en conflicto");
+        Assert(lote.All(x => !x.AplicableEnBloque), "con pelea de por medio no se aplica nada a ciegas");
+        Assert(lote.Any(x => x.Motivo.Contains("Otro fichero")), "el conflicto dice quién le ganó");
+
+        // …pero los sub-segmentos comparten número LEGÍTIMAMENTE
+        lote = ReindexEngine.Resolve(new[]
+        {
+            SignalExtractor.Extract(@"C:\S\2005-01-10 [10a] El interruptor del despotismo.mkv"),
+            SignalExtractor.Extract(@"C:\S\2005-01-10 [10b] El interruptor del despotismo.mkv"),
+        }, cat);
+        Eq(0, lote.Count(x => x.Estado == ReindexEstado.Conflicto),
+            "«[10a]» y «[10b]» comparten número sin ser un duplicado");
+
+        // Regla 4 — un especial jamás cae en la numeración regular
+        r = Uno(cat, @"C:\S\[S1] Especial de Navidad.mkv");
+        Eq(ReindexEstado.Especial, r.Estado, "un especial se queda en estado especial");
+        Eq(ReindexConfianza.Revisar, r.Confianza, "un especial siempre se confirma a mano");
+        Assert(r.Episodio?.Especial == true, "el especial apunta a un episodio especial del catálogo");
+        Assert(r.Episodio?.Num != 12, "un especial no aterriza en la numeración regular");
+
+        // Un especial que el catálogo no contempla
+        var catSinEsp = ReindexCatalog.Parse(CatalogoDePrueba.Replace("\"especial\": true", "\"especial\": false"));
+        r = ReindexEngine.Resolve(new[] { SignalExtractor.Extract(@"C:\S\[S1] Especial de Navidad.mkv") },
+            catSinEsp)[0];
+        Eq(ReindexEstado.Conflicto, r.Estado, "especial sin especiales en el catálogo → conflicto, no invento");
+
+        // Contadores del diseño: cada fichero cae en exactamente un estado
+        var mezcla = ReindexEngine.Resolve(new[]
+        {
+            SignalExtractor.Extract(@"C:\S\2005-01-10 [10] El interruptor del despotismo.mkv"),
+            SignalExtractor.Extract(@"C:\S\Las galletas magicas.mkv"),
+            SignalExtractor.Extract(@"C:\S\[S1] Especial de Navidad.mkv"),
+            SignalExtractor.Extract(@"C:\S\.mkv"),
+        }, cat);
+        Eq(4, mezcla.Count, "una resolución por fichero, ni más ni menos");
+        Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Limpio), "1 limpio");
+        Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Corregido), "1 corregido");
+        Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Especial), "1 especial");
+        Eq(1, mezcla.Count(x => x.Estado == ReindexEstado.Error), "1 error");
+        Assert(mezcla.All(x => !string.IsNullOrWhiteSpace(x.Motivo)), "toda fila tiene su «por qué»");
+    }
+
+    // ─────────────────── Integración con los catálogos reales ───────────────────
+
+    private static void CatalogosReales()
+    {
+        Seccion("Catálogos reales");
+
+        var dir = Environment.GetEnvironmentVariable("REINDEX_DATA")
+                  ?? @"C:\Users\luish\Projects\reindex-epic\data";
+        if (!Directory.Exists(dir))
+        {
+            Console.WriteLine($"  — omitido: no está {dir} (define REINDEX_DATA para incluirlo)");
+            return;
+        }
+
+        var doraemon2005 = Path.Combine(dir, "doraemon-2005.reindex.json");
+        if (File.Exists(doraemon2005))
+        {
+            var cat = ReindexCatalog.Load(doraemon2005);
+            Eq("Doraemon (2005)", cat.Serie, "carga Doraemon (2005)");
+            Assert(cat.Episodios.Count > 700, $"trae {cat.Episodios.Count} episodios");
+
+            // El aviso de la epic: 56/138/173 NO son huecos, son saltos oficiales
+            var huecos = cat.HuecosDeNumeracion();
+            foreach (var n in new[] { 56, 138, 173 })
+                Assert(huecos.Contains(n), $"el {n} está saltado en la numeración oficial");
+            Assert(cat.PorNum(57) != null, "el 57 sí existe (el salto no arrastra a sus vecinos)");
+
+            // Identificación real de punta a punta
+            var r = Uno(cat, @"C:\D\2005-04-22 [1] Con calma y con prisa.mkv");
+            Eq(1, r.Episodio?.Num, "identifica el episodio 1 real");
+            Eq(ReindexConfianza.Alta, r.Confianza, "el episodio 1 se resuelve en verde");
+
+            // El segundo segmento del mismo episodio también lo identifica
+            r = Uno(cat, @"C:\D\La mujer de Nobita.mkv");
+            Eq(1, r.Episodio?.Num, "un segmento suelto identifica su episodio");
+
+            // Rendimiento: el barrido global tiene que ser viable de verdad
+            var lote = Enumerable.Range(1, 300)
+                .Select(i => SignalExtractor.Extract($@"C:\D\[{i}] Titulo cualquiera numero {i}.mkv"))
+                .ToList();
+            var reloj = System.Diagnostics.Stopwatch.StartNew();
+            var res = ReindexEngine.Resolve(lote, cat);
+            reloj.Stop();
+            Eq(300, res.Count, "resuelve el lote entero");
+            Assert(reloj.ElapsedMilliseconds < 30_000,
+                $"300 ficheros × {cat.Episodios.Count} episodios en {reloj.ElapsedMilliseconds} ms");
+        }
+
+        foreach (var (fichero, serie) in new[]
+                 { ("doraemon-1979.reindex.json", "Doraemon (1979)"), ("shin-chan.reindex.json", "Crayon Shin-Chan") })
+        {
+            var ruta = Path.Combine(dir, fichero);
+            if (!File.Exists(ruta)) continue;
+            var cat = ReindexCatalog.Load(ruta);
+            Eq(serie, cat.Serie, $"carga {serie}");
+
+            // Cientos de episodios de estas series nunca se doblaron y solo tienen título
+            // japonés. No es un fallo del catálogo: es la realidad, y hay que avisarla porque
+            // a esos episodios no se llega emparejando títulos.
+            int sinTitulo = cat.Episodios.Count(e => e.TitulosNorm.Count == 0);
+            Assert(cat.Episodios.Count - sinTitulo > cat.Episodios.Count / 2,
+                $"{serie}: la mayoría ({cat.Episodios.Count - sinTitulo}/{cat.Episodios.Count}) sí es comparable");
+            if (sinTitulo > 0)
+                Assert(cat.Advertencias.Any(a => a.Contains("japonés")),
+                    $"{serie}: avisa de los {sinTitulo} episodios que solo existen en japonés");
+        }
+
+        // Shin-chan no trae fechas: el catálogo debe avisarlo, porque cambia la fiabilidad
+        var shin = Path.Combine(dir, "shin-chan.reindex.json");
+        if (File.Exists(shin))
+        {
+            var cat = ReindexCatalog.Load(shin);
+            Assert(cat.Advertencias.Any(a => a.Contains("fecha", StringComparison.OrdinalIgnoreCase)),
+                "Shin-chan avisa de que no hay fechas");
+            var r = Uno(cat, @"C:\S\[1] Shin-chan se va de compras.mkv");
+            Eq(1, r.Episodio?.Num, "identifica el episodio 1 de Shin-chan por título");
+        }
+    }
+
+    // ───────────────────────────── utilidades ─────────────────────────────
+
+    private static ReindexResolution Uno(ReindexCatalog cat, string ruta) =>
+        ReindexEngine.Resolve(new[] { SignalExtractor.Extract(ruta) }, cat)[0];
+
+    /// <summary>
+    /// Catálogo mínimo con las trampas de verdad: numeración con hueco (falta el 13),
+    /// un remake 445 números después con el título idéntico, y un especial.
+    /// </summary>
+    private const string CatalogoDePrueba = """
+    {
+      "esquema": "reindex/1.0",
+      "serie": "Serie de prueba",
+      "clave": "oficial",
+      "notas": "catálogo de test",
+      "total": 6,
+      "episodios": [
+        { "num": 10, "temporada": 2005, "fecha": "2005-01-10", "especial": false,
+          "titulos": { "es": ["El interruptor del despotismo"] }, "aliases": [] },
+        { "num": 11, "temporada": 2005, "fecha": "2005-01-17", "especial": false,
+          "titulos": { "es": ["La robochica me ama"] }, "aliases": [] },
+        { "num": 12, "temporada": 2005, "fecha": "2005-01-24", "especial": false,
+          "titulos": { "es": ["Las galletas mágicas"] }, "aliases": [] },
+        { "num": 20, "temporada": 2005, "fecha": "2005-02-28", "especial": false,
+          "titulos": { "es": ["Una ciudad de sueño, Nobitaland"] }, "aliases": [] },
+        { "num": 455, "temporada": 2012, "fecha": "2012-05-05", "especial": false,
+          "titulos": { "es": ["El interruptor del despotismo"] }, "aliases": [] },
+        { "num": 901, "temporada": 2005, "fecha": null, "especial": true,
+          "titulos": { "es": ["Especial de Navidad"] }, "aliases": [] }
+      ]
+    }
+    """;
+
+    private static void Seccion(string titulo) => Console.WriteLine($"\n▸ {titulo}");
+
+    private static void Assert(bool condicion, string descripcion)
+    {
+        if (condicion) { _ok++; Console.WriteLine($"  ✓ {descripcion}"); }
+        else { _fallos++; Console.WriteLine($"  ✗ {descripcion}"); }
+    }
+
+    private static void Eq<T>(T esperado, T real, string descripcion)
+    {
+        bool igual = EqualityComparer<T>.Default.Equals(esperado, real);
+        if (igual) { _ok++; Console.WriteLine($"  ✓ {descripcion}"); }
+        else { _fallos++; Console.WriteLine($"  ✗ {descripcion}\n      esperado: «{esperado}»\n      real:     «{real}»"); }
+    }
+
+    private static void Lanza<T>(Action accion, string descripcion) where T : Exception
+    {
+        try { accion(); _fallos++; Console.WriteLine($"  ✗ {descripcion} (no lanzó nada)"); }
+        catch (T) { _ok++; Console.WriteLine($"  ✓ {descripcion}"); }
+        catch (Exception ex)
+        {
+            _fallos++;
+            Console.WriteLine($"  ✗ {descripcion} (lanzó {ex.GetType().Name}, se esperaba {typeof(T).Name})");
+        }
+    }
+
+    private static string Corta(string s) => s.Length <= 24 ? s : s[..21] + "…";
+}

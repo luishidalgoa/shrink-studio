@@ -1,0 +1,28 @@
+name: Tests
+
+# Las reglas del motor de reindexado se comprueban en CADA push y cada PR, no solo al
+# publicar: son lógica pura y un fallo aquí no se ve hasta que renombra mal 600 ficheros.
+#
+# Corre en Linux a propósito: el motor es net9.0 «a secas» y no debe arrastrar dependencias
+# de Windows ni de WPF. Si alguien mete un `using System.Windows`, este job lo caza.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  motor-reindexado:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Instalar .NET 9 SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '9.0.x'
+
+      # Los catálogos reales (Doraemon, Shin-chan) no están en el repo: esa sección se
+      # omite sola y el resto de la batería sigue siendo válida.
+      - name: Tests del motor de reindexado
+        run: dotnet run --project tests/Reindex.Tests/Reindex.Tests.csproj -c Release

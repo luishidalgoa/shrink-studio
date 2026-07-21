@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- net9.0 "a secas": las reglas del motor no dependen de Windows ni de WPF -->
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>reindex-tests</AssemblyName>
+    <RootNamespace>ShrinkVideo.Reindex.Tests</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!--
+    Se ENLAZAN las fuentes del motor en vez de referenciar el proyecto WPF: ShrinkVideo
+    apunta a net9.0-windows y no compila fuera de Windows, mientras que estas reglas sí.
+    Mismo patrón que ShrinkStudio.Cli, y sin paquetes NuGet para que CI no restaure nada.
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\src\ShrinkVideo\Reindex\*.cs" LinkBase="Reindex" />
+  </ItemGroup>
+
+</Project>
