@@ -122,6 +122,11 @@
       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <!-- WrapPanel: los chips bajan de linea en vez de meterse debajo de los botones. -->
       <WrapPanel Orientation="Horizontal" x:Name="panelChips">
+        <!-- Sin esto, una vez simulas te quedas en la tabla para siempre: no había forma de
+             volver a la pantalla limpia salvo cambiar de página y regresar. -->
+        <Button x:Name="btnVolver" Style="{StaticResource BtnSecondary}" FontSize="11.5"
+                Padding="9,4" Margin="0,0,10,0" Content="← Volver"
+                ToolTip="Descartar esta simulación y volver a la pantalla de inicio"/>
         <ToggleButton x:Name="chipLimpios" Style="{StaticResource FiltroChip}">
           <TextBlock><Run Text="●" Foreground="#86D8A6"/><Run x:Name="runLimpios" Text=" 0 limpios"/></TextBlock>
         </ToggleButton>
