@@ -87,6 +87,16 @@ public partial class OrganizarView : UserControl
 
         tabla.PreviewKeyDown += OnTablaKeyDown;
 
+        // Con la ventana estrecha, el rótulo de la sección se recortaba a un par de puntos
+        // suspensivos, que queda peor que no estar: los botones de al lado ya dicen de qué
+        // va la columna. Por debajo de ese ancho se retira entero.
+        //
+        // El umbral sale de la cuenta real, no a ojo: el panel de catálogos ocupa la mitad
+        // de la página, los tres botones piden unos 330 px y el rótulo necesita ~140 para
+        // leerse entero. Media página ≥ 470 ⇒ página ≥ 990.
+        SizeChanged += (_, _) =>
+            lblTituloCatalogos.Visibility = ActualWidth >= 990 ? Visibility.Visible : Visibility.Collapsed;
+
         Loaded += (_, _) => { if (!_cargando) Recargar(); };
     }
 
