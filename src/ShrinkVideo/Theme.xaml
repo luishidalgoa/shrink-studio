@@ -33,6 +33,15 @@
   <SolidColorBrush x:Key="RowSelected" Color="#232338"/>
   <SolidColorBrush x:Key="RowHover" Color="#1F2130"/>
 
+  <!-- Menús: contrastes comprobados sobre Surface (#232532).
+       MenuHighlight 2,2:1 frente al panel (el resalte antiguo, Accent900, daba 1,06:1
+       y era casi invisible) y 5,6:1 con el texto → AA. MenuGesture 5,3:1 (antes 3,5:1,
+       fallaba AA). MenuDisabled 3,5:1: legible pero claramente apagado. -->
+  <SolidColorBrush x:Key="MenuHighlight" Color="#5D5294"/>
+  <SolidColorBrush x:Key="MenuGesture" Color="#9397AB"/>
+  <SolidColorBrush x:Key="MenuDisabled" Color="#75798C"/>
+  <SolidColorBrush x:Key="MenuSeparator" Color="#3A3E4E"/>
+
   <FontFamily x:Key="FontUI">Segoe UI</FontFamily>
   <FontFamily x:Key="FontMono">Consolas</FontFamily>
 
@@ -475,12 +484,31 @@
     <Setter Property="FontSize" Value="12.5"/>
   </Style>
 
+  <!-- Menú contextual: sin esto WPF pinta el panel claro del sistema -->
+  <Style TargetType="ContextMenu">
+    <Setter Property="Foreground" Value="{StaticResource Neutral300}"/>
+    <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+    <Setter Property="FontSize" Value="12.5"/>
+    <Setter Property="HasDropShadow" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ContextMenu">
+          <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
+                  CornerRadius="10" Padding="6" Margin="12" SnapsToDevicePixels="True" UseLayoutRounding="True">
+            <Border.Effect><DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="#000000"/></Border.Effect>
+            <ItemsPresenter/>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- Separador de menú: WPF lo busca por SeparatorStyleKey (sin esto usa el clásico gris) -->
   <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Separator">
-          <Border Height="1" Background="{StaticResource Divider}" Margin="10,5" SnapsToDevicePixels="True"/>
+          <Border Height="1" Background="{StaticResource MenuSeparator}" Margin="10,5" SnapsToDevicePixels="True"/>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
@@ -497,18 +525,23 @@
       <Setter.Value>
         <ControlTemplate TargetType="MenuItem">
           <Border x:Name="wrap" Background="Transparent" CornerRadius="6" Margin="{TemplateBinding Margin}"
+                  BorderBrush="Transparent" BorderThickness="3,0,0,0"
                   Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True" UseLayoutRounding="True">
             <Grid VerticalAlignment="Center">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="colChk" Width="18"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <TextBlock x:Name="chk" Grid.Column="0" Text="✓" FontSize="11" VerticalAlignment="Center"
                          Foreground="{StaticResource Accent300}" Visibility="Collapsed"/>
               <ContentPresenter x:Name="hdr" Grid.Column="1" ContentSource="Header"
                                 VerticalAlignment="Center" RecognizesAccessKey="True"/>
-              <Path x:Name="arrow" Grid.Column="2" Data="M0,0 L4,4 L0,8" Stroke="{StaticResource Neutral600}"
+              <TextBlock x:Name="gesture" Grid.Column="2" Text="{TemplateBinding InputGestureText}"
+                         FontSize="11" Margin="26,0,0,0" VerticalAlignment="Center"
+                         Foreground="{StaticResource MenuGesture}"/>
+              <Path x:Name="arrow" Grid.Column="3" Data="M0,0 L4,4 L0,8" Stroke="{StaticResource MenuGesture}"
                     StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                     Margin="18,0,2,0" VerticalAlignment="Center" Visibility="Collapsed"/>
               <Popup x:Name="PART_Popup" AllowsTransparency="True" Focusable="False" IsOpen="{TemplateBinding IsSubmenuOpen}"
@@ -545,9 +578,11 @@
               <Setter TargetName="PART_Popup" Property="VerticalOffset" Value="-8"/>
             </Trigger>
             <Trigger Property="IsHighlighted" Value="True">
-              <Setter TargetName="wrap" Property="Background" Value="{StaticResource Accent900}"/>
-              <Setter Property="Foreground" Value="{StaticResource Accent200}"/>
-              <Setter TargetName="arrow" Property="Stroke" Value="{StaticResource Accent300}"/>
+              <Setter TargetName="wrap" Property="Background" Value="{StaticResource MenuHighlight}"/>
+              <Setter TargetName="wrap" Property="BorderBrush" Value="{StaticResource Accent300}"/>
+              <Setter Property="Foreground" Value="{StaticResource Text}"/>
+              <Setter TargetName="arrow" Property="Stroke" Value="{StaticResource Text}"/>
+              <Setter TargetName="gesture" Property="Foreground" Value="{StaticResource Accent200}"/>
             </Trigger>
             <!-- la barra superior resalta en neutro, no en morado -->
             <MultiTrigger>
@@ -569,8 +604,10 @@
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="chk" Property="Visibility" Value="Visible"/>
             </Trigger>
+            <!-- deshabilitado: color propio en vez de opacidad, que hundía el contraste a ~2:1 -->
             <Trigger Property="IsEnabled" Value="False">
-              <Setter Property="Opacity" Value="0.4"/>
+              <Setter Property="Foreground" Value="{StaticResource MenuDisabled}"/>
+              <Setter TargetName="gesture" Property="Foreground" Value="{StaticResource MenuDisabled}"/>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>

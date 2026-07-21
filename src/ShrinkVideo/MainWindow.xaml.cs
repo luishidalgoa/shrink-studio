@@ -86,6 +86,17 @@ public partial class MainWindow : Window
         chkRec.Checked += (_, _) => PersistRecurse();
         chkRec.Unchecked += (_, _) => PersistRecurse();
 
+        // quitar de la lista con Supr + menú contextual de la tabla
+        lst.PreviewKeyDown += Lst_KeyDown;
+        lst.PreviewMouseRightButtonDown += Lst_RightButtonDown;
+        ctxTable.Opened += (_, _) => UpdateContextMenu();
+        miCtxRemove.Click += (_, _) => RemoveSelectedRows();
+        miCtxRecycle.Click += (_, _) => DeleteSelected();
+        miCtxOpenFolder.Click += (_, _) => OpenContainingFolder();
+        miCtxCopyPath.Click += (_, _) => CopySelectedPaths();
+        miCtxSelectAll.Click += (_, _) => lst.SelectAll();
+        miCtxInvert.Click += (_, _) => InvertSelection();
+
         // banda de selección estilo explorador
         lst.PreviewMouseLeftButtonDown += Lst_MouseDown;
         lst.PreviewMouseMove += Lst_MouseMove;
@@ -489,6 +500,68 @@ public partial class MainWindow : Window
             bool want = r.IntersectsWith(band) || _marqueeBase.Contains(lst.Items[i]);
             if (lvi.IsSelected != want) lvi.IsSelected = want;
         }
+    }
+
+    // ---------- quitar de la lista / menú contextual ----------
+    private void Lst_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete) return;
+        RemoveSelectedRows();
+        e.Handled = true;
+    }
+
+    /// <summary>Con el botón derecho, si la fila no estaba seleccionada pasa a serlo (como el explorador).</summary>
+    private void Lst_RightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is not { } item) return;
+        if (!item.IsSelected) { lst.UnselectAll(); item.IsSelected = true; }
+    }
+
+    /// <summary>
+    /// Quita las filas de la lista. NO toca los archivos: solo deja de tenerlos en cuenta.
+    /// Para borrar de verdad está «Enviar el archivo a la Papelera», que además pregunta.
+    /// </summary>
+    private void RemoveSelectedRows()
+    {
+        var sel = SelectedRows();
+        if (sel.Count == 0) return;
+        foreach (var r in sel) _rows.Remove(r);
+        lblProg.Text = sel.Count == 1
+            ? "1 vídeo quitado de la lista (el archivo sigue en su sitio)."
+            : $"{sel.Count} vídeos quitados de la lista (los archivos siguen en su sitio).";
+    }
+
+    private void UpdateContextMenu()
+    {
+        int n = SelectedRows().Count;
+        miCtxRemove.IsEnabled = miCtxRecycle.IsEnabled = miCtxCopyPath.IsEnabled = n > 0;
+        miCtxOpenFolder.IsEnabled = n > 0;
+        miCtxInvert.IsEnabled = _rows.Count > 0;
+        miCtxSelectAll.IsEnabled = _rows.Count > 0;
+        miCtxRemove.Header = n > 1 ? $"Quitar {n} de la lista" : "Quitar de la lista";
+        miCtxRecycle.Header = n > 1 ? $"Enviar {n} archivos a la Papelera…" : "Enviar el archivo a la Papelera…";
+    }
+
+    private void OpenContainingFolder()
+    {
+        if (SelectedRows().FirstOrDefault() is not { } r) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{r.Path}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex) { lblProg.Text = "No se pudo abrir la carpeta: " + ex.Message; }
+    }
+
+    private void CopySelectedPaths()
+    {
+        var sel = SelectedRows();
+        if (sel.Count == 0) return;
+        try
+        {
+            Clipboard.SetText(string.Join(Environment.NewLine, sel.Select(r => r.Path)));
+            lblProg.Text = sel.Count == 1 ? "Ruta copiada." : $"{sel.Count} rutas copiadas.";
+        }
+        catch (Exception ex) { lblProg.Text = "No se pudo copiar: " + ex.Message; }
     }
 
     private void InvertSelection()

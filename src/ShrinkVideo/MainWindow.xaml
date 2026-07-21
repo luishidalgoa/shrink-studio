@@ -248,6 +248,18 @@
         <Border Background="{StaticResource Surface}" CornerRadius="8" Padding="0,4" ClipToBounds="True">
           <Grid>
             <ListView x:Name="lst" Style="{StaticResource TableView}" SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
+              <ListView.ContextMenu>
+                <ContextMenu x:Name="ctxTable">
+                  <MenuItem x:Name="miCtxRemove" Header="Quitar de la lista" InputGestureText="Supr"/>
+                  <MenuItem x:Name="miCtxRecycle" Header="Enviar el archivo a la Papelera…"/>
+                  <Separator/>
+                  <MenuItem x:Name="miCtxOpenFolder" Header="Abrir carpeta contenedora"/>
+                  <MenuItem x:Name="miCtxCopyPath" Header="Copiar ruta"/>
+                  <Separator/>
+                  <MenuItem x:Name="miCtxSelectAll" Header="Seleccionar todo" InputGestureText="Ctrl+A"/>
+                  <MenuItem x:Name="miCtxInvert" Header="Invertir selección"/>
+                </ContextMenu>
+              </ListView.ContextMenu>
               <ListView.View>
                 <GridView ColumnHeaderContainerStyle="{StaticResource ColHeader}">
                   <GridViewColumn Header="VÍDEO" Width="316" DisplayMemberBinding="{Binding Name}"/>
