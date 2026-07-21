@@ -10,3 +10,6 @@ obj/
 publish/
 installer/Output/
 src/ShrinkVideo/Assets/app-256.png
+
+# Restos de scraping de páginas de referencia: material de consulta, no del proyecto
+.firecrawl/
