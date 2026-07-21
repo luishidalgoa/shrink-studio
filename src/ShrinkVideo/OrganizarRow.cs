@@ -8,6 +8,30 @@ using ShrinkVideo.Reindex;
 namespace ShrinkVideo;
 
 /// <summary>
+/// Una opción del resolvedor de conflictos, ya con su consecuencia a la vista.
+///
+/// Incluye SIEMPRE al candidato que la app ha elegido, no solo a los descartados: antes se
+/// enseñaban únicamente las alternativas, así que la propuesta buena no aparecía por ningún
+/// lado y las dos opciones ofrecidas parecían —con razón— equivocadas.
+/// </summary>
+public sealed class CandidatoVista
+{
+    public required CatalogEpisode Episodio { get; init; }
+    public required string Etiqueta { get; init; }
+    public required string Titulo { get; init; }
+    public required string NombreResultante { get; init; }
+    public IReadOnlyList<string> Evidencia { get; init; } = Array.Empty<string>();
+    public bool EsElegido { get; init; }
+
+    /// <summary>«E318 · 2014»</summary>
+    public string Cabecera => Episodio.Temporada.HasValue
+        ? $"E{Episodio.Num} · {Episodio.Temporada}"
+        : $"E{Episodio.Num}";
+
+    public string TextoBoton => EsElegido ? $"Dejar E{Episodio.Num}" : $"Cambiar a E{Episodio.Num}";
+}
+
+/// <summary>
 /// Una fila de la tabla de «Organizar»: traduce la resolución del motor a lo que se pinta.
 /// El motor no sabe nada de colores ni de glifos, y así sigue siendo.
 /// </summary>
@@ -61,7 +85,7 @@ public sealed class OrganizarRow : INotifyPropertyChanged
         {
             nameof(EstadoTexto), nameof(EstadoGlifo), nameof(EstadoFg), nameof(EstadoBg), nameof(EstadoBorde),
             nameof(Original), nameof(Propuesta), nameof(PropuestaDestacada), nameof(PropuestaFg),
-            nameof(PorQue), nameof(Explicacion), nameof(TieneDetalle), nameof(Aplicado),
+            nameof(PorQue), nameof(Explicacion), nameof(TieneDetalle), nameof(Aplicado), nameof(Candidatos),
         }) N(p);
     }
 
@@ -205,6 +229,45 @@ public sealed class OrganizarRow : INotifyPropertyChanged
 
     /// <summary>¿Merece la pena desplegar el resolutor bajo esta fila?</summary>
     public bool TieneDetalle => Res.Alternativas.Count > 0 || Res.EsDuda;
+
+    /// <summary>
+    /// Las opciones del resolvedor: primero la que la app propone, después las descartadas.
+    /// Cada una enseña el nombre que quedaría, porque «Elegir E318» sin ver la consecuencia
+    /// obliga a decidir a ciegas.
+    /// </summary>
+    public IReadOnlyList<CandidatoVista> Candidatos
+    {
+        get
+        {
+            var lista = new List<CandidatoVista>();
+
+            if (Res.Episodio != null)
+                lista.Add(Ver(Res.Episodio, Res.Score, esElegido: true, Res.Alternativas.Count > 0
+                    ? new[] { "＋ es la que propone la app ahora mismo" }
+                    : Array.Empty<string>()));
+
+            foreach (var alt in Res.Alternativas)
+            {
+                if (alt.Episodio.Num == Res.Episodio?.Num) continue;   // no repetir al elegido
+                lista.Add(Ver(alt.Episodio, alt.Score, esElegido: false, alt.Evidencia));
+            }
+            return lista;
+        }
+    }
+
+    private CandidatoVista Ver(CatalogEpisode ep, double score, bool esElegido, IReadOnlyList<string> evidencia)
+    {
+        var nombre = Plantilla.Render(Catalogo, ep, Res.Archivo);
+        return new CandidatoVista
+        {
+            Episodio = ep,
+            EsElegido = esElegido,
+            Etiqueta = (esElegido ? "más probable" : "alternativa") + $" · {score.ToString("0.00", Es)}",
+            Titulo = ep.TituloCompleto,
+            NombreResultante = nombre ?? "(sin nombre que proponer)",
+            Evidencia = evidencia,
+        };
+    }
 
     // ───────────────────────── clasificación ─────────────────────────
 

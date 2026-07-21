@@ -57,6 +57,16 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **El resolutor de conflictos ofrecía dos episodios y ninguno era el bueno.** Enseñaba
+  solo los descartados, así que la propuesta correcta no aparecía por ningún lado y las dos
+  opciones parecían equivocadas —lo estaban—. Ahora la primera tarjeta es la que propone la
+  app, marcada como «más probable», y **cada opción enseña el nombre que quedaría** si la
+  eliges, para no decidir a ciegas.
+- **La temporada del fichero no se usaba para nada.** Se leía del nombre y de la carpeta y
+  después se tiraba, así que un episodio de 2014 competía de tú a tú con el de 2005 que el
+  propio fichero estaba declarando. Además, cuando un fichero trae varios títulos, ahora
+  gana el episodio que explica **más** de ellos, no el que casa mejor con uno solo. Entre las
+  dos cosas, muchas preguntas que antes te hacía se resuelven solas.
 - **Con el aviso de actualización en pantalla no se podía mover la ventana.** El aviso se
   colocaba encima de la barra de título y se quedaba con la franja que Windows reserva para
   arrastrar, así que no valía ni arrastrar por el aviso ni por la barra. Ahora el aviso va

@@ -399,23 +399,29 @@
                   </StackPanel>
 
                   <!-- Tarjetas de candidato, con la evidencia a favor y en contra -->
-                  <ItemsControl ItemsSource="{Binding Res.Alternativas}">
+                  <!-- Se listan los Candidatos de la fila, no las alternativas del motor: esa
+                       lista incluye al elegido, que antes no se enseñaba y hacía que las dos
+                       opciones ofrecidas parecieran las dos equivocadas. -->
+                  <ItemsControl ItemsSource="{Binding Candidatos}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}"
+                        <Border x:Name="tarjeta" Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}"
                                 BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,10,0">
                           <StackPanel>
-                            <Grid Margin="0,0,0,10">
-                              <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="Medium"
-                                         Foreground="{StaticResource Text}">
-                                <Run Text="E"/><Run Text="{Binding Episodio.Num, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding Episodio.Temporada, Mode=OneWay}"/>
-                              </TextBlock>
+                            <Grid Margin="0,0,0,8">
+                              <TextBlock Text="{Binding Cabecera}" VerticalAlignment="Center" FontSize="13"
+                                         FontWeight="Medium" Foreground="{StaticResource Text}"/>
+                              <Border x:Name="insignia" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                      Background="{StaticResource Field}" CornerRadius="6" Padding="8,2">
+                                <TextBlock Text="{Binding Etiqueta}" FontSize="10.5"
+                                           Foreground="{StaticResource Neutral400}"/>
+                              </Border>
                             </Grid>
-                            <TextBlock Text="{Binding Episodio.TituloCompleto}" Style="{StaticResource OrgMuted}"
-                                       TextWrapping="Wrap" Margin="0,0,0,10"/>
+                            <TextBlock Text="{Binding Titulo}" Style="{StaticResource OrgMuted}"
+                                       TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <ItemsControl ItemsSource="{Binding Evidencia}">
                               <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -424,12 +430,30 @@
                                 </DataTemplate>
                               </ItemsControl.ItemTemplate>
                             </ItemsControl>
+
+                            <!-- La consecuencia, a la vista: qué nombre quedaría si eliges esta.
+                                 Sin esto hay que decidir a ciegas. -->
+                            <TextBlock Text="Quedaría como:" FontSize="10.5" Margin="0,8,0,3"
+                                       Foreground="{StaticResource Neutral500}"/>
+                            <Border Background="{StaticResource Field}" CornerRadius="6" Padding="8,6">
+                              <TextBlock Text="{Binding NombreResultante}" FontSize="11.5" TextWrapping="Wrap"
+                                         Foreground="{StaticResource Neutral300}"
+                                         FontFamily="{StaticResource FontMono}"/>
+                            </Border>
+
                             <Button Style="{StaticResource BtnSecondary}" HorizontalAlignment="Left" Margin="0,10,0,0"
-                                    FontSize="12" Padding="10,5" Click="OnElegirCandidato" Tag="{Binding Episodio}">
-                              <TextBlock><Run Text="Elegir E"/><Run Text="{Binding Episodio.Num, Mode=OneWay}"/></TextBlock>
-                            </Button>
+                                    FontSize="12" Padding="10,5" Click="OnElegirCandidato" Tag="{Binding Episodio}"
+                                    Content="{Binding TextoBoton}"/>
                           </StackPanel>
                         </Border>
+                        <DataTemplate.Triggers>
+                          <!-- La propuesta actual se distingue de un vistazo -->
+                          <DataTrigger Binding="{Binding EsElegido}" Value="True">
+                            <Setter TargetName="tarjeta" Property="BorderBrush" Value="{StaticResource Accent700}"/>
+                            <Setter TargetName="tarjeta" Property="Background" Value="{StaticResource Accent900}"/>
+                            <Setter TargetName="insignia" Property="Background" Value="{StaticResource Accent800}"/>
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
