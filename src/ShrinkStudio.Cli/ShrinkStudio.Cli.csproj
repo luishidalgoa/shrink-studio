@@ -12,6 +12,11 @@
     <InvariantGlobalization>false</InvariantGlobalization>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
+    <!-- Recorta el runtime: el binario pasa de ~68 MB a ~13 MB. Requiere que el JSON de
+         ffprobe se deserialice con el contexto generado (FfProbeJsonContext), no por
+         reflexión, o el recortador se lleva los tipos y el análisis devuelve datos vacíos. -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
 
     <Version>0.4.0</Version>
     <Product>ShrinkStudio CLI</Product>

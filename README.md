@@ -69,6 +69,13 @@ tar xzf shrinkstudio-linux-x64.tar.gz     # o linux-arm64, macos-arm64, macos-x6
 ./shrinkstudio --help
 ```
 
+Es un único binario autocontenido: no hace falta instalar .NET. Se entrega en `.tar.gz` porque así
+conserva el permiso de ejecución, que un fichero suelto pierde al descargarse.
+
+En **Windows**, la herramienta de terminal se descarga directamente como
+`shrinkstudio-windows-x64.exe`, sin comprimir. Ojo: eso es el CLI, distinto del instalador
+`ShrinkStudio-Setup-X.Y.Z.exe`, que es la app de escritorio.
+
 Necesita `ffmpeg` y `ffprobe` en el `PATH` (`apt install ffmpeg`, `brew install ffmpeg`).
 
 ## Uso

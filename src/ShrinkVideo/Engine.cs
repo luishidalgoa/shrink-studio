@@ -27,6 +27,15 @@ internal sealed class FfStream
     public string Lang => Tags?.Language ?? "";
 }
 internal sealed class FfTags { [JsonPropertyName("language")] public string? Language { get; set; } }
+
+/// <summary>
+/// Contexto de serialización generado en compilación. Permite publicar el binario
+/// recortado (PublishTrimmed) sin que el recortador se lleve por delante los tipos de
+/// ffprobe, que sin esto solo se descubren por reflexión.
+/// </summary>
+[JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
+[JsonSerializable(typeof(FfProbe))]
+internal partial class FfProbeJsonContext : JsonSerializerContext { }
 internal sealed class FfFormat
 {
     [JsonPropertyName("bit_rate")] public string? BitRate { get; set; }
@@ -298,8 +307,10 @@ public sealed class Engine
         if (code != 0 || string.IsNullOrWhiteSpace(stdout)) return null;
         try
         {
-            return JsonSerializer.Deserialize<FfProbe>(stdout,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            // Se usa el contexto generado en compilación (ver FfProbeJsonContext): con la
+            // versión por reflexión, al recortar el binario se perdían los tipos y ffprobe
+            // devolvía datos vacíos (duración 0, resolución 0x0).
+            return JsonSerializer.Deserialize(stdout, FfProbeJsonContext.Default.FfProbe);
         }
         catch { return null; }
     }

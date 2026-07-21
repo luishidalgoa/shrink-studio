@@ -29,6 +29,19 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Cambiado
+
+- La herramienta de terminal ocupa ahora **13 MB en vez de 68**: se recorta el runtime que
+  se empaqueta con ella.
+- En Windows, la herramienta de terminal se descarga como un `.exe` suelto, sin comprimir.
+  En Linux y macOS sigue en `.tar.gz`, que es lo que conserva el permiso de ejecución.
+
+### Corregido
+
+- Al recortar el binario se perdían los tipos con los que se lee la salida de ffmpeg y el
+  análisis devolvía datos vacíos (duración 0, resolución 0x0). Ahora esos tipos se generan
+  en compilación.
+
 ## [0.4.0] - 2026-07-21
 
 ### Añadido

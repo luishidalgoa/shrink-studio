@@ -168,12 +168,15 @@ jobs:
           file publicado/shrinkstudio | grep -q "Mach-O 64-bit executable x86_64" \
             || { echo "::error::El binario no es un Mach-O x86_64"; exit 1; }
 
+      # Windows: el .exe suelto (se descarga y se ejecuta, sin descomprimir).
+      # Unix: .tar.gz, porque un fichero suelto pierde el permiso de ejecución al
+      # descargarlo y daría «Permission denied»; el tar lo conserva.
       - name: Empaquetar
         shell: bash
         run: |
           cd publicado
           if [[ "${{ matrix.rid }}" == win-* ]]; then
-            7z a "../shrinkstudio-${{ matrix.nombre }}.zip" shrinkstudio.exe
+            mv shrinkstudio.exe "../shrinkstudio-${{ matrix.nombre }}.exe"
           else
             chmod +x shrinkstudio
             tar czf "../shrinkstudio-${{ matrix.nombre }}.tar.gz" shrinkstudio
@@ -184,7 +187,7 @@ jobs:
         with:
           name: shrinkstudio-${{ matrix.nombre }}
           path: |
-            shrinkstudio-${{ matrix.nombre }}.zip
+            shrinkstudio-${{ matrix.nombre }}.exe
             shrinkstudio-${{ matrix.nombre }}.tar.gz
           if-no-files-found: error
 
@@ -193,7 +196,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            shrinkstudio-${{ matrix.nombre }}.zip
+            shrinkstudio-${{ matrix.nombre }}.exe
             shrinkstudio-${{ matrix.nombre }}.tar.gz
 
   # ---------------------------------------------------------------------------
