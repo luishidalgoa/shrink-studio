@@ -68,6 +68,22 @@ internal static class WindowActivation
     }
 }
 
+/// <summary>Avisar al Explorador de que han cambiado las asociaciones de archivo.</summary>
+internal static class ShellNotify
+{
+    private const int SHCNE_ASSOCCHANGED = 0x08000000;
+    private const uint SHCNF_IDLIST = 0x0000;
+
+    [DllImport("shell32.dll")]
+    private static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
+
+    /// <summary>Refresca el menú contextual sin tener que reiniciar el Explorador.</summary>
+    public static void AssociationsChanged()
+    {
+        try { SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero); } catch { }
+    }
+}
+
 /// <summary>Enviar archivos/carpetas a la Papelera de reciclaje (sin dependencia de VisualBasic).</summary>
 internal static class RecycleBin
 {

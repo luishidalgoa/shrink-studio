@@ -35,7 +35,12 @@
 
             <CheckBox x:Name="chkRecurse" Content="Analizar subcarpetas" Margin="0,0,0,10"
                       ToolTip="Al analizar el origen, entra también en las carpetas de dentro. Es la misma casilla «Subcarpetas» de la ventana principal."/>
-            <CheckBox x:Name="chkUpdates" Content="Buscar actualizaciones al abrir la app"/>
+            <CheckBox x:Name="chkUpdates" Content="Buscar actualizaciones al abrir la app" Margin="0,0,0,14"/>
+
+            <CheckBox x:Name="chkShell" Content="Añadir «Comprimir con ShrinkStudio» al menú del Explorador"
+                      ToolTip="Permite seleccionar vídeos en el Explorador y mandarlos a la lista de ShrinkStudio con el botón derecho."/>
+            <TextBlock TextWrapping="Wrap" FontSize="10.5" Foreground="{StaticResource Neutral600}" Margin="24,4,0,0"
+                       Text="En Windows 11 la entrada aparece dentro de «Mostrar más opciones» (o con Mayús + clic derecho). Salir en el menú de primer nivel exige un paquete firmado, como el de PowerRename."/>
           </StackPanel>
         </TabItem>
 

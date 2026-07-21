@@ -302,6 +302,29 @@ public partial class MainWindow : Window
         lblLangHint.Text = " detectando…";
         await ProbeRowsAsync(nuevos);
     }
+    /// <summary>
+    /// Añade a la tabla los vídeos que llegan desde el Explorador (menú contextual o
+    /// «abrir con»), los deja seleccionados y trae la ventana al frente.
+    /// </summary>
+    public async void AddFilesFromShell(IReadOnlyList<string> paths)
+    {
+        var nuevos = paths.Where(File.Exists).ToList();
+        if (nuevos.Count == 0) return;
+
+        // si aún no hay origen, se toma la carpeta del primer archivo (para «Abrir destino»)
+        if (string.IsNullOrWhiteSpace(txtSrc.Text))
+            txtSrc.Text = Path.GetDirectoryName(nuevos[0]) ?? "";
+
+        int antes = _rows.Count;
+        lblProg.Text = $"Añadiendo {nuevos.Count} vídeo(s) desde el Explorador…";
+        await AddFilesAsync(nuevos);
+
+        int añadidos = _rows.Count - antes;
+        lblProg.Text = añadidos == 0
+            ? "Esos vídeos ya estaban en la lista."
+            : $"{añadidos} vídeo(s) añadidos desde el Explorador.";
+    }
+
     private string EffectiveOutput()
     {
         if (!string.IsNullOrWhiteSpace(txtOut.Text)) return txtOut.Text.Trim();

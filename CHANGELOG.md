@@ -29,6 +29,13 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **Atajo desde el Explorador de Windows.** Seleccionas vídeos, botón derecho, «Comprimir con
+  ShrinkStudio», y aparecen directamente en la lista de la app. Funciona tanto si la app estaba
+  cerrada como si ya la tenías abierta, y no duplica ventanas ni filas repetidas. Se activa desde
+  Preferencias → General.
+
 ### Cambiado
 
 - La herramienta de terminal ocupa ahora **13 MB en vez de 68**: se recorta el runtime que

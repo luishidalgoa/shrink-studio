@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.IO;
+using System.IO.Pipes;
+using System.Text;
 using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
@@ -10,36 +13,66 @@ public partial class App : Application
     // El instalador usa este mutex (AppMutex) para cerrar la app al actualizar.
     // Además nos sirve para detectar que ya hay una instancia abierta.
     private const string MutexName = "ShrinkVideoSingleInstanceMutex";
-    private const string ShowEventName = "ShrinkVideoShowWindowEvent";
+
+    // Canal por el que las instancias nuevas le pasan archivos a la que ya corre.
+    private static string PipeName => "ShrinkStudio.Abrir." + Environment.UserName;
 
     private static Mutex? _mutex;
-    private static EventWaitHandle? _showEvent;
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        var files = FilterVideos(e.Args);
+
         _mutex = new Mutex(true, MutexName, out bool isFirst);
         if (!isFirst)
         {
-            // Ya hay una instancia abierta: la traemos al frente y esta se cierra
-            // sin abrir una segunda ventana.
+            // Ya hay una instancia: le mandamos los archivos (si vienen del menú
+            // contextual), la traemos al frente y esta se cierra sin abrir otra ventana.
+            SendToRunningInstance(files);
             ActivateRunningInstance();
             Shutdown();
             return;
         }
 
         base.OnStartup(e);
-        ListenForActivation();
 
         var win = new MainWindow();
         MainWindow = win;
         win.Show();
+
+        StartPipeServer();                          // escucha a las instancias siguientes
+        if (files.Count > 0) win.AddFilesFromShell(files);
     }
 
-    /// <summary>Instancia nueva: pone en primer plano la ventana de la que ya está corriendo.</summary>
+    /// <summary>De los argumentos se queda solo con los vídeos que existen de verdad.</summary>
+    private static List<string> FilterVideos(IEnumerable<string> args) => args
+        .Where(a => !a.StartsWith('-') && !a.StartsWith('/'))
+        .Where(File.Exists)
+        .Where(a => Engine.VideoExtensions.Contains(Path.GetExtension(a).ToLowerInvariant()))
+        .Select(Path.GetFullPath)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    // ---------- instancia nueva → instancia viva ----------
+
+    /// <summary>Manda la lista de archivos a la instancia que ya está corriendo.</summary>
+    private static void SendToRunningInstance(IReadOnlyList<string> files)
+    {
+        if (files.Count == 0) return;
+        try
+        {
+            using var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.Out);
+            pipe.Connect(3000);
+            var data = Encoding.UTF8.GetBytes(string.Join("\n", files));
+            pipe.Write(data, 0, data.Length);
+            pipe.Flush();
+        }
+        catch { /* si no contesta, al menos la traeremos al frente */ }
+    }
+
+    /// <summary>Pone en primer plano la ventana de la instancia que ya está corriendo.</summary>
     private static void ActivateRunningInstance()
     {
-        // 1) empujar su ventana desde aquí (esta instancia acaba de nacer de un clic del
-        //    usuario, así que tiene derecho a primer plano y puede cedérselo a la otra)
         try
         {
             using var me = Process.GetCurrentProcess();
@@ -54,36 +87,46 @@ public partial class App : Application
             }
         }
         catch { }
-
-        // 2) y avisarla para que se active ella misma (cubre el caso de que aún no
-        //    tuviera MainWindowHandle o estuviera minimizada)
-        try
-        {
-            if (EventWaitHandle.TryOpenExisting(ShowEventName, out var ev))
-                using (ev) ev.Set();
-        }
-        catch { }
     }
 
-    /// <summary>Instancia viva: escucha si otra intenta abrirse y se pone delante.</summary>
-    private void ListenForActivation()
+    // ---------- instancia viva: escucha ----------
+
+    /// <summary>
+    /// Atiende a las instancias que se lanzan después (por ejemplo desde el menú
+    /// contextual del Explorador): recibe sus archivos, los añade a la tabla y se
+    /// pone delante. Así el atajo funciona igual con la app abierta o cerrada.
+    /// </summary>
+    private void StartPipeServer()
     {
-        try
+        var t = new Thread(() =>
         {
-            _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
-            var ev = _showEvent;
-            var t = new Thread(() =>
+            while (true)
             {
                 try
                 {
-                    while (ev.WaitOne()) Dispatcher.BeginInvoke(BringSelfToFront);
+                    using var server = new NamedPipeServerStream(
+                        PipeName, PipeDirection.In, NamedPipeServerStream.MaxAllowedServerInstances);
+                    server.WaitForConnection();
+
+                    using var reader = new StreamReader(server, Encoding.UTF8);
+                    var files = reader.ReadToEnd()
+                        .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(s => s.Trim())
+                        .Where(s => s.Length > 0)
+                        .ToList();
+                    if (files.Count == 0) continue;
+
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        BringSelfToFront();
+                        (MainWindow as MainWindow)?.AddFilesFromShell(files);
+                    });
                 }
-                catch { /* la app se está cerrando */ }
-            })
-            { IsBackground = true, Name = "activation-listener" };
-            t.Start();
-        }
-        catch { }
+                catch { Thread.Sleep(200); }   // cliente cortado o app cerrándose
+            }
+        })
+        { IsBackground = true, Name = "shell-open-listener" };
+        t.Start();
     }
 
     private void BringSelfToFront()
