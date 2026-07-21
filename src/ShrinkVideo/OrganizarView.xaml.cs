@@ -57,6 +57,7 @@ public partial class OrganizarView : UserControl
         btnCarpeta.Click += (_, _) => ElegirCarpeta();
         btnImportar.Click += (_, _) => ImportarCatalogo();
         btnCatalogos.Click += (_, _) => ImportarCatalogo();
+        btnExplorar.Click += (_, _) => AbrirExplorador();
         btnFormato.Click += (_, _) => AbrirEspecificacion();
         btnEjemplo.Click += (_, _) => GuardarEjemplo();
         btnPrompt.Click += (_, _) => AbrirGeneradorDePrompt();
@@ -334,6 +335,17 @@ public partial class OrganizarView : UserControl
 
     // ─────────────────────────── catálogos ───────────────────────────
 
+    /// <summary>Abre el explorador del catálogo elegido, para verificar propuestas.</summary>
+    private void AbrirExplorador()
+    {
+        if (_catalogoCargado == null)
+        {
+            Aviso("Primero elige o importa un catálogo.");
+            return;
+        }
+        new CatalogoWindow(_catalogoCargado) { Owner = Window.GetWindow(this) }.Show();
+    }
+
     private void ImportarCatalogo()
     {
         var dlg = new OpenFileDialog
@@ -347,6 +359,9 @@ public partial class OrganizarView : UserControl
         {
             var guardado = ReindexStore.ImportarCatalogo(dlg.FileName);
             _catalogoElegido = guardado;
+            // Importar TAMBIÉN es elegir: sin esto, quitar un catálogo y reimportarlo dejaba
+            // la preferencia vacía y el siguiente arranque caía al primero por alfabeto.
+            ReindexStore.GuardarUltimoCatalogo(guardado.Ruta);
             CargarCatalogos();
             Escribir($"Catálogo importado: {guardado.Serie} ({guardado.Episodios} episodios).");
             ActualizarEstado();
@@ -508,10 +523,17 @@ public partial class OrganizarView : UserControl
         btnConfirmarEspeciales.IsEnabled = especiales > 0;
 
         int listos = _filas.Count(f => f.ListoParaAplicar);
+        int marcados = _filas.Count(f => f.ListoParaAplicar && f.Marcado);
         int dudas = _filas.Count(f => f.EsDuda);
 
-        lblAplicar.Text = listos > 0 ? $"Aplicar {listos} listos" : "Aplicar";
-        btnAplicar.IsEnabled = listos > 0;
+        // El botón dice EXACTAMENTE cuántos va a tocar. Si hay listos sin marcar, se nota
+        // en el propio texto («12 de 400»): aplicar nunca lleva sorpresa dentro.
+        lblAplicar.Text = marcados == 0 ? "Aplicar"
+            : marcados == listos ? $"Aplicar {marcados} marcados"
+            : $"Aplicar {marcados} de {listos}";
+        btnAplicar.IsEnabled = marcados > 0;
+        btnAplicar.ToolTip = "Renombra SOLO los ficheros en verde que estén marcados. " +
+                             "Los conflictos y las dudas nunca se tocan, estén como estén.";
         btnAceptarVerdes.IsEnabled = listos > 0;
 
         // Los que ya estaban bien se dicen aparte: si no, «383 listos · 165 por despachar» sobre
@@ -708,22 +730,45 @@ public partial class OrganizarView : UserControl
 
     // ─────────────────────────── aplicar ───────────────────────────
 
+    // OJO en ambos: la casilla de la cabecera nace con IsChecked="True", así que su Checked
+    // dispara DURANTE InitializeComponent, cuando el resto de controles aún no existe.
+    // Sin la guarda, la página revienta al construirse — se aprendió a las malas.
+    private void OnMarcarFila(object sender, RoutedEventArgs e)
+    {
+        if (!IsInitialized) return;
+        ActualizarContadores();
+    }
+
+    /// <summary>La casilla de la cabecera marca o desmarca todos los listos de golpe.</summary>
+    private void OnMarcarTodos(object sender, RoutedEventArgs e)
+    {
+        if (!IsInitialized) return;
+        if (sender is not CheckBox chk) return;
+        bool valor = chk.IsChecked == true;
+        foreach (var f in _filas.Where(f => f.ListoParaAplicar)) f.Marcado = valor;
+        ActualizarContadores();
+    }
+
     private void PedirConfirmacion()
     {
-        var listos = _filas.Where(f => f.ListoParaAplicar).ToList();
+        var listos = _filas.Where(f => f.ListoParaAplicar && f.Marcado).ToList();
         if (listos.Count == 0) return;
 
         int dudas = _filas.Count(f => f.EsDuda);
+        int desmarcados = _filas.Count(f => f.ListoParaAplicar && !f.Marcado);
 
         lblConfSeRenombra.Text = listos.Count == 1
             ? "Se renombra 1 fichero identificado con confianza."
             : $"Se renombran {listos.Count} ficheros identificados con confianza.";
 
-        if (dudas > 0)
+        if (dudas > 0 || desmarcados > 0)
         {
-            lblConfNoSeToca.Text = dudas == 1
-                ? "1 fichero con dudas se queda exactamente como está."
-                : $"{dudas} ficheros con dudas se quedan exactamente como están.";
+            // Contar tambien lo desmarcado a proposito: el miedo de «aplicar» es no saber
+            // qué toca, y este cuadro existe para que no quede nada sin contar.
+            var trozos = new List<string>();
+            if (dudas > 0) trozos.Add(dudas == 1 ? "1 fichero con dudas" : $"{dudas} ficheros con dudas");
+            if (desmarcados > 0) trozos.Add(desmarcados == 1 ? "1 que has desmarcado" : $"{desmarcados} que has desmarcado");
+            lblConfNoSeToca.Text = $"Se quedan exactamente como están: {string.Join(" y ", trozos)}.";
             filaNoSeToca.Visibility = Visibility.Visible;
         }
         else filaNoSeToca.Visibility = Visibility.Collapsed;
@@ -733,7 +778,7 @@ public partial class OrganizarView : UserControl
 
     private void Aplicar()
     {
-        var listos = _filas.Where(f => f.ListoParaAplicar).ToList();
+        var listos = _filas.Where(f => f.ListoParaAplicar && f.Marcado).ToList();
         if (listos.Count == 0) return;
 
         var ahora = DateTime.Now;

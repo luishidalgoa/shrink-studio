@@ -27,6 +27,8 @@ public static class Program
         Plantilla();
         Almacen();
         ListaIso();
+        BuscadorDeCatalogo();
+        PrefijoDeSerie();
         BibliotecaPorTemporadas();
         CatalogosReales();
 
@@ -52,6 +54,13 @@ public static class Program
         Eq("", TitleMatch.Norm(null), "null → vacío");
         // Los dígitos sobreviven: distinguen «Parte 1» de «Parte 2»
         Eq("parte 2", TitleMatch.Norm("Parte 2"), "los números se conservan");
+        // Los ordinales abreviados tienen que igualar a los escritos: el fichero dice
+        // «(2.ª parte)» donde el catálogo dice «(segunda parte)», y sin esto se quedan
+        // en «2 parte» vs «segunda parte» y el parecido baja justo lo que descalifica.
+        Eq("segunda parte", TitleMatch.Norm("2.ª parte"), "«2.ª» = «segunda»");
+        Eq("primera parte", TitleMatch.Norm("(1.ª parte)"), "«1.ª» = «primera»");
+        Eq("tercera parte", TitleMatch.Norm("3ª parte"), "también sin punto");
+        Eq("parte 2", TitleMatch.Norm("Parte 2"), "un 2 sin ordinal se queda como está");
     }
 
     // ─────────────────── Fase B: sim() == difflib de Python ───────────────────
@@ -943,6 +952,85 @@ public static class Program
 
         // El hispanoamericano no está en ISO 639-1 pero sí en la biblioteca del usuario
         Assert(IsoLanguages.Todos.Any(i => i.Codigo == "es-419"), "el español de Hispanoamérica existe");
+    }
+
+    // ─────────────────────── Buscador del catálogo ───────────────────────
+
+    /// <summary>
+    /// El explorador existe para verificar propuestas sin abrir el JSON a mano. Si su
+    /// buscador no encuentra lo mismo que encontraría el motor, desinforma.
+    /// </summary>
+    private static void BuscadorDeCatalogo()
+    {
+        Seccion("Buscador del catálogo");
+
+        var cat = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0",
+          "serie": "Doraemon (2005)",
+          "episodios": [
+            { "num": 17,  "titulos": { "es": ["El espejo de la verdad"] } },
+            { "num": 173, "titulos": { "es": ["El planeta espejo"] } },
+            { "num": 175, "titulos": { "es": ["Aventura en el mundo de los insectos"] } },
+            { "num": 300, "titulos": { "es": ["Bienvenidos (segunda parte)"] } },
+            { "num": 400 }
+          ]
+        }
+        """);
+
+        string Nums(string q) => string.Join(",", CatalogSearch.Filtrar(cat, q).Select(e => e.Num));
+
+        Eq("17,173,175,300,400", Nums(""), "sin consulta, el catálogo entero");
+        Eq("17,173,175", Nums("17"), "por número: el exacto primero, luego los que empiezan igual");
+        Eq("175", Nums("175"), "un número completo va directo");
+        Eq("17,173", Nums("espejo"), "por título, en cualquier posición");
+        Eq("173", Nums("planeta espejo"), "frase completa");
+        Eq("173", Nums("PLANETA ESPEJO"), "sin distinguir mayúsculas");
+        Eq("300", Nums("2.ª parte"), "con la misma normalización que el motor: «2.ª» = «segunda»");
+        Eq("", Nums("zzzz"), "lo que no está no devuelve nada");
+    }
+
+    // ──────────── El nombre lleva la serie delante y no debe estorbar ────────────
+
+    /// <summary>
+    /// El caso real que lo destapó: «Doraemon (2005) S2009E175 - El planeta espejo.mkv».
+    /// El planeta espejo es el E173 del catálogo, con su título en español — pero el trozo
+    /// «Doraemon (2005)» que va dentro del nombre contaminaba el título (similitud 0,71,
+    /// bajo el umbral), la vía por título moría y ganaba el NÚMERO equivocado del fichero.
+    /// Los multi-historia se salvaban de rebote: su segundo segmento va limpio.
+    /// </summary>
+    private static void PrefijoDeSerie()
+    {
+        Seccion("El prefijo de la serie no estorba al título");
+
+        var cat = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0",
+          "serie": "Doraemon (2005)",
+          "episodios": [
+            { "num": 173, "temporada": 2009, "fecha": "2009-07-03",
+              "titulos": { "es": ["El planeta espejo"] } },
+            { "num": 175, "temporada": 2009, "fecha": "2009-07-17",
+              "titulos": { "es": ["Aventura en el mundo de los insectos"] } },
+            { "num": 165, "temporada": 2009, "fecha": "2009-05-08",
+              "titulos": { "es": ["Bienvenidos al centro de la Tierra (segunda parte)"] } }
+          ]
+        }
+        """);
+
+        var r = Uno(cat, F("Doraemon (2005) S2009E175 - El planeta espejo.mkv", "Season 2009"));
+        Eq(173, r.Episodio?.Num, "gana el título, no el número que trae el fichero");
+        Eq(ReindexEstado.Corregido, r.Estado, "y propone corregir el 175 a 173");
+        Assert(r.Score >= TitleMatch.UmbralTitulo, $"el parecido supera el umbral ({r.Score:0.00})");
+
+        // Con ordinal abreviado, además del prefijo
+        var r2 = Uno(cat, F("Doraemon (2005) S2009E167 - Bienvenidos al centro de la tierra (2.ª parte).mkv", "Season 2009"));
+        Eq(165, r2.Episodio?.Num, "«(2.ª parte)» encuentra a «(segunda parte)»");
+        Assert(r2.Score >= TitleMatch.UmbralTitulo, $"por encima del umbral ({r2.Score:0.00})");
+
+        // Y el caso en que el título ES el nombre de la serie no se queda vacío
+        var r3 = Uno(cat, F("El planeta espejo.mkv", "Season 2009"));
+        Eq(173, r3.Episodio?.Num, "sin prefijo sigue funcionando igual");
     }
 
     // ──────────────── Biblioteca con subcarpetas de temporada ────────────────

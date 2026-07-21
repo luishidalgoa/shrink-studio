@@ -58,6 +58,14 @@
           <Button x:Name="btnCatalogos" Style="{StaticResource BtnSecondary}" Height="34" Margin="6,0,0,0"
                   Content="Catálogos…"
                   ToolTip="Importar, revisar o quitar catálogos de referencia"/>
+          <!-- Verificar una propuesta sin abrir el JSON a mano: busca por número o título -->
+          <Button x:Name="btnExplorar" Style="{StaticResource BtnSecondary}" Width="34" Height="34" Padding="0"
+                  Margin="6,0,0,0" ToolTip="Explorar el catálogo elegido: busca por número o por título para comprobar una propuesta">
+            <Viewbox Width="14" Height="14">
+              <Path Data="M6.5 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z M9.8 9.8 L13.5 13.5"
+                    Stroke="{StaticResource Text}" StrokeThickness="1.4" StrokeStartLineCap="Round"/>
+            </Viewbox>
+          </Button>
         </StackPanel>
       </StackPanel>
 
@@ -378,6 +386,24 @@
         <DataGrid x:Name="tabla" Style="{StaticResource OrgGrid}"
                   RowDetailsVisibilityMode="VisibleWhenSelected">
           <DataGrid.Columns>
+
+            <!-- Marcar qué se aplica. Solo tiene casilla lo que ESTÁ listo: poner una en
+                 los conflictos insinuaría que marcándolos se aplican, y es al revés. -->
+            <DataGridTemplateColumn Width="34">
+              <DataGridTemplateColumn.Header>
+                <CheckBox x:Name="chkTodos" IsChecked="True" Checked="OnMarcarTodos" Unchecked="OnMarcarTodos"
+                          ToolTip="Marcar o desmarcar todos los listos para aplicar"/>
+              </DataGridTemplateColumn.Header>
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <CheckBox IsChecked="{Binding Marcado, UpdateSourceTrigger=PropertyChanged}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Checked="OnMarcarFila" Unchecked="OnMarcarFila"
+                            Visibility="{Binding ListoParaAplicar, Converter={StaticResource B2V}}"
+                            ToolTip="Aplicar el renombrado a este fichero"/>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
 
             <!-- ESTADO — chip: glifo + palabra + color, nunca solo color -->
             <DataGridTemplateColumn Header="ESTADO" Width="112">

@@ -197,7 +197,7 @@ public static class ReindexEngine
         if (f.Especial) return ResolverEspecial(r, f, cat, indice);
 
         // ── títulos del fichero, ya normalizados ──
-        var titulosArchivo = TitulosDe(f);
+        var titulosArchivo = TitulosDe(f, cat);
         // La temporada que declara el fichero (por su nombre o por su carpeta) entra en el
         // desempate: sin ella, un episodio de 2014 competia de tu a tu con el de 2005 que el
         // propio fichero estaba diciendo.
@@ -357,7 +357,7 @@ public static class ReindexEngine
             return r;
         }
 
-        var titulos = TitulosDe(f);
+        var titulos = TitulosDe(f, cat);
         var (ep, score) = indice.MejorPorTitulo(titulos, cat.Especiales);
 
         if (ep != null && score > 0)
@@ -463,15 +463,33 @@ public static class ReindexEngine
 
     // ────────────────────────── utilidades ──────────────────────────
 
-    /// <summary>Los títulos comparables del fichero: el completo, sus segmentos y el metadato.</summary>
-    private static IReadOnlyList<TitleBag> TitulosDe(FileSignals f)
+    /// <summary>
+    /// Los títulos comparables del fichero: el completo, sus segmentos y el metadato.
+    ///
+    /// De cada uno se añade TAMBIÉN la variante sin el nombre de la serie delante. Muchas
+    /// bibliotecas nombran «Serie SxxExx - Título», y ese prefijo contaminaba el parecido
+    /// («doraemon 2005 el planeta espejo» vs «el planeta espejo» = 0,71, bajo el umbral):
+    /// la vía por título moría y acababa ganando el NÚMERO equivocado del propio fichero.
+    /// Se añade como variante en vez de sustituir, por si el título del episodio de verdad
+    /// empieza como la serie.
+    /// </summary>
+    private static IReadOnlyList<TitleBag> TitulosDe(FileSignals f, ReindexCatalog cat)
     {
+        var serie = TitleMatch.Norm(cat.Serie);
         var lista = new List<TitleBag>();
         void Add(string? s)
         {
             if (string.IsNullOrWhiteSpace(s)) return;
             var n = TitleMatch.Norm(s);
-            if (n.Length > 0 && !lista.Any(b => b.Text == n)) lista.Add(new TitleBag(n));
+            if (n.Length == 0) return;
+            if (!lista.Any(b => b.Text == n)) lista.Add(new TitleBag(n));
+
+            if (serie.Length > 0 && n.Length > serie.Length + 1 &&
+                n.StartsWith(serie + " ", StringComparison.Ordinal))
+            {
+                var sinSerie = n[(serie.Length + 1)..];
+                if (!lista.Any(b => b.Text == sinSerie)) lista.Add(new TitleBag(sinSerie));
+            }
         }
         Add(f.TituloNombre);
         Add(f.TituloMeta);
