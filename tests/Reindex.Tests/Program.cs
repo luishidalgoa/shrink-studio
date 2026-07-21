@@ -363,7 +363,11 @@ public static class Program
         }, cat);
         Eq(1, lote.Count(x => x.Estado == ReindexEstado.Conflicto), "el duplicado cae en conflicto");
         Assert(lote.All(x => !x.AplicableEnBloque), "con pelea de por medio no se aplica nada a ciegas");
-        Assert(lote.Any(x => x.Motivo.Contains("Otro fichero")), "el conflicto dice quién le ganó");
+        Assert(lote.Any(x => x.EsDuplicado), "el perdedor queda marcado como duplicado");
+        var perdedor = lote.First(x => x.EsDuplicado);
+        Assert(perdedor.Motivo.Contains("Las galletas mágicas"),
+            "y el motivo dice qué título espera el catálogo para ese número");
+        Assert(perdedor.Motivo.Contains(".mkv"), "y con qué fichero compite");
 
         // …pero los sub-segmentos comparten número LEGÍTIMAMENTE
         lote = ReindexEngine.Resolve(new[]
