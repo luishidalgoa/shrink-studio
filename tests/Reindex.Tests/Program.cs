@@ -659,6 +659,36 @@ public static class Program
         Assert(plantilla.Render(catSeg, catSeg.PorNum(12)!, f)!.Contains("El cometa + Nieve en agosto"),
             "junta los segmentos de un episodio multi-historia");
 
+        // ── Marcas con parámetro: «<marca:algo>» ──
+        //
+        // Sin esto la plantilla no puede describir una biblioteca ya ordenada con otra
+        // convención, y entonces TODO sale como pendiente de renombrar aunque el trabajo
+        // esté hecho. El caso que lo destapó: ficheros «S2005E001 - A ┃ B», que la app sabe
+        // LEER (┃ es separador de segmentos) pero no sabía ESCRIBIR.
+
+        Eq("Serie de prueba - S2005E012 - Las galletas mágicas.mkv",
+            new LibraryTemplate("<serie> - S<temp>E<num:000> - <título>").Render(cat, ep, f),
+            "«<num:000>» rellena con ceros hasta tres cifras");
+        Eq("Serie de prueba - S2005E12 - Las galletas mágicas.mkv",
+            new LibraryTemplate("<serie> - S<temp>E<num:00> - <título>").Render(cat, ep, f),
+            "y no recorta si el número ya es más largo que el relleno");
+
+        Eq("El cometa ┃ Nieve en agosto.mkv",
+            new LibraryTemplate("<título: ┃ >").Render(catSeg, catSeg.PorNum(12)!, f),
+            "«<título:sep>» une los segmentos con lo que le digas");
+        Eq("El cometa, Nieve en agosto.mkv",
+            new LibraryTemplate("<título:, >").Render(catSeg, catSeg.PorNum(12)!, f),
+            "con cualquier separador, no solo el de barras");
+        Assert(new LibraryTemplate("<título>").Render(catSeg, catSeg.PorNum(12)!, f)!
+                   .Contains("El cometa + Nieve en agosto"),
+            "sin parámetro sigue uniendo con «+»: las plantillas de siempre no cambian");
+
+        // El caso real completo: reproducir un nombre que ya existe en la biblioteca
+        Eq("Serie de prueba S2005E012 - El cometa ┃ Nieve en agosto.mkv",
+            new LibraryTemplate("<serie> S<temp>E<num:000> - <título: ┃ >")
+                .Render(catSeg, catSeg.PorNum(12)!, f),
+            "reproduce exactamente la convención de una biblioteca ya ordenada");
+
         // Patrón a medida
         Eq("S2005E12.mkv", new LibraryTemplate("S<temp>E<num>").Render(cat, ep, f), "acepta un patrón propio");
         Eq("Serie de prueba - S2005E12 - Las galletas mágicas.mkv",

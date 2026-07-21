@@ -140,7 +140,7 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     /// estado salían filas en verde que luego no se aplicaban —un «Limpio» sin fecha que lo
     /// confirme necesita revisión igual, y pintarlo de verde era mentir.
     /// </summary>
-    private string Tono => Aplicado ? "Ok" : Res.Confianza switch
+    private string Tono => Aplicado || SinCambios ? "Ok" : Res.Confianza switch
     {
         ReindexConfianza.Alta => "Ok",
         ReindexConfianza.Revisar => "Warn",
@@ -157,6 +157,11 @@ public sealed class OrganizarRow : INotifyPropertyChanged
         get
         {
             if (Aplicado) return "Renombrado en este lote.";
+
+            if (SinCambios)
+                return "Ya se llama exactamente como debe: no hay nada que aplicar.\n\n" +
+                       "Que el nombre coincida entero con el que produciría la plantilla es la " +
+                       "confirmación más fuerte que hay de que el episodio es este.";
 
             var porque = string.IsNullOrWhiteSpace(Res.Motivo) ? "" : $" ({Res.Motivo})";
             return Res.Confianza switch
@@ -318,10 +323,22 @@ public sealed class OrganizarRow : INotifyPropertyChanged
 
     // ───────────────────────── clasificación ─────────────────────────
 
-    public bool EsDuda => !Aplicado && Res.EsDuda;
+    /// <summary>
+    /// Aplicar esta fila no cambiaría nada: ya se llama exactamente como la plantilla manda.
+    ///
+    /// Y eso, además de no dar trabajo, es la identificación MÁS FUERTE que hay. El nombre
+    /// propuesto lleva serie, temporada, número y título; que coincida carácter a carácter
+    /// con el que el fichero ya tiene no es un parecido de 0,81, es una confirmación —
+    /// normalmente porque ya lo procesaste en su día—. Por eso una fila así va en verde
+    /// aunque la cascada la resolviera con poca confianza: no hay nada que decidir.
+    /// </summary>
+    public bool SinCambios => !Aplicado && NombreNuevo != null
+        && string.Equals(NombreNuevo, Original, StringComparison.OrdinalIgnoreCase);
+
+    // Ni pendiente ni por despachar: no hay nada que hacerle.
+    public bool EsDuda => !Aplicado && !SinCambios && Res.EsDuda;
     public bool ListoParaAplicar =>
-        !Aplicado && Res.AplicableEnBloque && NombreNuevo != null
-        && !string.Equals(NombreNuevo, Original, StringComparison.OrdinalIgnoreCase);
+        !Aplicado && !SinCambios && Res.AplicableEnBloque && NombreNuevo != null;
 
     /// <summary>
     /// Fija a mano el episodio de esta fila (el usuario eligió en el resolutor). Deja de ser

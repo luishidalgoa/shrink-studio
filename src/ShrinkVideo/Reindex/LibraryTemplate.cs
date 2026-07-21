@@ -35,7 +35,26 @@ public sealed class LibraryTemplate
             "Con calma y con prisa + La mujer de Nobita"),
         new("<seg>",    "Sub-segmento",
             "La letra de «[438a]», para distinguir mitades de un mismo episodio. Vacío si no la hay.", "a"),
+        new("<num:000>", "Número con ceros",
+            "El número relleno hasta esas cifras: «<num:000>» da 001, 012, 278. Si el número ya es más largo, no se recorta.",
+            "012"),
+        new("<título: ┃ >", "Título con otro separador",
+            "Como «<título>» pero uniendo las historias con lo que pongas tras los dos puntos, espacios incluidos.",
+            "El cometa ┃ Nieve en agosto"),
     };
+
+    /// <summary>
+    /// Una marca, con parámetro opcional tras los dos puntos: «&lt;num:000&gt;», «&lt;título: ┃ &gt;».
+    ///
+    /// El parámetro existe porque sin él la plantilla no puede describir una biblioteca que
+    /// ya está ordenada con otra convención — y entonces todo sale como pendiente de
+    /// renombrar aunque el trabajo esté hecho. El caso que lo destapó: ficheros
+    /// «S2005E001 - A ┃ B», que la app sabe LEER (┃ es separador de segmentos en el
+    /// extractor) pero no sabía ESCRIBIR.
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex RxMarca =
+        new(@"<(serie|temp|num|título|titulo|seg)(?::([^>]*))?>",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
 
     public string Patron { get; }
 
@@ -48,21 +67,34 @@ public sealed class LibraryTemplate
     /// </summary>
     public string? Render(ReindexCatalog catalogo, CatalogEpisode episodio, FileSignals archivo)
     {
-        var sb = new StringBuilder(Patron);
-
         // La temporada del episodio manda; si el catálogo no la trae, se usa la que
         // insinúa la carpeta del fichero, y si tampoco, se deja el hueco vacío.
         var temporada = episodio.Temporada?.ToString() ?? archivo.Temporada?.ToString() ?? "";
 
-        sb.Replace("<serie>", catalogo.Serie);
-        sb.Replace("<temp>", temporada);
-        sb.Replace("<num>", episodio.Num.ToString());
-        sb.Replace("<título>", episodio.TituloCompleto);
-        sb.Replace("<titulo>", episodio.TituloCompleto);   // sin tilde, por comodidad
-        // Los sub-segmentos («[438a]») necesitan distinguirse o se pisarían al renombrar
-        sb.Replace("<seg>", archivo.SubSegmento ?? "");
+        var texto = RxMarca.Replace(Patron, m =>
+        {
+            var marca = m.Groups[1].Value;
+            var param = m.Groups[2].Success ? m.Groups[2].Value : null;
 
-        var nombre = Limpiar(sb.ToString());
+            return marca switch
+            {
+                "serie" => catalogo.Serie,
+                "temp" => temporada,
+                // «<num:000>» rellena hasta esas cifras. Nunca recorta: un número más largo
+                // que el relleno es el número de verdad, y perder un dígito renombraría mal.
+                "num" => param is { Length: > 0 }
+                    ? episodio.Num.ToString().PadLeft(param.Length, '0')
+                    : episodio.Num.ToString(),
+                "título" or "titulo" => param != null
+                    ? string.Join(param, episodio.TitulosSalida)
+                    : episodio.TituloCompleto,
+                // Los sub-segmentos («[438a]») necesitan distinguirse o se pisarían al renombrar
+                "seg" => archivo.SubSegmento ?? "",
+                _ => m.Value,
+            };
+        });
+
+        var nombre = Limpiar(texto);
         if (nombre.Length == 0) return null;
 
         return nombre + archivo.Extension;
