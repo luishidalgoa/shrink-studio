@@ -67,6 +67,13 @@ public sealed class ReindexResolution
     public IReadOnlyList<ReindexCandidato> Alternativas { get; set; } = Array.Empty<ReindexCandidato>();
 
     /// <summary>
+    /// El conflicto viene de que otro fichero reclama el mismo episodio, no de una duda de
+    /// identificación. Es una marca y no una comparación de textos: depender de cómo está
+    /// redactado el motivo se rompe en cuanto se reescribe el mensaje.
+    /// </summary>
+    public bool EsDuplicado { get; set; }
+
+    /// <summary>
     /// ¿Se puede aplicar sin más intervención? «Verdes + confirmados»: los especiales entran
     /// solo cuando alguien los ha confirmado, porque nacen en Revisar y únicamente una
     /// decisión humana (o un override guardado) los sube a Alta.
@@ -413,13 +420,20 @@ public static class ReindexEngine
                                .ThenBy(r => r.Archivo.NombreArchivo, StringComparer.OrdinalIgnoreCase)
                                .First();
 
+            // Qué dice el catálogo que ES ese número. Sin esto el mensaje nombraba el
+            // episodio en disputa pero no su título, y no había manera de juzgar quién de
+            // los dos ficheros tenía razón — que es justo lo que hay que decidir aquí.
+            var enDisputa = grupo.First().Episodio!;
+            var comoSeLlama = enDisputa.TituloCompleto;
+
             foreach (var r in grupo)
             {
                 if (ReferenceEquals(r, ganador)) continue;
                 r.Estado = ReindexEstado.Conflicto;
                 r.Confianza = ReindexConfianza.Ninguna;
-                r.Motivo = $"Otro fichero reclama el mismo episodio {grupo.Key.Num} con más fuerza " +
-                           $"(«{ganador.Archivo.NombreArchivo}»)";
+                r.EsDuplicado = true;
+                r.Motivo = $"En el catálogo, el episodio {grupo.Key.Num} es «{comoSeLlama}». " +
+                           $"Lo reclama con más fuerza «{ganador.Archivo.NombreArchivo}»";
             }
 
             // El ganador tampoco se aplica a ciegas: hubo pelea, que se vea.

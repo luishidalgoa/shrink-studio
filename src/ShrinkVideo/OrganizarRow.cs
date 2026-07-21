@@ -153,7 +153,7 @@ public sealed class OrganizarRow : INotifyPropertyChanged
                 // Un duplicado no se explica con los candidatos de título: lo que hay que
                 // contar es quién le ganó el sitio. Mezclar las dos cosas hacía una frase
                 // larguísima que no decía ninguna de las dos bien.
-                case ReindexEstado.Conflicto when Res.Motivo.StartsWith("Otro fichero"):
+                case ReindexEstado.Conflicto when Res.EsDuplicado:
                     return "— " + Res.Motivo;
 
                 case ReindexEstado.Conflicto when Res.Alternativas.Count >= 2:

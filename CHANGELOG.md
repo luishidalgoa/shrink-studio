@@ -72,6 +72,10 @@ es un acuerdo de buena voluntad: está verificado.
   propio fichero estaba declarando. Además, cuando un fichero trae varios títulos, ahora
   gana el episodio que explica **más** de ellos, no el que casa mejor con uno solo. Entre las
   dos cosas, muchas preguntas que antes te hacía se resuelven solas.
+- **Cuando dos ficheros se disputaban el mismo episodio no se veía qué episodio era.** El
+  aviso nombraba el número pero no su título, así que no había forma de juzgar cuál de los
+  dos ficheros tenía razón — que es justo lo que hay que decidir ahí. Ahora se dice qué
+  título espera el catálogo para ese número, y con qué fichero compite.
 - **Con el aviso de actualización en pantalla no se podía mover la ventana.** El aviso se
   colocaba encima de la barra de título y se quedaba con la franja que Windows reserva para
   arrastrar, así que no valía ni arrastrar por el aviso ni por la barra. Ahora el aviso va
