@@ -455,6 +455,28 @@ public static class Program
         Eq(1, r.Episodio?.Num, "gana el episodio que explica AMBOS segmentos, no el que comparte uno");
         Eq(ReindexConfianza.Alta, r.Confianza, "y deja de preguntar: la temporada y los segmentos lo resuelven");
 
+        // Una fila resuelta al 100 % no debe ofrecer «alternativas» que van muy por detrás:
+        // era ruido en una fila ya correcta, e invitaba a un clic equivocado.
+        Eq(0, r.Alternativas.Count, "con el ganador al 100 %, los lejanos no se ofrecen");
+        Assert(!r.EsDuda, "y la fila no pide decisión ninguna");
+
+        // …pero en una fila que SÍ pide decisión, las alternativas siguen ahí: es donde
+        // hacen falta.
+        var catGemelas = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0", "serie": "S",
+          "episodios": [
+            { "num": 5,  "temporada": 2005, "titulos": { "es": ["El pañuelo del tiempo"] } },
+            { "num": 90, "temporada": 2005, "titulos": { "es": ["El pañuelo del tiempo"] } }
+          ]
+        }
+        """);
+        var dudosa = ReindexEngine.Resolve(
+            new[] { SignalExtractor.Extract(Path.Combine("Temporada 2005", "El pañuelo del tiempo.mkv"), "Temporada 2005") },
+            catGemelas)[0];
+        Assert(dudosa.EsDuda, "dos episodios idénticos sí dejan la fila en duda");
+        Assert(dudosa.Alternativas.Count > 0, "y ahí las alternativas sí se ofrecen");
+
         // Sin la temporada del fichero, el empate por segmentos sigue decidiendo
         var sinTemp = SignalExtractor.Extract(
             Path.Combine("Videos", "Con calma y con prisa | La mujer de Nobita.mkv"), "Videos");
@@ -627,6 +649,18 @@ public static class Program
         Eq("S2005E12.mkv", new LibraryTemplate("S<temp>E<num>").Render(cat, ep, f), "acepta un patrón propio");
         Eq("Serie de prueba - S2005E12 - Las galletas mágicas.mkv",
             new LibraryTemplate("   ").Render(cat, ep, f), "un patrón vacío cae al de por defecto");
+
+        // Cada marca que se ofrece en la interfaz tiene que SUSTITUIRSE de verdad. Si la
+        // lista y el código se separan, se acaba ofreciendo una marca que sale tal cual en el
+        // nombre del fichero.
+        foreach (var m in LibraryTemplate.Marcas)
+        {
+            var soloEsa = new LibraryTemplate("x" + m.Marca).Render(cat, ep, f);
+            Assert(soloEsa != null && !soloEsa.Contains(m.Marca),
+                $"la marca {m.Marca} se sustituye de verdad");
+            Assert(!string.IsNullOrWhiteSpace(m.Nombre) && !string.IsNullOrWhiteSpace(m.Descripcion),
+                $"la marca {m.Marca} viene explicada");
+        }
 
         // Nunca un fichero sin nombre
         Assert(new LibraryTemplate("...").Render(cat, ep, f) is null,

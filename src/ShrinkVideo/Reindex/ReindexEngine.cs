@@ -122,6 +122,13 @@ public static class ReindexEngine
     /// </summary>
     public const double MargenDesempate = 0.02;
 
+    /// <summary>
+    /// Cuánto puede quedarse por detrás del ganador un candidato para seguir mereciendo que
+    /// se te ofrezca. Con el ganador al 100 %, enseñar uno al 67 % no ayuda a decidir: mete
+    /// ruido en una fila que ya estaba resuelta e invita a un clic equivocado.
+    /// </summary>
+    public const double MargenAlternativa = 0.12;
+
     // Nota sobre la «ventana de candidatos» (±12 nº / ±12 días) de la epic: era un truco de
     // rendimiento de los scripts para no comparar contra 1800 episodios. Aquí no se usa, y a
     // propósito: la regla anti-remake EXIGE mirar la serie entera (el remake está a cientos de
@@ -144,6 +151,15 @@ public static class ReindexEngine
             .Select(a => ResolverUno(a, catalogo, overrides, indice))
             .ToList();
         Deduplicar(resoluciones);
+
+        // El resolvedor sirve para RESOLVER, no para decorar filas ya resueltas: en una fila
+        // que la app identificó con confianza no hay nada que elegir, y ofrecer candidatos
+        // peores solo mete ruido e invita a un clic equivocado. Se hace al final, después de
+        // la deduplicación, porque esa puede degradar una fila que hasta entonces iba verde.
+        foreach (var r in resoluciones)
+            if (r.Confianza == ReindexConfianza.Alta)
+                r.Alternativas = Array.Empty<ReindexCandidato>();
+
         return resoluciones;
     }
 
@@ -217,7 +233,7 @@ public static class ReindexEngine
             r.Confianza = ReindexConfianza.Alta;
             r.Estado = f.Indice == mejorTituloEp.Num ? ReindexEstado.Limpio : ReindexEstado.Corregido;
             r.Motivo = $"El título coincide al {Pct(mejorTituloScore)}";
-            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp, f.Temporada);
+            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp, mejorTituloScore, f.Temporada);
 
             // Otra cara del remake: DOS episodios distintos encajan igual de bien y ganó el
             // primero por orden de lista. Por título no hay manera de separarlos, así que no
@@ -271,7 +287,7 @@ public static class ReindexEngine
             r.Confianza = ReindexConfianza.Revisar;
             r.Estado = ReindexEstado.Corregido;
             r.Motivo = $"Se parece al {Pct(mejorTituloScore)}, por debajo de lo fiable";
-            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp, f.Temporada);
+            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp, mejorTituloScore, f.Temporada);
             return r;
         }
 
@@ -350,7 +366,7 @@ public static class ReindexEngine
             r.Score = score;
             r.Hint = score >= TitleMatch.UmbralTitulo ? ReindexHint.Titulo : ReindexHint.TituloDebil;
             r.Motivo = $"Especial: el título encaja al {Pct(score)} — confírmalo";
-            r.Alternativas = OtrosCandidatos(indice, titulos, cat.Especiales, ep);
+            r.Alternativas = OtrosCandidatos(indice, titulos, cat.Especiales, ep, score);
         }
         else if (f.IndiceEspecial.HasValue)
         {
@@ -463,11 +479,17 @@ public static class ReindexEngine
         return lista;
     }
 
+    /// <summary>
+    /// Los otros episodios que DE VERDAD compiten con el elegido. Se filtran por cercanía a
+    /// su puntuación: una «alternativa» que va treinta puntos por detrás no es una opción,
+    /// es ruido.
+    /// </summary>
     private static IReadOnlyList<ReindexCandidato> OtrosCandidatos(IndiceTitulos indice,
         IReadOnlyList<TitleBag> titulos, IReadOnlyList<CatalogEpisode> candidatos, CatalogEpisode elegido,
-        int? temporadaArchivo = null)
+        double scoreElegido, int? temporadaArchivo = null)
     {
         return indice.Ranking(titulos, candidatos, excluir: elegido, cuantos: 2, temporadaArchivo)
+            .Where(x => x.score >= scoreElegido - MargenAlternativa)
             .Select(x => new ReindexCandidato
             {
                 Episodio = x.ep,
