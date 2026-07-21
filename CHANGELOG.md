@@ -38,6 +38,13 @@ es un acuerdo de buena voluntad: está verificado.
   episodio concreto: números repetidos (que antes hacían perder un episodio en silencio),
   fechas imposibles o números negativos.
 
+### Cambiado
+
+- **La ventana se puede encoger mucho más.** El mínimo baja de 1000×660 a 820×560, y el
+  contenido se adapta en vez de recortarse: los campos se estiran, los botones bajan de
+  línea si no caben, el panel de detalle se pliega cuando le quita sitio a la tabla, y en
+  la barra de título el conmutador se queda en iconos para que no se coma el menú.
+
 ### Corregido
 
 - **Con el aviso de actualización en pantalla no se podía mover la ventana.** El aviso se

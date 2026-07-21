@@ -21,15 +21,16 @@
         <ColumnDefinition Width="14"/>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="14"/>
-        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="*" MinWidth="120"/>
       </Grid.ColumnDefinitions>
 
       <!-- Carpeta a organizar -->
       <StackPanel Grid.Column="0">
         <TextBlock Text="Carpeta a organizar" Style="{StaticResource OrgLabel}"/>
-        <StackPanel Orientation="Horizontal">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
-                  CornerRadius="8" Height="34" MinWidth="240" HorizontalAlignment="Stretch">
+                  CornerRadius="8" Height="34" MinWidth="110" HorizontalAlignment="Stretch">
             <Grid Margin="10,0">
               <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
               <Viewbox Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center">
@@ -38,13 +39,13 @@
               <TextBox x:Name="txtCarpeta" Grid.Column="1" Style="{StaticResource InlineTextBox}"/>
             </Grid>
           </Border>
-          <Button x:Name="btnCarpeta" Style="{StaticResource BtnSecondary}" Width="34" Height="34" Padding="0"
+          <Button x:Name="btnCarpeta" Grid.Column="1" Style="{StaticResource BtnSecondary}" Width="34" Height="34" Padding="0"
                   Margin="6,0,0,0" ToolTip="Elegir la carpeta cuyos ficheros quieres organizar">
             <Viewbox Width="15" Height="15">
               <Path Data="M1.5 3.5h4l1.5 2h7.5l-2 7h-11z M1.5 3.5v9h11" Stroke="{StaticResource Text}" StrokeThickness="1.4" StrokeLineJoin="Round"/>
             </Viewbox>
           </Button>
-        </StackPanel>
+        </Grid>
       </StackPanel>
 
       <!-- Serie (catálogo de referencia) -->
@@ -54,7 +55,7 @@
           <!-- ItemTemplate explícito y no DisplayMemberPath: la plantilla propia del tema
                pinta la selección con SelectionBoxItemTemplate, y con DisplayMemberPath se
                quedaba sin plantilla y enseñaba el nombre del tipo. -->
-          <ComboBox x:Name="cboSerie" Width="215" Height="34" VerticalContentAlignment="Center"
+          <ComboBox x:Name="cboSerie" MinWidth="110" MaxWidth="215" Height="34" VerticalContentAlignment="Center"
                     ToolTip="El catálogo contra el que se identifican los ficheros de la carpeta">
             <ComboBox.ItemTemplate>
               <DataTemplate>
@@ -71,23 +72,26 @@
       <!-- Plantilla de biblioteca -->
       <StackPanel Grid.Column="4">
         <TextBlock Text="Plantilla de biblioteca" Style="{StaticResource OrgLabel}"/>
-        <StackPanel Orientation="Horizontal">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
-                  CornerRadius="8" Height="34" HorizontalAlignment="Stretch" MinWidth="200">
+                  CornerRadius="8" Height="34" HorizontalAlignment="Stretch" MinWidth="90">
             <TextBox x:Name="txtPlantilla" Style="{StaticResource InlineTextBox}" Margin="10,0"
                      FontFamily="{StaticResource FontMono}" FontSize="11.5"
                      Foreground="{StaticResource Neutral400}"
                      ToolTip="Cómo se compone el nombre final. No es el «Renombrado libre» de Herramientas: aquí el nombre se construye desde el catálogo."/>
           </Border>
-          <Button x:Name="btnPlantilla" Style="{StaticResource BtnGhost}" Content="Editar" Margin="6,0,0,0"
+          <Button x:Name="btnPlantilla" Grid.Column="1" Style="{StaticResource BtnGhost}" Content="Editar" Margin="6,0,0,0"
                   ToolTip="Cambiar la plantilla de nombres"/>
-        </StackPanel>
+        </Grid>
       </StackPanel>
     </Grid>
 
     <!-- ══════════════ Resumen-filtro (solo en revisión) ══════════════ -->
     <Grid x:Name="filaChips" Grid.Row="1" Margin="16,0,16,10" Visibility="Collapsed">
-      <StackPanel Orientation="Horizontal" x:Name="panelChips">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <!-- WrapPanel: los chips bajan de linea en vez de meterse debajo de los botones. -->
+      <WrapPanel Orientation="Horizontal" x:Name="panelChips">
         <ToggleButton x:Name="chipLimpios" Style="{StaticResource FiltroChip}">
           <TextBlock><Run Text="●" Foreground="#86D8A6"/><Run x:Name="runLimpios" Text=" 0 limpios"/></TextBlock>
         </ToggleButton>
@@ -105,9 +109,9 @@
         </ToggleButton>
         <ToggleButton x:Name="chipDudas" Style="{StaticResource FiltroChip}" Content="Solo dudas" Margin="6,0,0,0"
                       ToolTip="Deja solo lo que necesita que decidas tú"/>
-      </StackPanel>
+      </WrapPanel>
 
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
         <Button x:Name="btnAceptarVerdes" Style="{StaticResource BtnSecondary}" Content="Aceptar verdes"
                 Padding="10,5" FontSize="12"
                 ToolTip="Da por buenas todas las filas identificadas con confianza"/>
@@ -128,11 +132,13 @@
         <Grid>
           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
           <Grid Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="CATÁLOGOS IMPORTADOS" FontSize="11" FontWeight="Medium"
-                       Foreground="{StaticResource Neutral500}" VerticalAlignment="Center"/>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock x:Name="lblTituloCatalogos" Text="CATÁLOGOS IMPORTADOS" FontSize="11" FontWeight="Medium"
+                       Margin="0,0,8,0" Foreground="{StaticResource Neutral500}" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"/>
             <!-- La ayuda del formato va SIEMPRE visible, no solo cuando no hay catálogos:
                  la duda «¿y esto cómo se escribe?» aparece justo al ir a importar. -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
               <Button x:Name="btnFormato" Style="{StaticResource BtnGhost}" Padding="8,5" FontSize="12"
                       Content="¿Qué formato?" Margin="0,0,8,0"
                       ToolTip="Abre la especificación del catálogo: campos, reglas y un ejemplo completo"/>
@@ -363,7 +369,7 @@
             </DataGridTemplateColumn>
 
             <!-- POR QUÉ — evidencia corta; la prosa completa, en el tooltip -->
-            <DataGridTemplateColumn Header="POR QUÉ" Width="250">
+            <DataGridTemplateColumn Header="POR QUÉ" Width="0.7*" MinWidth="90">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <TextBlock Text="{Binding PorQue}" Foreground="{StaticResource Neutral500}" FontSize="12"
@@ -443,7 +449,8 @@
 
     <!-- ══════════════ Barra de acciones ══════════════ -->
     <Grid Grid.Row="3" Margin="16,10,16,8">
-      <StackPanel Orientation="Horizontal">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <WrapPanel Orientation="Horizontal">
         <Button x:Name="btnSimular" Style="{StaticResource BtnPrimary}" Margin="0,0,8,0" IsEnabled="False"
                 ToolTip="Lee los nombres y propone. No toca ningún fichero.">
           <StackPanel Orientation="Horizontal">
@@ -477,11 +484,12 @@
             <TextBlock x:Name="lblDeshacer" Text="Deshacer último lote" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-      </StackPanel>
+      </WrapPanel>
 
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+      <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
         <TextBlock x:Name="lblEstadoOrg" Text="Elige una carpeta y un catálogo" VerticalAlignment="Center"
-                   FontSize="12" Foreground="{StaticResource Neutral500}" Margin="0,0,12,0"/>
+                   FontSize="12" Foreground="{StaticResource Neutral500}" Margin="0,0,12,0"
+                   MaxWidth="360" TextTrimming="CharacterEllipsis"/>
         <Button x:Name="btnMemoria" Style="{StaticResource BtnGhostMuted}" Content="Memoria de decisiones…"
                 ToolTip="Ver y olvidar las decisiones que has ido tomando"/>
       </StackPanel>

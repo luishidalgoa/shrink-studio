@@ -111,6 +111,9 @@ public partial class MainWindow : Window
         lst.PreviewMouseMove += Lst_MouseMove;
         lst.PreviewMouseLeftButtonUp += Lst_MouseUp;
 
+        // El panel lateral se pliega solo cuando la ventana se queda estrecha
+        SizeChanged += (_, _) => AjustarAAncho();
+
         // conmutador de páginas «Comprimir | Organizar»
         tabComprimir.Checked += (_, _) => CambiarPagina(organizar: false);
         tabOrganizar.Checked += (_, _) => CambiarPagina(organizar: true);
@@ -1073,6 +1076,44 @@ public partial class MainWindow : Window
     {
         txtLog.AppendText(line + "\n");
         txtLog.ScrollToEnd();
+    }
+
+    /// <summary>
+    /// Ancho por debajo del cual el panel lateral estorba más de lo que aporta. Sale de
+    /// sumar lo que la tabla necesita para que sus columnas se lean (≈620) más los 262 del
+    /// panel y los márgenes: por debajo, el panel se estaría quedando con espacio que la
+    /// tabla necesita más.
+    /// </summary>
+    private const double AnchoMinimoConLateral = 940;
+
+    /// <summary>
+    /// WPF no tiene consultas de medios, así que la adaptación al ancho se hace aquí. Es un
+    /// solo umbral a propósito: cuantos más puntos de corte, más difícil es que el resultado
+    /// siga siendo coherente en todos ellos.
+    /// </summary>
+    private void AjustarAAncho()
+    {
+        bool cabeElLateral = ActualWidth >= AnchoMinimoConLateral;
+
+        colLateral.Width = cabeElLateral ? new GridLength(262) : new GridLength(0);
+        if (sideCol != null)
+            sideCol.Visibility = cabeElLateral ? Visibility.Visible : Visibility.Collapsed;
+
+        // El texto del botón de renombrar sobra antes que el botón: se queda el icono, que
+        // con su descripción emergente sigue diciendo lo que hace.
+        if (lblRename != null)
+            lblRename.Visibility = ActualWidth >= 1080 ? Visibility.Visible : Visibility.Collapsed;
+
+        // La versión junto al nombre es lo primero que sobra en la barra de título.
+        if (lblVersion != null)
+            lblVersion.Visibility = ActualWidth >= 900 ? Visibility.Visible : Visibility.Collapsed;
+
+        // Y lo segundo, el texto del conmutador: sin esto el menú y el conmutador se pisan y
+        // «Ayuda» desaparecía debajo. Los iconos se quedan, y cada pestaña tiene su
+        // descripción emergente, así que no se pierde qué es cada una.
+        var textoPestanas = ActualWidth >= 1000 ? Visibility.Visible : Visibility.Collapsed;
+        if (lblTabComprimir != null) lblTabComprimir.Visibility = textoPestanas;
+        if (lblTabOrganizar != null) lblTabOrganizar.Visibility = textoPestanas;
     }
 
     // ─────────────────────── páginas de oficio ───────────────────────
