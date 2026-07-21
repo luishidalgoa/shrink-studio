@@ -13,7 +13,21 @@ las comprueba en cada tag y **falla la publicación** si no se cumplen, así que
 es un acuerdo de buena voluntad: está verificado.
 
 1. **Una sección por versión**, con el encabezado exacto `## [X.Y.Z] - AAAA-MM-DD`.
-   Lo que aún no se ha publicado vive en `## [Unreleased]
+   Lo que aún no se ha publicado vive en la sección de cambios pendientes.
+2. **El tag manda**: al empujar `vX.Y.Z` debe existir la sección `## [X.Y.Z]` y la
+   propiedad `<Version>` de los `.csproj` debe valer exactamente `X.Y.Z`.
+3. **Escrito para quien usa la app**, en español y en pasado: qué cambia para ti, no
+   qué fichero se tocó. Nada de nombres de clases ni de ramas.
+4. **Una entrada por funcionalidad**, no por commit. Lo trivial (formato, refactores
+   internos, cambios de comentarios) no aparece.
+5. **Categorías permitidas**, en este orden: `Añadido`, `Cambiado`, `Obsoleto`,
+   `Eliminado`, `Corregido`, `Seguridad`. Solo se escriben las que tengan contenido.
+6. **Los cambios que rompen algo** se marcan con **RUPTURA** al principio de la línea
+   y explican qué hacer.
+7. **Sin secciones vacías** ni versiones repetidas, y las versiones van de más nueva a
+   más antigua.
+
+## [Unreleased]
 
 ## [0.5.0] - 2026-07-21
 

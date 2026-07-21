@@ -72,6 +72,15 @@ jobs:
           DUP=$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | sort | uniq -d)
           [[ -z "$DUP" ]] || { echo "::error::Versiones repetidas: $DUP"; exit 1; }
 
+          # 6) el propio documento sigue entero: las 7 reglas del contrato y la sección
+          #    de pendientes. Al cortar la v0.5.0 un reemplazo automático se comió media
+          #    cabecera y nadie se enteró, porque nada comprobaba el contrato en sí.
+          REGLAS=$(grep -cE '^[1-7]\. \*\*' CHANGELOG.md || true)
+          [[ "$REGLAS" -eq 7 ]] \
+            || { echo "::error::El contrato del CHANGELOG está incompleto: $REGLAS de 7 reglas"; exit 1; }
+          grep -q '^## \[Unreleased\]$' CHANGELOG.md \
+            || { echo "::error::Falta la sección «## [Unreleased]» en CHANGELOG.md"; exit 1; }
+
           echo "Contrato del CHANGELOG cumplido."
 
           # las notas de la Release salen del propio CHANGELOG
