@@ -130,10 +130,12 @@
   <!-- ══ Haz de borde ══════════════════════════════════════════════════════════
        Un destello corto que recorre el contorno, al estilo de «border-beam».
 
-       Se hace con dos capas: la de fuera pinta el degradado y sobresale 1,5 px, y la de
-       dentro va opaca y tapa el centro — lo que queda a la vista es solo el anillo. El
-       movimiento es una rotación de la brocha, que WPF anima en el hilo de composición:
-       no repinta el control en cada fotograma.
+       El degradado va en el BORDE (BorderBrush), no en el fondo. La primera versión lo
+       ponía de fondo y confiaba en que la capa de delante tapara el centro; en un control
+       con fondo transparente —como la vista previa del prompt— no tapaba nada y el haz se
+       veía atravesando el texto. Pintando el borde, el anillo es el anillo sea cual sea el
+       relleno. El movimiento es una rotación de la brocha, que WPF anima en el hilo de
+       composición: no repinta el control en cada fotograma.
 
        El degradado NO es un arcoíris repartido: son dos tramos transparentes con una
        banda clara estrecha en medio. Eso es lo que se lee como «un haz que pasa» en vez
@@ -151,6 +153,8 @@
   <Style x:Key="HazDeBorde" TargetType="Border">
     <Setter Property="Margin" Value="-1.5"/>
     <Setter Property="CornerRadius" Value="9.5"/>
+    <Setter Property="BorderThickness" Value="1.5"/>
+    <Setter Property="Background" Value="Transparent"/>
     <Setter Property="IsHitTestVisible" Value="False"/>
     <Setter Property="Opacity" Value="0"/>
   </Style>
@@ -181,7 +185,7 @@
             <!-- El haz va DETRÁS y sobresale: el borde opaco de delante tapa el centro y
                  deja solo el anillo a la vista. -->
             <Border x:Name="haz" Style="{StaticResource HazDeBorde}">
-              <Border.Background>
+              <Border.BorderBrush>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                   <LinearGradientBrush.RelativeTransform>
                     <RotateTransform CenterX="0.5" CenterY="0.5"/>
@@ -192,7 +196,7 @@
                   <GradientStop Color="#33968AE0" Offset="0.66"/>
                   <GradientStop Color="#00968AE0" Offset="1.00"/>
                 </LinearGradientBrush>
-              </Border.Background>
+              </Border.BorderBrush>
             </Border>
             <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
@@ -221,7 +225,7 @@
                          en los catorce campos de la app sería animación permanente a cambio
                          de nada. -->
                     <DoubleAnimation Storyboard.TargetName="haz"
-                                     Storyboard.TargetProperty="(Border.Background).(LinearGradientBrush.RelativeTransform).(RotateTransform.Angle)"
+                                     Storyboard.TargetProperty="(Border.BorderBrush).(LinearGradientBrush.RelativeTransform).(RotateTransform.Angle)"
                                      From="0" To="360" Duration="{StaticResource HazVuelta}"
                                      RepeatBehavior="Forever"/>
                   </Storyboard>
@@ -279,12 +283,50 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
-          <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
+          <Grid>
+            <Border x:Name="haz" Style="{StaticResource HazDeBorde}" CornerRadius="9.5">
+              <Border.BorderBrush>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                  <LinearGradientBrush.RelativeTransform>
+                    <RotateTransform CenterX="0.5" CenterY="0.5"/>
+                  </LinearGradientBrush.RelativeTransform>
+                  <GradientStop Color="#00968AE0" Offset="0.00"/>
+                  <GradientStop Color="#33968AE0" Offset="0.34"/>
+                  <GradientStop Color="#FFD2CEFD" Offset="0.50"/>
+                  <GradientStop Color="#33968AE0" Offset="0.66"/>
+                  <GradientStop Color="#00968AE0" Offset="1.00"/>
+                </LinearGradientBrush>
+              </Border.BorderBrush>
+            </Border>
+            <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+          </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="b" Property="Opacity" Value="0.45"/></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard Name="sbHaz">
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="haz" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.18"/>
+                    <DoubleAnimation Storyboard.TargetName="haz"
+                                     Storyboard.TargetProperty="(Border.BorderBrush).(LinearGradientBrush.RelativeTransform).(RotateTransform.Angle)"
+                                     From="0" To="360" Duration="{StaticResource HazVuelta}" RepeatBehavior="Forever"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <StopStoryboard BeginStoryboardName="sbHaz"/>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="haz" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -301,6 +343,21 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
+          <Grid>
+            <Border x:Name="haz" Style="{StaticResource HazDeBorde}" CornerRadius="9.5">
+              <Border.BorderBrush>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                  <LinearGradientBrush.RelativeTransform>
+                    <RotateTransform CenterX="0.5" CenterY="0.5"/>
+                  </LinearGradientBrush.RelativeTransform>
+                  <GradientStop Color="#00968AE0" Offset="0.00"/>
+                  <GradientStop Color="#33968AE0" Offset="0.34"/>
+                  <GradientStop Color="#FFD2CEFD" Offset="0.50"/>
+                  <GradientStop Color="#33968AE0" Offset="0.66"/>
+                  <GradientStop Color="#00968AE0" Offset="1.00"/>
+                </LinearGradientBrush>
+              </Border.BorderBrush>
+            </Border>
           <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8"
                   Padding="{TemplateBinding Padding}">
@@ -312,7 +369,30 @@
             </Border.Effect>
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
+          </Grid>
           <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard Name="sbHazPri">
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="haz" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.18"/>
+                    <DoubleAnimation Storyboard.TargetName="haz"
+                                     Storyboard.TargetProperty="(Border.BorderBrush).(LinearGradientBrush.RelativeTransform).(RotateTransform.Angle)"
+                                     From="0" To="360" Duration="{StaticResource HazVuelta}" RepeatBehavior="Forever"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <StopStoryboard BeginStoryboardName="sbHazPri"/>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="haz" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="b" Property="Background" Value="{StaticResource HoverPrimary}"/>
               <Trigger.EnterActions>
@@ -402,6 +482,20 @@
       <Setter.Value>
         <ControlTemplate TargetType="ComboBox">
           <Grid>
+            <Border x:Name="haz" Style="{StaticResource HazDeBorde}" CornerRadius="9.5">
+              <Border.BorderBrush>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                  <LinearGradientBrush.RelativeTransform>
+                    <RotateTransform CenterX="0.5" CenterY="0.5"/>
+                  </LinearGradientBrush.RelativeTransform>
+                  <GradientStop Color="#00968AE0" Offset="0.00"/>
+                  <GradientStop Color="#33968AE0" Offset="0.34"/>
+                  <GradientStop Color="#FFD2CEFD" Offset="0.50"/>
+                  <GradientStop Color="#33968AE0" Offset="0.66"/>
+                  <GradientStop Color="#00968AE0" Offset="1.00"/>
+                </LinearGradientBrush>
+              </Border.BorderBrush>
+            </Border>
             <ToggleButton Focusable="False" Template="{StaticResource ComboToggle}"
                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
             <ContentPresenter x:Name="cp" Content="{TemplateBinding SelectionBoxItem}"
@@ -426,6 +520,28 @@
             </Popup>
           </Grid>
           <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard Name="sbHazCombo">
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="haz" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.18"/>
+                    <DoubleAnimation Storyboard.TargetName="haz"
+                                     Storyboard.TargetProperty="(Border.BorderBrush).(LinearGradientBrush.RelativeTransform).(RotateTransform.Angle)"
+                                     From="0" To="360" Duration="{StaticResource HazVuelta}" RepeatBehavior="Forever"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <StopStoryboard BeginStoryboardName="sbHazCombo"/>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="haz" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
             <Trigger Property="IsEditable" Value="True">
               <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
               <Setter TargetName="cp" Property="Visibility" Value="Hidden"/>
@@ -465,14 +581,52 @@
       <Setter.Value>
         <ControlTemplate TargetType="CheckBox">
           <StackPanel Orientation="Horizontal" Background="Transparent">
+            <Grid VerticalAlignment="Center">
+              <Border x:Name="haz" Style="{StaticResource HazDeBorde}" CornerRadius="6">
+                <Border.BorderBrush>
+                  <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <LinearGradientBrush.RelativeTransform>
+                      <RotateTransform CenterX="0.5" CenterY="0.5"/>
+                    </LinearGradientBrush.RelativeTransform>
+                    <GradientStop Color="#00968AE0" Offset="0.00"/>
+                    <GradientStop Color="#33968AE0" Offset="0.34"/>
+                    <GradientStop Color="#FFD2CEFD" Offset="0.50"/>
+                    <GradientStop Color="#33968AE0" Offset="0.66"/>
+                    <GradientStop Color="#00968AE0" Offset="1.00"/>
+                  </LinearGradientBrush>
+                </Border.BorderBrush>
+              </Border>
             <Border x:Name="box" Width="15" Height="15" CornerRadius="4" BorderThickness="1.5"
                     BorderBrush="{StaticResource Divider}" Background="Transparent" VerticalAlignment="Center">
               <Path x:Name="tick" Data="M2,5 L6,9 L12,2" Stroke="{StaticResource Accent200}" StrokeThickness="1.6"
                     StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
             </Border>
+            </Grid>
             <ContentPresenter Margin="7,0,0,0" VerticalAlignment="Center"/>
           </StackPanel>
           <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard Name="sbHazChk">
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="haz" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.18"/>
+                    <DoubleAnimation Storyboard.TargetName="haz"
+                                     Storyboard.TargetProperty="(Border.BorderBrush).(LinearGradientBrush.RelativeTransform).(RotateTransform.Angle)"
+                                     From="0" To="360" Duration="{StaticResource HazVuelta}" RepeatBehavior="Forever"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <StopStoryboard BeginStoryboardName="sbHazChk"/>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="haz" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="box" Property="BorderBrush" Value="{StaticResource Accent}"/>
               <Setter TargetName="box" Property="Background" Value="{StaticResource Accent800}"/>
