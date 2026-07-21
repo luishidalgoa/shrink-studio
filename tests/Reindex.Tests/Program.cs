@@ -193,6 +193,59 @@ public static class Program
         Lanza<ReindexCatalogException>(() => ReindexCatalog.Parse("{\"esquema\":\"reindex/1.0\",\"episodios\":[]}"),
             "rechaza un catálogo sin episodios");
 
+        // ── Reglas para catálogos escritos a mano (documentadas en docs/catalogo-reindex.md) ──
+
+        // Un «num» repetido perdía un episodio EN SILENCIO: el índice se construye por
+        // número, así que el segundo pisaba al primero y nadie se enteraba.
+        var repetido = Lanzado<ReindexCatalogException>(() => ReindexCatalog.Parse("""
+            { "esquema": "reindex/1.0", "serie": "P", "episodios": [
+              { "num": 7, "titulos": { "es": ["Uno"] } },
+              { "num": 7, "titulos": { "es": ["Otro"] } } ] }
+            """), "rechaza dos episodios con el mismo número");
+        Assert(repetido?.Message.Contains("posición 1") == true, "y dice con cuál choca");
+
+        Lanza<ReindexCatalogException>(() => ReindexCatalog.Parse("""
+            { "esquema": "reindex/1.0", "serie": "P", "episodios": [
+              { "num": -3, "titulos": { "es": ["Uno"] } } ] }
+            """), "rechaza un número negativo");
+
+        var fechaMala = Lanzado<ReindexCatalogException>(() => ReindexCatalog.Parse("""
+            { "esquema": "reindex/1.0", "serie": "P", "episodios": [
+              { "num": 1, "fecha": "2005-13-45", "titulos": { "es": ["Uno"] } } ] }
+            """), "rechaza una fecha que no existe");
+        Assert(fechaMala?.Message.Contains("2005-13-45") == true, "y cita la fecha culpable");
+
+        Lanza<ReindexCatalogException>(() => ReindexCatalog.Parse("""
+            { "esquema": "reindex/1.0", "serie": "", "episodios": [
+              { "num": 1, "titulos": { "es": ["Uno"] } } ] }
+            """), "rechaza un catálogo sin nombre de serie");
+
+        // Los fallos se enseñan JUNTOS: corregir de uno en uno es un bucle sin final
+        var varios = Lanzado<ReindexCatalogException>(() => ReindexCatalog.Parse("""
+            { "esquema": "reindex/1.0", "serie": "P", "episodios": [
+              { "num": 1, "fecha": "ayer" },
+              { "num": 1 },
+              { "num": -5 } ] }
+            """), "rechaza un catálogo con varios problemas");
+        Assert(varios?.Message.Contains("3 problemas") == true,
+            "y los cuenta todos de una vez en vez de parar en el primero");
+
+        // Una fecha válida sí pasa, y se entiende
+        var conFecha = ReindexCatalog.Parse("""
+            { "esquema": "reindex/1.0", "serie": "P", "episodios": [
+              { "num": 1, "fecha": "2005-04-22", "titulos": { "es": ["Uno"] } } ] }
+            """);
+        Eq(new DateOnly(2005, 4, 22), conFecha.PorNum(1)!.FechaParsed, "una fecha correcta se lee bien");
+
+        // El ejemplo que la app ofrece como punto de partida TIENE que importar sin fallos:
+        // entregar una plantilla que no vale sería el peor recibimiento posible.
+        var ejemplo = ReindexCatalog.Parse(ReindexCatalog.Ejemplo);
+        Eq(3, ejemplo.Episodios.Count, "el catálogo de ejemplo es válido y se lee");
+        Eq(1, ejemplo.Especiales.Count, "el ejemplo enseña cómo se marca un especial");
+        Assert(ejemplo.Episodios.Any(e => e.TitulosVisibles.Count > 1),
+            "el ejemplo enseña un episodio con varios segmentos");
+        Assert(ejemplo.Episodios.Any(e => e.FechaParsed != null), "el ejemplo enseña el formato de fecha");
+
         // Compatibilidad hacia delante: 1.9 sigue siendo mayor 1, y los campos de más se ignoran
         var futuro = ReindexCatalog.Parse(CatalogoDePrueba
             .Replace("reindex/1.0", "reindex/1.9")
@@ -629,6 +682,19 @@ public static class Program
         bool igual = EqualityComparer<T>.Default.Equals(esperado, real);
         if (igual) { _ok++; Console.WriteLine($"  ✓ {descripcion}"); }
         else { _fallos++; Console.WriteLine($"  ✗ {descripcion}\n      esperado: «{esperado}»\n      real:     «{real}»"); }
+    }
+
+    /// <summary>Como <see cref="Lanza{T}"/>, pero devuelve la excepción para mirarle el mensaje.</summary>
+    private static T? Lanzado<T>(Action accion, string descripcion) where T : Exception
+    {
+        try { accion(); _fallos++; Console.WriteLine($"  ✗ {descripcion} (no lanzó nada)"); return null; }
+        catch (T ex) { _ok++; Console.WriteLine($"  ✓ {descripcion}"); return ex; }
+        catch (Exception ex)
+        {
+            _fallos++;
+            Console.WriteLine($"  ✗ {descripcion} (lanzó {ex.GetType().Name}, se esperaba {typeof(T).Name})");
+            return null;
+        }
     }
 
     private static void Lanza<T>(Action accion, string descripcion) where T : Exception

@@ -57,6 +57,8 @@ public partial class OrganizarView : UserControl
         btnCarpeta.Click += (_, _) => ElegirCarpeta();
         btnImportar.Click += (_, _) => ImportarCatalogo();
         btnCatalogos.Click += (_, _) => ImportarCatalogo();
+        btnFormato.Click += (_, _) => AbrirEspecificacion();
+        btnEjemplo.Click += (_, _) => GuardarEjemplo();
         btnSimular.Click += (_, _) => Simular();
         btnSimularGrande.Click += (_, _) => Simular();
         btnAplicar.Click += (_, _) => PedirConfirmacion();
@@ -230,6 +232,53 @@ public partial class OrganizarView : UserControl
         }
         catch (ReindexCatalogException ex) { Aviso(ex.Message); }
         catch (Exception ex) { Aviso($"No se pudo importar: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// Especificación del formato. Va al repositorio y no a un texto embebido a propósito:
+    /// así se corrige sin publicar una versión, y siempre se lee la vigente.
+    /// </summary>
+    private const string UrlEspecificacion =
+        "https://github.com/luishidalgoa/shrink-studio/blob/main/docs/catalogo-reindex.md";
+
+    private void AbrirEspecificacion()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(UrlEspecificacion)
+            { UseShellExecute = true });
+        }
+        catch (Exception ex) { Aviso($"No se pudo abrir la documentación: {ex.Message}\n\n{UrlEspecificacion}"); }
+    }
+
+    /// <summary>
+    /// Guarda un catálogo de ejemplo VÁLIDO para editar. Partir de algo que ya funciona
+    /// evita el peor arranque posible: escribir el JSON a ciegas y que el primer intento
+    /// de importar sea una lista de errores.
+    /// </summary>
+    private void GuardarEjemplo()
+    {
+        var dlg = new SaveFileDialog
+        {
+            Title = "Guardar catálogo de ejemplo",
+            Filter = "Catálogo de reindexado (*.json)|*.json",
+            FileName = "mi-serie.reindex.json",
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        try
+        {
+            File.WriteAllText(dlg.FileName, ReindexCatalog.Ejemplo, new System.Text.UTF8Encoding(false));
+            Escribir($"Catálogo de ejemplo guardado en {dlg.FileName}.");
+
+            var r = MessageBox.Show(
+                "Ejemplo guardado.\n\nEdítalo con tus episodios y luego impórtalo. " +
+                "Si algo no encaja, al importar se te dirá exactamente qué corregir.\n\n" +
+                "¿Quieres abrir la especificación del formato?",
+                "Organizar", MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
+            if (r == MessageBoxResult.Yes) AbrirEspecificacion();
+        }
+        catch (Exception ex) { Aviso($"No se pudo guardar el ejemplo: {ex.Message}"); }
     }
 
     // ─────────────────────────── simulación ───────────────────────────
