@@ -29,6 +29,33 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **Eliges qué se aplica, fichero a fichero.** Cada fila lista lleva su casilla (marcadas
+  todas de inicio), la cabecera marca o desmarca todas, y el botón dice exactamente cuántos
+  va a tocar («Aplicar 30 de 31»). El cuadro de confirmación cuenta también lo que se queda
+  fuera y por qué: dudas, conflictos y lo que tú hayas desmarcado. Los conflictos no llevan
+  casilla a propósito: no se aplican jamás, estén como estén.
+- **Un explorador del catálogo para comprobar propuestas sin abrir el JSON.** La lupa junto a
+  «Catálogos…» abre el catálogo elegido con buscador por número («175») o por título
+  («planeta espejo»), con la misma normalización que usa el identificador. Antes, dudar de
+  una sugerencia obligaba a rebuscar en el JSON a mano — y esa fricción deja dudas razonables
+  sin comprobar.
+
+### Corregido
+
+- **El nombre de la serie dentro del fichero ya no estropea la identificación por título.**
+  «Doraemon (2005) S2009E175 - El planeta espejo» se comparaba con el prefijo incluido, el
+  parecido caía por debajo del umbral y acababa ganando el número equivocado del propio
+  fichero. Ahora el título se compara también sin la serie delante: ese fichero pasa a
+  identificarse como E173 con el título al 100 %. En la biblioteca de prueba, los conflictos
+  bajan de 49 a 31.
+- **«2.ª parte» ya iguala a «segunda parte»** (y 1.ª/3.ª/4.ª): el fichero y el catálogo suelen
+  escribir el ordinal de forma distinta y eso restaba parecido justo donde más dolía.
+- **Importar un catálogo también lo guarda como última serie.** Quitar uno y reimportarlo
+  dejaba la preferencia vacía y el siguiente arranque volvía a caer en el primero por
+  alfabeto.
+
 ## [0.9.0] - 2026-07-21
 
 ### Añadido

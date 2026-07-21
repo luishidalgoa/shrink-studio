@@ -29,6 +29,10 @@ public static partial class TitleMatch
     /// norm(s): quita sufijos de doblaje → minúsculas → sin diacríticos (á→a, ñ→n) →
     /// todo lo que no sea [a-z0-9] pasa a espacio, colapsado y recortado.
     /// </summary>
+    // «1.ª», «2ª», «3.º»… — número + marcador ordinal, con o sin punto
+    [GeneratedRegex(@"\b([1-4])\.?\s*[ªº]", RegexOptions.IgnoreCase)]
+    private static partial Regex RxOrdinal();
+
     public static string Norm(string? s)
     {
         if (string.IsNullOrWhiteSpace(s)) return "";
@@ -36,6 +40,16 @@ public static partial class TitleMatch
         // 1. sufijos de doblaje (antes de tocar mayúsculas: el patrón ya es insensible)
         s = RxDoblajePais().Replace(s, " ");
         s = RxDoblaje().Replace(s, " ");
+
+        // 1b. ordinales abreviados → escritos: el fichero dice «(2.ª parte)» donde el
+        //     catálogo dice «(segunda parte)», y si se quedan en «2 parte» vs «segunda
+        //     parte» el parecido baja justo lo que descalifica. Solo con marcador ordinal
+        //     (ª/º): un «Parte 2» a secas se conserva tal cual, y hay tests de ambos.
+        s = RxOrdinal().Replace(s, m => m.Groups[1].Value switch
+        {
+            "1" => "primera", "2" => "segunda", "3" => "tercera", "4" => "cuarta",
+            _ => m.Value,
+        });
 
         // 2. minúsculas + 3. descomponer y tirar diacríticos
         var descompuesto = s.ToLowerInvariant().Normalize(NormalizationForm.FormD);

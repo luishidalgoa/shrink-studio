@@ -51,6 +51,17 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     /// <summary>Carpeta de temporada de la que salió, ya con nombre presentable.</summary>
     public string Grupo { get; }
 
+    private bool _marcado = true;
+    /// <summary>
+    /// Si esta fila entra en el próximo «Aplicar». Solo pesa cuando la fila está lista: los
+    /// conflictos y las dudas no se aplican jamás, marcados o no.
+    /// </summary>
+    public bool Marcado
+    {
+        get => _marcado;
+        set { _marcado = value; N(); }
+    }
+
     private bool _primeraDeGrupo;
     /// <summary>Esta fila abre su temporada: lleva encima la banda separadora.</summary>
     public bool PrimeraDeGrupo
@@ -107,6 +118,9 @@ public sealed class OrganizarRow : INotifyPropertyChanged
             nameof(EstadoTexto), nameof(EstadoGlifo), nameof(EstadoFg), nameof(EstadoBg), nameof(EstadoBorde),
             nameof(Original), nameof(Propuesta), nameof(PropuestaDestacada), nameof(PropuestaFg),
             nameof(PorQue), nameof(Explicacion), nameof(TieneDetalle), nameof(Aplicado), nameof(Candidatos),
+            // La casilla de aplicar se enseña según esto: al resolver un conflicto la fila
+            // pasa a estar lista y su casilla tiene que aparecer en ese momento.
+            nameof(ListoParaAplicar), nameof(EstadoTooltip),
         }) N(p);
     }
 
