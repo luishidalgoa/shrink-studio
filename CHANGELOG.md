@@ -15,6 +15,8 @@ es un acuerdo de buena voluntad: está verificado.
 1. **Una sección por versión**, con el encabezado exacto `## [X.Y.Z] - AAAA-MM-DD`.
    Lo que aún no se ha publicado vive en `## [Unreleased]
 
+## [0.5.0] - 2026-07-21
+
 ### Añadido
 
 - **Atajos desde el Explorador de Windows** (se activan en Preferencias → General):
