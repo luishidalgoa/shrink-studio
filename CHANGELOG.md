@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-21
+
 ### Añadido
 
 - Nueva página **Organizar**, que identifica qué episodio es cada fichero comparándolo con
@@ -37,7 +39,7 @@ es un acuerdo de buena voluntad: está verificado.
   (una píldora avisa del avance). Nada se renombra sin aprobación: primero se simula, se
   revisa el resultado en una tabla con semáforo —limpio, corregido, especial, conflicto,
   error— y solo entonces se aplica. Cada lote aplicado se puede deshacer entero, y las
-  decisiones que tomas se recuerdan para no volver a preguntarte lo mismo. (KRO-REIDX)
+  decisiones que tomas se recuerdan para no volver a preguntarte lo mismo.
 
 ### Cambiado
 
@@ -49,6 +51,10 @@ es un acuerdo de buena voluntad: está verificado.
   códec eficiente se quedan sin marcar, con su motivo a la vista, en vez de descubrirlo al
   lanzar la tanda.
 - La lista vacía ahora explica qué hacer en vez de ser un hueco en negro.
+- **La interfaz se ilumina.** El fondo tiene ahora una luz ambiental tenue que respira muy
+  despacio, y brillan los puntos que importan: el botón de la acción principal al apuntarlo,
+  el campo donde vas a escribir, la página en la que estás y el progreso mientras trabaja.
+  Está medido para que ayude a mirar donde toca, no para llenar la pantalla de luces.
 - **Las ventanas tienen las esquinas redondeadas de Windows 11.** Como la app dibuja su
   propia barra de título, Windows dejaba de redondearlas y quedaban como un rectángulo
   recto que desentonaba con el resto del escritorio. El redondeo lo pone ahora el propio
