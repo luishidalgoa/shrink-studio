@@ -9,9 +9,20 @@ namespace ShrinkVideo;
 /// La redacción vive en <see cref="CatalogPrompt"/>, que es código puro y con tests;
 /// aquí solo se recogen los datos y se copia el resultado.
 /// </summary>
+/// <summary>Un idioma tal y como se pinta en la lista de resultados.</summary>
+public sealed class IdiomaFila
+{
+    public required string Codigo { get; init; }
+    public required string Nombre { get; init; }
+    public required bool Elegido { get; init; }
+    /// <summary>Un visto si ya está elegido. Ocupa sitio fijo para que la columna no baile.</summary>
+    public string Marca => Elegido ? "✓" : "";
+}
+
 public partial class PromptWindow : Window
 {
-    private readonly List<CheckBox> _idiomas = new();
+    /// <summary>Códigos elegidos, en el orden en que se fueron marcando.</summary>
+    private readonly List<string> _elegidos = new() { "es", "en" };
 
     public PromptWindow(string serieSugerida)
     {
@@ -19,43 +30,63 @@ public partial class PromptWindow : Window
 
         txtSerie.Text = serieSugerida;
 
-        cboSalida.ItemsSource = CatalogPrompt.IdiomasConocidos.Select(i => i.Nombre).ToList();
+        // La lista de salida sale ya ordenada con los de andar por casa arriba. Va con
+        // ItemTemplate y no con DisplayMemberPath: el tema le pone su propia plantilla a lo
+        // seleccionado, y con DisplayMemberPath se acaba viendo el nombre del tipo.
+        cboSalida.ItemsSource = IsoLanguages.Buscar("");
         cboSalida.SelectedIndex = 0;   // español de España
-
-        foreach (var (codigo, nombre) in CatalogPrompt.IdiomasConocidos)
-        {
-            var chk = new CheckBox
-            {
-                Content = nombre,
-                Tag = codigo,
-                Margin = new Thickness(0, 2, 14, 2),
-                FontSize = 12,
-                // Español e inglés marcados de salida: cubren la inmensa mayoría de los
-                // nombres con los que llegan los ficheros.
-                IsChecked = codigo is "es" or "en",
-            };
-            chk.Checked += (_, _) => Refrescar();
-            chk.Unchecked += (_, _) => Refrescar();
-            _idiomas.Add(chk);
-        }
-        listaIdiomas.ItemsSource = _idiomas;
 
         txtSerie.TextChanged += (_, _) => Refrescar();
         txtFuente.TextChanged += (_, _) => Refrescar();
         cboSalida.SelectionChanged += (_, _) => Refrescar();
+        txtBuscarIdioma.TextChanged += (_, _) => RefrescarIdiomas();
 
         btnCerrar.Click += (_, _) => Close();
         btnCopiar.Click += (_, _) => Copiar();
         btnAbrirFuente.Click += (_, _) => AbrirFuente();
 
+        RefrescarIdiomas();
         Refrescar();
     }
 
-    private string IdiomaSalida =>
-        CatalogPrompt.IdiomasConocidos[Math.Max(0, cboSalida.SelectedIndex)].Codigo;
+    private string IdiomaSalida => (cboSalida.SelectedItem as IsoLanguage)?.Codigo ?? "es";
 
-    private List<string> IdiomasMarcados =>
-        _idiomas.Where(c => c.IsChecked == true).Select(c => (string)c.Tag).ToList();
+    private List<string> IdiomasMarcados => _elegidos.ToList();
+
+    // ─────────────────────────── idiomas ───────────────────────────
+
+    /// <summary>Repinta badges y resultados. La lista es de 183: rehacerla entera no se nota.</summary>
+    private void RefrescarIdiomas()
+    {
+        listaSeleccionados.ItemsSource = _elegidos
+            .Select(c => new IdiomaFila { Codigo = c, Nombre = IsoLanguages.Nombre(c), Elegido = true })
+            .ToList();
+
+        var encontrados = IsoLanguages.Buscar(txtBuscarIdioma.Text)
+            .Select(i => new IdiomaFila { Codigo = i.Codigo, Nombre = i.Nombre, Elegido = _elegidos.Contains(i.Codigo) })
+            .ToList();
+
+        listaResultados.ItemsSource = encontrados;
+        lblSinResultados.Visibility = encontrados.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnAlternarIdioma(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not string codigo) return;
+
+        if (!_elegidos.Remove(codigo)) _elegidos.Add(codigo);
+        RefrescarIdiomas();
+        Refrescar();
+    }
+
+    private void OnQuitarIdioma(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not string codigo) return;
+
+        _elegidos.Remove(codigo);
+        RefrescarIdiomas();
+        Refrescar();
+    }
 
     private void Refrescar()
     {
@@ -63,9 +94,13 @@ public partial class PromptWindow : Window
 
         // Avisar del error que más caro sale: no incluir el idioma en el que vienen tus
         // ficheros hoy, y descubrirlo cuando ya no reconoce ninguno.
-        lblAviso.Text = IdiomasMarcados.Count <= 1
-            ? "Con un solo idioma, solo reconocerá los ficheros titulados en ese idioma."
-            : $"{IdiomasMarcados.Count} idiomas para reconocer · el nombre se escribirá en {CatalogPrompt.Nombre(IdiomaSalida)}";
+        lblAviso.Text = IdiomasMarcados.Count switch
+        {
+            // Quitarlos todos no rompe nada —el de salida siempre entra— pero conviene decirlo
+            0 => $"Sin ninguno marcado solo se compara contra {IsoLanguages.Nombre(IdiomaSalida)}, el de salida.",
+            1 => "Con un solo idioma, solo reconocerá los ficheros titulados en ese idioma.",
+            _ => $"{IdiomasMarcados.Count} idiomas para reconocer · el nombre se escribirá en {IsoLanguages.Nombre(IdiomaSalida)}",
+        };
     }
 
     private void Copiar()

@@ -26,6 +26,7 @@ public static class Program
         Prompt();
         Plantilla();
         Almacen();
+        ListaIso();
         BibliotecaPorTemporadas();
         CatalogosReales();
 
@@ -853,6 +854,51 @@ public static class Program
             var r = Uno(cat, F("[1] Shin-chan se va de compras.mkv"));
             Eq(1, r.Episodio?.Num, "identifica el episodio 1 de Shin-chan por título");
         }
+    }
+
+    // ─────────────────────────── Lista ISO 639-1 ───────────────────────────
+
+    /// <summary>
+    /// El selector de idiomas pasa de siete opciones fijas a la norma ISO entera. Con esa
+    /// cantidad, encontrar el idioma DEPENDE del buscador: si buscar «japones» sin tilde no
+    /// da nada, la lista larga es peor que la corta.
+    /// </summary>
+    private static void ListaIso()
+    {
+        Seccion("Idiomas ISO 639-1");
+
+        Assert(IsoLanguages.Todos.Length > 150, $"la norma entera, no una muestra ({IsoLanguages.Todos.Length})");
+        Assert(IsoLanguages.Todos.Select(i => i.Codigo).Distinct().Count() == IsoLanguages.Todos.Length,
+            "ningún código repetido");
+        Assert(IsoLanguages.Todos.All(i => i.Nombre.Length > 0), "todos tienen nombre");
+
+        // ── buscar como se escribe de verdad: sin tildes y a medias ──
+        string Primero(string q) => IsoLanguages.Buscar(q).FirstOrDefault()?.Codigo ?? "(nada)";
+
+        Eq("ja", Primero("japones"), "«japones» sin tilde encuentra el japonés");
+        Eq("ja", Primero("Japonés"), "y con tilde también");
+        Eq("es", Primero("españ"), "a medio escribir");
+        Eq("de", Primero("de"), "un código exacto gana a cualquier nombre que contenga «de»");
+        Eq("ko", Primero("core"), "«coreano» por el principio del nombre");
+        Assert(IsoLanguages.Buscar("zzzz").Count == 0, "lo que no existe no devuelve nada");
+
+        // Sin escribir nada se ven primero los que se usan aquí, no los alfabéticos
+        var vacio = IsoLanguages.Buscar("");
+        Assert(vacio.Count > 150, "sin filtro están todos");
+        Eq("es", vacio[0].Codigo, "y arriba los de andar por casa");
+
+        // ── códigos viejos: los catálogos ya importados no pueden dejar de leerse ──
+        Eq("ja", IsoLanguages.Normalizar("jp"), "«jp» era lo que usaba la app: se traduce al ISO «ja»");
+        Eq("es-419", IsoLanguages.Normalizar("lat"), "«lat» era el hispanoamericano");
+        Eq("es", IsoLanguages.Normalizar("ES"), "las mayúsculas no crean un idioma nuevo");
+        Eq("qqq", IsoLanguages.Normalizar("qqq"), "un código desconocido se deja tal cual");
+
+        Eq("Japonés", IsoLanguages.Nombre("ja"), "nombre en español");
+        Eq("Japonés", IsoLanguages.Nombre("jp"), "y el código viejo llega al mismo sitio");
+        Eq("qqq", IsoLanguages.Nombre("qqq"), "de un código que no conocemos se enseña el código");
+
+        // El hispanoamericano no está en ISO 639-1 pero sí en la biblioteca del usuario
+        Assert(IsoLanguages.Todos.Any(i => i.Codigo == "es-419"), "el español de Hispanoamérica existe");
     }
 
     // ──────────────── Biblioteca con subcarpetas de temporada ────────────────

@@ -50,7 +50,12 @@
         <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
           <TextBlock Text="Idioma para el nombre del fichero" Style="{StaticResource OrgLabel}"/>
           <ComboBox x:Name="cboSalida" Height="32" VerticalContentAlignment="Center"
-                    ToolTip="El título que se escribirá al renombrar"/>
+                    MaxDropDownHeight="260"
+                    ToolTip="El título que se escribirá al renombrar">
+            <ComboBox.ItemTemplate>
+              <DataTemplate><TextBlock Text="{Binding Nombre}"/></DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
         </StackPanel>
 
         <StackPanel Grid.Row="1" Grid.Column="0">
@@ -60,16 +65,80 @@
         </StackPanel>
 
         <StackPanel Grid.Row="1" Grid.Column="2">
-          <TextBlock Text="Idiomas para reconocer los ficheros" Style="{StaticResource OrgLabel}"/>
-          <!-- No es lo mismo que el de salida: aquí van los idiomas en los que PUEDEN venir
-               titulados tus ficheros. Cuantos más, menos se quedan sin identificar. -->
+          <!-- El rótulo viejo decía «Idiomas para reconocer los ficheros», que se leía como
+               si fuera el idioma del programa. Es el idioma DEL TÍTULO QUE YA TIENEN. -->
+          <TextBlock Text="Idiomas en los que vienen titulados tus ficheros"
+                     Style="{StaticResource OrgLabel}" TextTrimming="CharacterEllipsis">
+            <TextBlock.ToolTip>
+              <TextBlock MaxWidth="380" TextWrapping="Wrap" LineHeight="18">
+                No es el idioma del nombre final: ese es el de arriba.<LineBreak/><LineBreak/>
+                Es en qué idiomas puede estar escrito el título que tus ficheros ya traen hoy.
+                El catálogo guardará los títulos en todos los que marques, y al identificar se
+                comparará contra todos ellos.<LineBreak/><LineBreak/>
+                Cuantos más marques, menos ficheros se quedan sin reconocer. Lo que cuesta es
+                un catálogo más largo, así que marca los que de verdad aparecen en tu carpeta.
+              </TextBlock>
+            </TextBlock.ToolTip>
+          </TextBlock>
+
           <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}"
-                  BorderThickness="1" CornerRadius="8" Padding="10,6">
-            <ItemsControl x:Name="listaIdiomas">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-            </ItemsControl>
+                  BorderThickness="1" CornerRadius="8" Padding="8,7">
+            <StackPanel>
+
+              <!-- Los elegidos, siempre a la vista: son la respuesta, y sin ellos habría que
+                   recorrer la lista entera para saber qué llevas marcado. -->
+              <ItemsControl x:Name="listaSeleccionados" Margin="0,0,0,6">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Background="{StaticResource Accent900}" BorderBrush="{StaticResource Accent700}"
+                            BorderThickness="1" CornerRadius="6" Padding="7,2" Margin="0,0,5,5">
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Nombre}" FontSize="11.5" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Accent200}"/>
+                        <Button Style="{StaticResource BtnGhostMuted}" Content="✕" FontSize="9"
+                                Padding="4,1" Margin="5,0,-4,0" Click="OnQuitarIdioma"
+                                Tag="{Binding Codigo}" ToolTip="Quitar este idioma"/>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <TextBox x:Name="txtBuscarIdioma" Margin="0,0,0,6"
+                       ToolTip="Escribe el nombre o el código: «japones», «ja», «catal»…"/>
+
+              <ScrollViewer MaxHeight="126" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="listaResultados">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Style="{StaticResource BtnGhostMuted}" HorizontalContentAlignment="Stretch"
+                              Padding="8,4" Click="OnAlternarIdioma" Tag="{Binding Codigo}">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="16"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+                          <TextBlock Text="{Binding Marca}" FontSize="11" VerticalAlignment="Center"
+                                     Foreground="{StaticResource Accent}"/>
+                          <TextBlock Grid.Column="1" Text="{Binding Nombre}" FontSize="12"
+                                     VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Grid.Column="2" Text="{Binding Codigo}" FontSize="11"
+                                     VerticalAlignment="Center" Margin="8,0,0,0"
+                                     FontFamily="{StaticResource FontMono}"
+                                     Foreground="{StaticResource Neutral500}"/>
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+
+              <TextBlock x:Name="lblSinResultados" FontSize="11.5" Margin="4,4,0,2"
+                         Foreground="{StaticResource Neutral500}" Visibility="Collapsed"
+                         Text="Ningún idioma se llama así"/>
+            </StackPanel>
           </Border>
         </StackPanel>
       </Grid>
