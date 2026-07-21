@@ -190,6 +190,20 @@
                   SnapsToDevicePixels="True">
             <Border x:Name="fill" Background="Transparent">
               <StackPanel>
+                <!-- Banda de temporada. Va DENTRO de la fila y no como grupo del DataGrid:
+                     agrupar deja de repartir las columnas en «*» contra el ancho real y se
+                     quedan aplastadas. Aquí el DataGridCellsPresenter sigue siendo hijo
+                     directo de la fila, igual que antes, así que los anchos no se enteran. -->
+                <Border x:Name="banda" Visibility="Collapsed" Padding="12,7"
+                        Background="{StaticResource Accent900}"
+                        BorderBrush="{StaticResource Divider}" BorderThickness="0,1,0,1">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Grupo}" FontSize="12" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Foreground="{StaticResource Accent200}"/>
+                    <TextBlock Text="{Binding GrupoConteo}" FontSize="11.5" Margin="8,0,0,0"
+                               VerticalAlignment="Center" Foreground="{StaticResource Neutral500}"/>
+                  </StackPanel>
+                </Border>
                 <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1">
                   <DataGridCellsPresenter Margin="0,9"/>
                 </Border>
@@ -200,6 +214,9 @@
             </Border>
           </Border>
           <ControlTemplate.Triggers>
+            <DataTrigger Binding="{Binding PrimeraDeGrupo}" Value="True">
+              <Setter TargetName="banda" Property="Visibility" Value="Visible"/>
+            </DataTrigger>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="fill" Property="Background" Value="{StaticResource RowHover}"/>
             </Trigger>
