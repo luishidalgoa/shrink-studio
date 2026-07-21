@@ -16,6 +16,9 @@ namespace ShrinkVideo;
 public partial class MainWindow : Window
 {
     private readonly ObservableCollection<VideoRow> _rows = new();
+
+    /// <summary>Por dónde va el vídeo que se comprime ahora. Ver la pestaña «Pasos».</summary>
+    private readonly ListaDePasos _pasos = new();
     private readonly Engine _engine = new();
     private readonly string _thumbDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_thumbs");
     private readonly string _previewDir = Path.Combine(Path.GetTempPath(), "shrinkvideo_preview");
@@ -120,8 +123,13 @@ public partial class MainWindow : Window
         pageOrganizar.Log += AppendLog;
         pillFondo.MouseLeftButtonUp += (_, _) => tabComprimir.IsChecked = true;
 
-        tabDetalle.MouseLeftButtonUp += (_, _) => ShowSideTab(false);
-        tabEstim.MouseLeftButtonUp += (_, _) => ShowSideTab(true);
+        tabDetalle.MouseLeftButtonUp += (_, _) => ShowSideTab("detalle");
+        tabEstim.MouseLeftButtonUp += (_, _) => ShowSideTab("estim");
+        tabPasos.MouseLeftButtonUp += (_, _) => ShowSideTab("pasos");
+
+        listaPasos.ItemsSource = _pasos.Pasos;
+        _pasos.PropertyChanged += (_, _) =>
+            lblPasosTitulo.Text = _pasos.Activa ? _pasos.Titulo : "Nada en marcha";
         foreach (var c in new[] { cboFmt, cboCodec, cboQ, cboRes, cboAud })
             c.SelectionChanged += (_, _) => UpdateEstimate();
 
@@ -684,14 +692,26 @@ public partial class MainWindow : Window
     private static void TryDelete(string path) { try { if (File.Exists(path)) File.Delete(path); } catch { } }
 
     // ---------- estimación de ahorro ----------
-    private void ShowSideTab(bool estim)
+    /// <summary>
+    /// Enseña una de las tres pestañas laterales. Antes era un booleano porque solo había
+    /// dos; con «Pasos» ya no vale, y un booleano que significa «la segunda» envejece mal.
+    /// </summary>
+    private void ShowSideTab(string cual)
     {
-        panelEstim.Visibility = estim ? Visibility.Visible : Visibility.Collapsed;
-        panelDetalle.Visibility = estim ? Visibility.Collapsed : Visibility.Visible;
-        tabEstim.BorderBrush = estim ? (Brush)FindResource("Accent") : Brushes.Transparent;
-        tabDetalle.BorderBrush = estim ? Brushes.Transparent : (Brush)FindResource("Accent");
-        ((TextBlock)tabEstim.Child).Foreground = (Brush)FindResource(estim ? "Accent300" : "Neutral400");
-        ((TextBlock)tabDetalle.Child).Foreground = (Brush)FindResource(estim ? "Neutral400" : "Accent300");
+        var paneles = new (string Clave, Border Pestaña, UIElement Panel)[]
+        {
+            ("detalle", tabDetalle, panelDetalle),
+            ("estim",   tabEstim,   panelEstim),
+            ("pasos",   tabPasos,   panelPasos),
+        };
+
+        foreach (var (clave, pestaña, panel) in paneles)
+        {
+            bool activa = clave == cual;
+            panel.Visibility = activa ? Visibility.Visible : Visibility.Collapsed;
+            pestaña.BorderBrush = activa ? (Brush)FindResource("Accent") : Brushes.Transparent;
+            ((TextBlock)pestaña.Child).Foreground = (Brush)FindResource(activa ? "Accent300" : "Neutral400");
+        }
     }
 
     private void UpdateEstimate()
@@ -939,6 +959,7 @@ public partial class MainWindow : Window
         var ok = new List<FileResult>();
         try
         {
+            ShowSideTab("pasos");   // se abre sola: si hay que ir a buscarla, no sirve de nada
             var results = await _engine.CompressAsync(sel, opt, reporter, _cts.Token);
             ok = results.Where(r => r.OutBytes != null).ToList();
             if (ok.Count > 0)
@@ -962,6 +983,7 @@ public partial class MainWindow : Window
             // La píldora pasa a «✓ N hechos» un momento y se retira sola: si desapareciera
             // de golpe, quien estuviera en «Organizar» no llegaría a saber que terminó.
             AnunciarFinEnPildora(sel.Count);
+            _pasos.Terminar();
         }
 
         // Con la ventana ya en reposo: si se han quedado subtítulos fuera, decirlo.
@@ -1202,6 +1224,10 @@ public partial class MainWindow : Window
                 // el motor numera del 1 al total en el mismo orden en que se le pasó la cola
                 _current = i >= 1 && i <= _queue.Count ? _queue[i - 1] : null;
                 if (_current != null) _current.Estado = "Comprimiendo…";
+                // Para llegar aquí ya se ha leído el archivo: la duración la sabemos por eso
+                _w._pasos.Empezar($"[{i}/{t}] {name}");
+                _w._pasos.Completar(ListaDePasos.Leer,
+                    dur > 0 ? TimeSpan.FromSeconds(dur).ToString(@"h\:mm\:ss") : "");
                 _w.ActualizarTextoPildora(i, t, 0);
             });
 
@@ -1213,6 +1239,7 @@ public partial class MainWindow : Window
                 _w.bar.Value = frac;
                 // solo se reescribe la fila al cambiar de entero: si no, repinta sin parar
                 if (_current != null && pct != _lastPct) { _lastPct = pct; _current.Estado = $"Comprimiendo… {pct}%"; }
+                _w._pasos.EnMarcha(ListaDePasos.Codificar, $"{pct} %");
                 _w.ActualizarTextoPildora(_idx, _total, frac);
             });
         }
@@ -1222,6 +1249,16 @@ public partial class MainWindow : Window
             _w.Dispatcher.BeginInvoke(() =>
             {
                 if (RowOf(sourcePath) is { } row) row.Estado = reason;
+                _w._pasos.Empezar($"{Path.GetFileName(sourcePath)}");
+                _w._pasos.Saltar(reason);
+            });
+
+        /// <summary>El motor dice en qué punto va; la caja de pasos lo pinta.</summary>
+        public void Paso(string clave, string detalle) =>
+            _w.Dispatcher.BeginInvoke(() =>
+            {
+                if (clave == ListaDePasos.Codificar) _w._pasos.EnMarcha(clave, detalle);
+                else _w._pasos.Completar(clave, detalle);
             });
 
         // Borrado iteración a iteración: en cuanto un archivo se comprime OK, su original
@@ -1233,6 +1270,10 @@ public partial class MainWindow : Window
             {
                 if (RowOf(r.SourcePath) is { } row)
                     row.Estado = r.Ok ? $"{r.Status} · {Human(r.OutBytes!.Value)}" : "Error";
+                // Un fallo marca el paso donde se rompió; lo de detrás queda «saltado», que
+                // es lo honesto: no ha fallado, es que ya no se intenta.
+                if (r.Ok) _w._pasos.Completar(ListaDePasos.Guardar);
+                else _w._pasos.Fallar(ListaDePasos.Codificar, "no se pudo codificar");
                 if (_current != null && string.Equals(_current.Path, r.SourcePath, StringComparison.OrdinalIgnoreCase))
                     _current = null;
             });

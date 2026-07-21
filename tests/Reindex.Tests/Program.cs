@@ -26,6 +26,7 @@ public static class Program
         Prompt();
         Plantilla();
         Almacen();
+        CajaDePasos();
         ListaIso();
         BibliotecaPorTemporadas();
         CatalogosReales();
@@ -898,6 +899,70 @@ public static class Program
             var r = Uno(cat, F("[1] Shin-chan se va de compras.mkv"));
             Eq(1, r.Episodio?.Num, "identifica el episodio 1 de Shin-chan por título");
         }
+    }
+
+    // ─────────────────────────── Caja de pasos ───────────────────────────
+
+    /// <summary>
+    /// La caja de pasos contesta «¿por dónde va?» de un vistazo. Si miente —un paso en verde
+    /// que no ha pasado, o uno en rojo que nunca llegó a correr— es peor que no tenerla.
+    /// </summary>
+    private static void CajaDePasos()
+    {
+        Seccion("Caja de pasos");
+
+        var caja = new ShrinkVideo.ListaDePasos();
+        string Est(string c) => caja[c]!.Estado.ToString();
+
+        Assert(!caja.Activa, "de entrada no hay nada en marcha");
+        caja.Empezar("[1/2] bob.mkv");
+        Assert(caja.Activa, "al empezar un fichero la caja se enciende");
+        Eq("[1/2] bob.mkv", caja.Titulo, "y dice de cuál");
+        Assert(caja.Pasos.All(p => p.Estado == ShrinkVideo.EstadoPaso.Pendiente),
+            "todos los pasos arrancan pendientes");
+
+        caja.Completar(ShrinkVideo.ListaDePasos.Leer, "h264 · 3 audios");
+        Eq("Hecho", Est(ShrinkVideo.ListaDePasos.Leer), "el paso hecho se marca");
+        Eq("h264 · 3 audios", caja[ShrinkVideo.ListaDePasos.Leer]!.Detalle, "y guarda lo averiguado");
+        Eq("EnCurso", Est(ShrinkVideo.ListaDePasos.Plan), "el siguiente arranca solo");
+
+        // Saltarse un aviso no puede dejar la caja con agujeros: si el motor no avisa del
+        // «plan» y pasa directo a codificar, un paso en blanco entre dos verdes se lee como
+        // que algo se rompió.
+        caja.EnMarcha(ShrinkVideo.ListaDePasos.Codificar, "12 %");
+        Eq("Hecho", Est(ShrinkVideo.ListaDePasos.Plan), "los pasos que quedaron atrás se dan por hechos");
+        Eq("EnCurso", Est(ShrinkVideo.ListaDePasos.Codificar), "y el actual queda en curso");
+        Eq("12 %", caja[ShrinkVideo.ListaDePasos.Codificar]!.Detalle, "con su avance");
+
+        caja.EnMarcha(ShrinkVideo.ListaDePasos.Codificar, "80 %");
+        Eq("80 %", caja[ShrinkVideo.ListaDePasos.Codificar]!.Detalle, "el avance se refresca");
+
+        caja.Completar(ShrinkVideo.ListaDePasos.Guardar, "1,2 GB → 380 MB");
+        Assert(caja.Pasos.All(p => p.Estado == ShrinkVideo.EstadoPaso.Hecho), "al final todos hechos");
+
+        // ── un fallo no contamina a los que nunca corrieron ──
+        var rota = new ShrinkVideo.ListaDePasos();
+        rota.Empezar("[2/2] otro.mkv");
+        rota.Fallar(ShrinkVideo.ListaDePasos.Codificar, "ffmpeg devolvió 1");
+        Eq("Fallo", rota[ShrinkVideo.ListaDePasos.Codificar]!.Estado.ToString(), "el que falla se marca");
+        Eq("ffmpeg devolvió 1", rota[ShrinkVideo.ListaDePasos.Codificar]!.Detalle, "con el motivo");
+        Eq("Saltado", rota[ShrinkVideo.ListaDePasos.Guardar]!.Estado.ToString(),
+            "lo de después queda SALTADO, no fallido: no ha fallado, es que ya no se intenta");
+
+        // ── glifos: el color nunca va solo ──
+        Eq("✓", rota[ShrinkVideo.ListaDePasos.Leer]!.Glifo, "hecho lleva su visto");
+        Eq("✕", rota[ShrinkVideo.ListaDePasos.Codificar]!.Glifo, "el fallo, su aspa");
+        Eq("–", rota[ShrinkVideo.ListaDePasos.Guardar]!.Glifo, "lo saltado, su raya");
+
+        // ── el fichero entero se salta ──
+        var salta = new ShrinkVideo.ListaDePasos();
+        salta.Empezar("[1/1] ya.mkv");
+        salta.Saltar("Ya está en HEVC");
+        Assert(salta.Pasos.All(p => p.Estado == ShrinkVideo.EstadoPaso.Saltado), "ningún paso queda a medias");
+        Eq("Ya está en HEVC", salta.Pasos[0].Detalle, "y el motivo se cuenta una sola vez");
+
+        salta.Terminar();
+        Assert(!salta.Activa, "al acabar el lote la caja se retira");
     }
 
     // ─────────────────────────── Lista ISO 639-1 ───────────────────────────

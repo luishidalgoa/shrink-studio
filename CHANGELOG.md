@@ -31,6 +31,13 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Una caja de pasos enseña por dónde va el vídeo que se está comprimiendo.** Nueva pestaña
+  «Pasos», que se abre sola al empezar: leer el vídeo, elegir pistas y calidad, codificar y
+  guardar, cada uno con su marca y lo que se ha averiguado («audio: spa», «42 %», «1,2 GB →
+  380 MB»). **No sustituye al registro**: el registro cuenta qué pasó *después* y sirve para
+  revisar; esto contesta «¿por dónde va?» de un vistazo, que es lo que se mira *mientras*
+  corre. Si algo se tuerce, el paso que falló se marca y los siguientes quedan como
+  «saltados», no como fallidos: no fallaron, es que ya no se intentan.
 - **La plantilla admite relleno con ceros y separador propio: `<num:000>` y `<título: ┃ >`.**
   Sin esto no se podía describir una biblioteca que ya estuviera ordenada con otra
   convención, y entonces salía todo como pendiente de renombrar aunque el trabajo estuviera
