@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-21
+
 ### Añadido
 
 - **Una caja de pasos enseña por dónde va el vídeo que se está comprimiendo.** Nueva pestaña
@@ -67,6 +69,26 @@ es un acuerdo de buena voluntad: está verificado.
   qué se diferencia del idioma del nombre final. El rótulo viejo se leía como si fuera el
   idioma del programa.
 
+
+- **Los avisos y las preguntas ya no son los cuadros grises de Windows.** Toda la app usa
+  ahora su propio diálogo, con el mismo tema que el resto, y el texto se puede seleccionar
+  y copiar — que es lo primero que quieres hacer cuando el aviso trae una ruta o el texto
+  de un error.
+- **Un haz de luz recorre el borde de lo que tiene el foco**, en toda la app: campos,
+  botones, desplegables y casillas. Se ve de un vistazo dónde estás, sobre todo moviéndote
+  con el tabulador. Solo gira mientras ese control tiene el foco, así que nunca hay más de
+  uno encendido.
+- **Lo que se corta con puntos suspensivos enseña el texto completo al pasar el ratón.** No
+  hace falta ensanchar la ventana para leer un nombre largo. Solo aparece cuando el texto
+  está recortado de verdad, para no repetir lo que ya se ve.
+
+- **El encargo para la IA ya no da por hecho que el anexo lo tiene todo.** Antes enseñaba un
+  único ejemplo con todos los campos rellenos, y ante una tabla pobre la IA acababa
+  inventándose fechas o improvisando estructura. Ahora lista los campos que admite el
+  programa separando lo obligatorio de lo opcional, enseña también un catálogo mínimo
+  igual de válido, y deja una sola regla sin excepción: se pueden omitir campos, nunca
+  inventarlos.
+
 ### Corregido
 
 - **En las tarjetas de catálogo, «Usar», «Quitar» y «seleccionado» se dibujaban unos encima
@@ -103,28 +125,6 @@ es un acuerdo de buena voluntad: está verificado.
   Saber de qué carpeta viene cada fila es la mitad de la información cuando hay que decidir
   si una propuesta tiene sentido.
 
-### Cambiado
-
-- **Los avisos y las preguntas ya no son los cuadros grises de Windows.** Toda la app usa
-  ahora su propio diálogo, con el mismo tema que el resto, y el texto se puede seleccionar
-  y copiar — que es lo primero que quieres hacer cuando el aviso trae una ruta o el texto
-  de un error.
-- **Un haz de luz recorre el borde de lo que tiene el foco**, en toda la app: campos,
-  botones, desplegables y casillas. Se ve de un vistazo dónde estás, sobre todo moviéndote
-  con el tabulador. Solo gira mientras ese control tiene el foco, así que nunca hay más de
-  uno encendido.
-- **Lo que se corta con puntos suspensivos enseña el texto completo al pasar el ratón.** No
-  hace falta ensanchar la ventana para leer un nombre largo. Solo aparece cuando el texto
-  está recortado de verdad, para no repetir lo que ya se ve.
-
-- **El encargo para la IA ya no da por hecho que el anexo lo tiene todo.** Antes enseñaba un
-  único ejemplo con todos los campos rellenos, y ante una tabla pobre la IA acababa
-  inventándose fechas o improvisando estructura. Ahora lista los campos que admite el
-  programa separando lo obligatorio de lo opcional, enseña también un catálogo mínimo
-  igual de válido, y deja una sola regla sin excepción: se pueden omitir campos, nunca
-  inventarlos.
-
-### Corregido
 
 - **El texto se cortaba por abajo en los campos de «Generar con IA».** Tenían una altura
   fija que no daba para una línea con su espaciado.
