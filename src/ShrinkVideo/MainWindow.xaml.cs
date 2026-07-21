@@ -1054,18 +1054,43 @@ public partial class MainWindow : Window
     // ---------- actualizaciones ----------
     private async Task CheckUpdateAsync(bool manual)
     {
-        if (manual) lblProg.Text = "Buscando actualizaciones…";
-        var info = await Updater.CheckAsync();
-        if (info == null)
+        if (manual)
         {
-            if (manual) lblProg.Text = $"Ya tienes la última versión (v{Updater.Current}).";
-            return;
+            btnCheckUpdate.IsEnabled = false;         // evita repetir la búsqueda a lo tonto
+            miCheckUpd.IsEnabled = false;
+            lblProg.Text = "Buscando actualizaciones…";
         }
-        lblUpdate.Text = $"Versión nueva disponible: {info.Tag}  (tienes v{Updater.Current}).";
-        updateBar.Visibility = Visibility.Visible;
-        btnUpdateNow.Click -= OnUpdateNow;   // evitar suscripción doble
-        btnUpdateNow.Click += OnUpdateNow;
-        _pendingUpdate = info;
+        try
+        {
+            var res = await Updater.CheckAsync();
+
+            if (res.Failed)
+            {
+                // antes esto se confundía con «estás al día»: se decía que no había nada
+                // nuevo aunque en realidad no hubiera habido conexión
+                if (manual) lblProg.Text = "No se pudo comprobar: " + res.Error;
+                return;
+            }
+            if (!res.Available)
+            {
+                if (manual) lblProg.Text = $"Ya tienes la última versión (v{Updater.Current}).";
+                return;
+            }
+
+            var info = res.Info!;
+            lblUpdate.Text = $"Versión nueva disponible: {info.Tag}  (tienes v{Updater.Current}).";
+            updateBar.Visibility = Visibility.Visible;
+            btnUpdateNow.Click -= OnUpdateNow;   // evitar suscripción doble
+            btnUpdateNow.Click += OnUpdateNow;
+            _pendingUpdate = info;
+            // faltaba: sin esto se quedaba «Buscando actualizaciones…» para siempre
+            lblProg.Text = $"Versión {info.Tag} disponible — mira el aviso de arriba.";
+        }
+        finally
+        {
+            btnCheckUpdate.IsEnabled = true;
+            miCheckUpd.IsEnabled = true;
+        }
     }
 
     private UpdateInfo? _pendingUpdate;
@@ -1073,17 +1098,27 @@ public partial class MainWindow : Window
     {
         if (_pendingUpdate == null) return;
         btnUpdateNow.IsEnabled = false;
-        lblUpdate.Text = "Descargando actualización…";
+        lblUpdate.Text = $"Descargando {_pendingUpdate.AssetName}…";
+        progRow.Visibility = Visibility.Visible; bar.Value = 0;
+        lblProg.Text = "Descargando la actualización…";
         try
         {
-            var progress = new Progress<double>(p => lblUpdate.Text = $"Descargando actualización… {p * 100:n0}%");
+            var progress = new Progress<double>(p =>
+            {
+                lblUpdate.Text = $"Descargando {_pendingUpdate.AssetName}…  {p * 100:n0}%";
+                bar.Value = p;
+            });
             var installer = await Updater.DownloadAsync(_pendingUpdate, progress);
-            lblUpdate.Text = "Iniciando el instalador…";
+            lblUpdate.Text = "Descarga lista. Abriendo el instalador; la app se cerrará para actualizarse.";
+            lblProg.Text = "Abriendo el instalador…";
             Updater.LaunchInstallerAndExit(installer);
         }
         catch (Exception ex)
         {
             btnUpdateNow.IsEnabled = true;
+            progRow.Visibility = Visibility.Collapsed;
+            lblUpdate.Text = "No se pudo descargar la actualización.";
+            lblProg.Text = "Fallo al descargar la actualización.";
             MessageBox.Show(this, "No se pudo descargar la actualización:\n" + ex.Message,
                 "Actualizar", MessageBoxButton.OK, MessageBoxImage.Error);
         }
