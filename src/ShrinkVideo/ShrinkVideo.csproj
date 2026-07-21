@@ -15,6 +15,8 @@
     <!-- Versión: única fuente para el ejecutable, el instalador y el auto-update -->
     <Version>0.4.0</Version>
     <Product>ShrinkStudio</Product>
+    <!-- FileDescription del exe: es el nombre que muestra el submenú «Abrir con» -->
+    <AssemblyTitle>ShrinkStudio</AssemblyTitle>
     <Company>luishidalgoa</Company>
     <Authors>luishidalgoa</Authors>
     <Description>ShrinkStudio — compresor de vídeo por lotes: reduce a HEVC/H.264/AV1 en MKV/MP4/WebM con aceleración por hardware, conservando los idiomas de audio elegidos y sin tocar los originales.</Description>

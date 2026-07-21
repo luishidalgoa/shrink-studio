@@ -86,6 +86,11 @@ public partial class MainWindow : Window
         chkRec.Checked += (_, _) => PersistRecurse();
         chkRec.Unchecked += (_, _) => PersistRecurse();
 
+        // arrastrar vídeos (o carpetas) desde el Explorador y soltarlos en la ventana
+        AllowDrop = true;
+        DragOver += OnDragOver;
+        Drop += OnDropFiles;
+
         // quitar de la lista con Supr + menú contextual de la tabla
         lst.PreviewKeyDown += Lst_KeyDown;
         lst.PreviewMouseRightButtonDown += Lst_RightButtonDown;
@@ -302,6 +307,45 @@ public partial class MainWindow : Window
         lblLangHint.Text = " detectando…";
         await ProbeRowsAsync(nuevos);
     }
+    // ---------- arrastrar y soltar desde el Explorador ----------
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnDropFiles(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths) return;
+        var vids = ShellIntegration.ExpandVideos(paths, chkRec.IsChecked == true);
+        if (vids.Count == 0) { lblProg.Text = "Ahí no había vídeos que añadir."; return; }
+        AddFilesFromShell(vids);
+    }
+
+    /// <summary>
+    /// Añade a la tabla los vídeos que llegan desde el Explorador (menú contextual,
+    /// «Enviar a», arrastrar y soltar), y deja la ventana lista para trabajar.
+    /// </summary>
+    public async void AddFilesFromShell(IReadOnlyList<string> paths)
+    {
+        var nuevos = paths.Where(File.Exists).ToList();
+        if (nuevos.Count == 0) return;
+
+        // si aún no hay origen, se toma la carpeta del primer archivo (para «Abrir destino»)
+        if (string.IsNullOrWhiteSpace(txtSrc.Text))
+            txtSrc.Text = Path.GetDirectoryName(nuevos[0]) ?? "";
+
+        int antes = _rows.Count;
+        lblProg.Text = $"Añadiendo {nuevos.Count} vídeo(s) desde el Explorador…";
+        await AddFilesAsync(nuevos);
+
+        int añadidos = _rows.Count - antes;
+        lblProg.Text = añadidos == 0
+            ? "Esos vídeos ya estaban en la lista."
+            : $"{añadidos} vídeo(s) añadidos desde el Explorador.";
+    }
+
     private string EffectiveOutput()
     {
         if (!string.IsNullOrWhiteSpace(txtOut.Text)) return txtOut.Text.Trim();

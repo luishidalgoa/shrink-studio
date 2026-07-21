@@ -27,6 +27,8 @@ public partial class PreferencesWindow : Window
         txtDefLang.Text = current.DefaultLang;
         chkRecurse.IsChecked = current.Recurse;
         chkUpdates.IsChecked = current.CheckUpdatesOnStart;
+        // el estado real lo manda el registro, no un ajuste guardado
+        chkShell.IsChecked = ShellIntegration.IsRegistered();
 
         // Al comprimir
         rbAsk.IsChecked = current.AfterCompress == AfterCompress.Ask;
@@ -40,6 +42,18 @@ public partial class PreferencesWindow : Window
 
     private void Save()
     {
+        // La integración con el Explorador se aplica al guardar, no al marcar la casilla.
+        bool quiere = chkShell.IsChecked == true;
+        if (quiere != ShellIntegration.IsRegistered())
+        {
+            bool ok = quiere ? ShellIntegration.Register() : ShellIntegration.Unregister();
+            if (!ok)
+                MessageBox.Show(this,
+                    quiere ? "No se pudo añadir la entrada al menú del Explorador."
+                           : "No se pudo quitar la entrada del menú del Explorador.",
+                    "Menú del Explorador", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
         var s = new Settings
         {
             DefaultPreset = cboDefPreset.SelectedItem is string p && p != NoPreset ? p : "",

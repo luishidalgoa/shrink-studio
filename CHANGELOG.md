@@ -13,21 +13,29 @@ las comprueba en cada tag y **falla la publicación** si no se cumplen, así que
 es un acuerdo de buena voluntad: está verificado.
 
 1. **Una sección por versión**, con el encabezado exacto `## [X.Y.Z] - AAAA-MM-DD`.
-   Lo que aún no se ha publicado vive en `## [Unreleased]`.
-2. **El tag manda**: al empujar `vX.Y.Z` debe existir la sección `## [X.Y.Z]` y la
-   propiedad `<Version>` de los `.csproj` debe valer exactamente `X.Y.Z`.
-3. **Escrito para quien usa la app**, en español y en pasado: qué cambia para ti, no
-   qué fichero se tocó. Nada de nombres de clases ni de ramas.
-4. **Una entrada por funcionalidad**, no por commit. Lo trivial (formato, refactores
-   internos, cambios de comentarios) no aparece.
-5. **Categorías permitidas**, en este orden: `Añadido`, `Cambiado`, `Obsoleto`,
-   `Eliminado`, `Corregido`, `Seguridad`. Solo se escriben las que tengan contenido.
-6. **Los cambios que rompen algo** se marcan con **RUPTURA** al principio de la línea
-   y explican qué hacer.
-7. **Sin secciones vacías** ni versiones repetidas, y las versiones van de más nueva a
-   más antigua.
+   Lo que aún no se ha publicado vive en `## [Unreleased]
 
-## [Unreleased]
+### Añadido
+
+- **Atajos desde el Explorador de Windows** (se activan en Preferencias → General):
+  - **«Abrir con → ShrinkStudio»** en el menú contextual de primer nivel, junto a Fotos o
+    Clipchamp, para uno o pocos vídeos.
+  - **«Enviar a → ShrinkStudio»** y **«Comprimir con ShrinkStudio»** (en «Mostrar más
+    opciones»), y también puedes **arrastrar vídeos o carpetas enteras** a la ventana.
+    Estas vías admiten selecciones grandes, que Windows recorta en el menú clásico.
+  - Los vídeos llegan a la lista tanto si la app estaba cerrada como abierta, sin duplicar
+    ventanas ni filas.
+
+### Cambiado
+
+- **Icono nuevo, en el morado de la app.** El anterior era turquesa y no se parecía al
+  logotipo de la propia ventana. Ahora el icono del programa, del instalador, de los
+  accesos directos y del repositorio es el mismo glifo morado de la barra de título.
+- La herramienta de terminal ocupa ahora **13 MB en vez de 68**, y en Windows se descarga
+  como un `.exe` suelto, sin comprimir. En Linux y macOS sigue en `.tar.gz`, que es lo que
+  conserva el permiso de ejecución.
+- Más información durante la actualización: se ve qué archivo se descarga, con barra de
+  progreso, y se avisa de que la app se cerrará para instalar.
 
 ### Corregido
 
@@ -41,31 +49,8 @@ es un acuerdo de buena voluntad: está verificado.
 - **El actualizador podía descargar el archivo equivocado.** Cogía el primer `.exe` del
   release y, desde que también se publica la herramienta de terminal para Windows, ese
   podía no ser el instalador.
-
-### Cambiado
-
-- Más información durante la actualización: se ve qué archivo se descarga, con barra de
-  progreso, y se avisa de que la app se cerrará para instalar.
-
-### Cambiado
-
-- **Icono nuevo, en el morado de la app.** El anterior era turquesa y no se parecía en nada al
-  logotipo que luce la propia ventana: eran dos identidades distintas en el mismo producto. Ahora
-  el icono del programa, el del instalador, el de los accesos directos y el del repositorio son el
-  mismo glifo morado que ya usaba la barra de título.
-
-### Cambiado
-
-- La herramienta de terminal ocupa ahora **13 MB en vez de 68**: se recorta el runtime que
-  se empaqueta con ella.
-- En Windows, la herramienta de terminal se descarga como un `.exe` suelto, sin comprimir.
-  En Linux y macOS sigue en `.tar.gz`, que es lo que conserva el permiso de ejecución.
-
-### Corregido
-
-- Al recortar el binario se perdían los tipos con los que se lee la salida de ffmpeg y el
-  análisis devolvía datos vacíos (duración 0, resolución 0x0). Ahora esos tipos se generan
-  en compilación.
+- Al recortar la herramienta de terminal se perdían los tipos con los que se lee la salida
+  de ffmpeg y el análisis devolvía datos vacíos. Ahora esos tipos se generan en compilación.
 
 ## [0.4.0] - 2026-07-21
 
