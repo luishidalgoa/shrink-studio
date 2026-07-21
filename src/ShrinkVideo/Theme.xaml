@@ -474,60 +474,97 @@
     <Setter Property="FontSize" Value="12.5"/>
   </Style>
 
-  <Style TargetType="Separator">
+  <!-- Separador de menú: WPF lo busca por SeparatorStyleKey (sin esto usa el clásico gris) -->
+  <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Separator">
-          <Border Height="1" Background="{StaticResource Divider}" Margin="8,4"/>
+          <Border Height="1" Background="{StaticResource Divider}" Margin="10,5" SnapsToDevicePixels="True"/>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
   </Style>
+  <Style TargetType="Separator" BasedOn="{StaticResource {x:Static MenuItem.SeparatorStyleKey}}"/>
 
   <Style TargetType="MenuItem">
     <Setter Property="Foreground" Value="{StaticResource Neutral300}"/>
     <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
     <Setter Property="FontSize" Value="12.5"/>
-    <Setter Property="Padding" Value="10,6"/>
+    <Setter Property="Padding" Value="10,7"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="MenuItem">
-          <Border x:Name="wrap" Background="Transparent" CornerRadius="5" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
-            <Grid>
+          <Border x:Name="wrap" Background="Transparent" CornerRadius="6" Margin="{TemplateBinding Margin}"
+                  Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True" UseLayoutRounding="True">
+            <Grid VerticalAlignment="Center">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="16"/>
+                <ColumnDefinition x:Name="colChk" Width="18"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <TextBlock x:Name="chk" Grid.Column="0" Text="✓" FontSize="11" VerticalAlignment="Center"
-                         Foreground="{StaticResource Accent200}" Visibility="Collapsed"/>
-              <ContentPresenter x:Name="hdr" Grid.Column="1" ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="True"/>
-              <TextBlock x:Name="arrow" Grid.Column="2" Text="›" FontSize="14" Margin="16,0,0,0" VerticalAlignment="Center"
-                         Foreground="{StaticResource Neutral500}" Visibility="Collapsed"/>
+                         Foreground="{StaticResource Accent300}" Visibility="Collapsed"/>
+              <ContentPresenter x:Name="hdr" Grid.Column="1" ContentSource="Header"
+                                VerticalAlignment="Center" RecognizesAccessKey="True"/>
+              <Path x:Name="arrow" Grid.Column="2" Data="M0,0 L4,4 L0,8" Stroke="{StaticResource Neutral600}"
+                    StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                    Margin="18,0,2,0" VerticalAlignment="Center" Visibility="Collapsed"/>
               <Popup x:Name="PART_Popup" AllowsTransparency="True" Focusable="False" IsOpen="{TemplateBinding IsSubmenuOpen}"
-                     Placement="Bottom" HorizontalOffset="0" VerticalOffset="2" PopupAnimation="Fade">
+                     Placement="Bottom" HorizontalOffset="-6" VerticalOffset="6" PopupAnimation="Fade">
                 <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
-                        CornerRadius="8" Padding="4" MinWidth="180" Margin="0,0,10,10">
-                  <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.5" Color="#000000"/></Border.Effect>
+                        CornerRadius="10" Padding="6" MinWidth="210" Margin="10,2,14,14"
+                        SnapsToDevicePixels="True" UseLayoutRounding="True">
+                  <Border.Effect><DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="#000000"/></Border.Effect>
                   <ItemsPresenter/>
                 </Border>
               </Popup>
             </Grid>
           </Border>
           <ControlTemplate.Triggers>
+            <!-- barra superior: sin columna del ✓ (el texto queda centrado de verdad) -->
             <Trigger Property="Role" Value="TopLevelHeader">
-              <Setter TargetName="chk" Property="Visibility" Value="Collapsed"/>
-              <Setter Property="Padding" Value="11,7"/>
+              <Setter TargetName="colChk" Property="Width" Value="0"/>
+              <Setter Property="Padding" Value="13,6"/>
+              <Setter Property="Margin" Value="2,0"/>
+            </Trigger>
+            <Trigger Property="Role" Value="TopLevelItem">
+              <Setter TargetName="colChk" Property="Width" Value="0"/>
+              <Setter Property="Padding" Value="13,6"/>
+              <Setter Property="Margin" Value="2,0"/>
+            </Trigger>
+            <Trigger Property="Role" Value="SubmenuItem">
+              <Setter Property="Margin" Value="0,1"/>
             </Trigger>
             <Trigger Property="Role" Value="SubmenuHeader">
+              <Setter Property="Margin" Value="0,1"/>
               <Setter TargetName="arrow" Property="Visibility" Value="Visible"/>
               <Setter TargetName="PART_Popup" Property="Placement" Value="Right"/>
-              <Setter TargetName="PART_Popup" Property="VerticalOffset" Value="-6"/>
+              <Setter TargetName="PART_Popup" Property="HorizontalOffset" Value="2"/>
+              <Setter TargetName="PART_Popup" Property="VerticalOffset" Value="-8"/>
             </Trigger>
             <Trigger Property="IsHighlighted" Value="True">
               <Setter TargetName="wrap" Property="Background" Value="{StaticResource Accent900}"/>
               <Setter Property="Foreground" Value="{StaticResource Accent200}"/>
+              <Setter TargetName="arrow" Property="Stroke" Value="{StaticResource Accent300}"/>
             </Trigger>
+            <!-- la barra superior resalta en neutro, no en morado -->
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="Role" Value="TopLevelHeader"/>
+                <Condition Property="IsHighlighted" Value="True"/>
+              </MultiTrigger.Conditions>
+              <Setter TargetName="wrap" Property="Background" Value="{StaticResource PressedPrimary}"/>
+              <Setter Property="Foreground" Value="{StaticResource Text}"/>
+            </MultiTrigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="Role" Value="TopLevelHeader"/>
+                <Condition Property="IsSubmenuOpen" Value="True"/>
+              </MultiTrigger.Conditions>
+              <Setter TargetName="wrap" Property="Background" Value="{StaticResource PressedPrimary}"/>
+              <Setter Property="Foreground" Value="{StaticResource Text}"/>
+            </MultiTrigger>
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="chk" Property="Visibility" Value="Visible"/>
             </Trigger>
