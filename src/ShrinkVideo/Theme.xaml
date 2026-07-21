@@ -127,6 +127,34 @@
   </Style>
   <Style TargetType="TextBlock" BasedOn="{StaticResource TextoRecortable}"/>
 
+  <!-- ══ Haz de borde ══════════════════════════════════════════════════════════
+       Un destello corto que recorre el contorno, al estilo de «border-beam».
+
+       Se hace con dos capas: la de fuera pinta el degradado y sobresale 1,5 px, y la de
+       dentro va opaca y tapa el centro — lo que queda a la vista es solo el anillo. El
+       movimiento es una rotación de la brocha, que WPF anima en el hilo de composición:
+       no repinta el control en cada fotograma.
+
+       El degradado NO es un arcoíris repartido: son dos tramos transparentes con una
+       banda clara estrecha en medio. Eso es lo que se lee como «un haz que pasa» en vez
+       de como «un borde de colores».
+
+       Es un ESTADO, no un adorno: con 55 botones en la app, encenderlo en todos sería el
+       ruido que este proyecto lleva evitando desde el principio. Se reserva para el foco
+       del teclado y para lo que está trabajando ahora mismo. -->
+  <Duration x:Key="HazVuelta">0:0:2.8</Duration>
+
+  <!-- Solo la geometría. La brocha va DENTRO de cada plantilla, nunca aquí: un Freezable
+       declarado en un Setter se comparte entre todos los controles y WPF lo congela, así
+       que animarlo lanza «Cannot animate on an immutable object instance» — un fallo que
+       compila igual de bien y solo aparece al enfocar el primer campo. -->
+  <Style x:Key="HazDeBorde" TargetType="Border">
+    <Setter Property="Margin" Value="-1.5"/>
+    <Setter Property="CornerRadius" Value="9.5"/>
+    <Setter Property="IsHitTestVisible" Value="False"/>
+    <Setter Property="Opacity" Value="0"/>
+  </Style>
+
   <!-- Regla horizontal fundida en los extremos (firma Nocturne) -->
   <LinearGradientBrush x:Key="FadedRule" StartPoint="0,0" EndPoint="1,0">
     <GradientStop Color="#00E9E9ED" Offset="0"/>
@@ -149,35 +177,65 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TextBox">
-          <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
-            <!-- Halo de foco: aquí el neón no es adorno, señala dónde va a escribir
-                 el teclado, que es justo lo que un borde fino de 1 px cuenta mal. -->
-            <Border.Effect>
-              <DropShadowEffect ShadowDepth="0" BlurRadius="14" Color="{StaticResource c.glow}" Opacity="0"
-                                RenderingBias="Performance"/>
-            </Border.Effect>
-            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
-          </Border>
+          <Grid>
+            <!-- El haz va DETRÁS y sobresale: el borde opaco de delante tapa el centro y
+                 deja solo el anillo a la vista. -->
+            <Border x:Name="haz" Style="{StaticResource HazDeBorde}">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                  <LinearGradientBrush.RelativeTransform>
+                    <RotateTransform CenterX="0.5" CenterY="0.5"/>
+                  </LinearGradientBrush.RelativeTransform>
+                  <GradientStop Color="#00968AE0" Offset="0.00"/>
+                  <GradientStop Color="#33968AE0" Offset="0.34"/>
+                  <GradientStop Color="#FFD2CEFD" Offset="0.50"/>
+                  <GradientStop Color="#33968AE0" Offset="0.66"/>
+                  <GradientStop Color="#00968AE0" Offset="1.00"/>
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+            <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+              <!-- Halo de foco: aquí el neón no es adorno, señala dónde va a escribir
+                   el teclado, que es justo lo que un borde fino de 1 px cuenta mal. -->
+              <Border.Effect>
+                <DropShadowEffect ShadowDepth="0" BlurRadius="14" Color="{StaticResource c.glow}" Opacity="0"
+                                  RenderingBias="Performance"/>
+              </Border.Effect>
+              <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+            </Border>
+          </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Neutral600}"/></Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
               <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/>
               <Trigger.EnterActions>
-                <BeginStoryboard>
+                <BeginStoryboard Name="sbFoco">
                   <Storyboard>
                     <DoubleAnimation Storyboard.TargetName="b"
                                      Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
-                                     To="0.5" Duration="0:0:0.15"/>
+                                     To="0.45" Duration="0:0:0.15"/>
+                    <DoubleAnimation Storyboard.TargetName="haz"
+                                     Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.18"/>
+                    <!-- El giro solo corre mientras el campo tiene el foco: dejarlo girando
+                         en los catorce campos de la app sería animación permanente a cambio
+                         de nada. -->
+                    <DoubleAnimation Storyboard.TargetName="haz"
+                                     Storyboard.TargetProperty="(Border.Background).(LinearGradientBrush.RelativeTransform).(RotateTransform.Angle)"
+                                     From="0" To="360" Duration="{StaticResource HazVuelta}"
+                                     RepeatBehavior="Forever"/>
                   </Storyboard>
                 </BeginStoryboard>
               </Trigger.EnterActions>
               <Trigger.ExitActions>
+                <StopStoryboard BeginStoryboardName="sbFoco"/>
                 <BeginStoryboard>
                   <Storyboard>
                     <DoubleAnimation Storyboard.TargetName="b"
                                      Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
                                      To="0" Duration="0:0:0.22"/>
+                    <DoubleAnimation Storyboard.TargetName="haz"
+                                     Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
                   </Storyboard>
                 </BeginStoryboard>
               </Trigger.ExitActions>
