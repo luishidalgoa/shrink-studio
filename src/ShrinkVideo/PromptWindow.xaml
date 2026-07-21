@@ -3,8 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Generar catálogo con una IA" Width="760" Height="640" MinWidth="620" MinHeight="480"
         WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterOwner"
-        FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}" Background="Transparent"
-        AllowsTransparency="False">
+        FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}" Background="{StaticResource Bg}">
   <WindowChrome.WindowChrome>
     <WindowChrome CaptionHeight="38" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0"
                   UseAeroCaptionButtons="False"/>
@@ -45,7 +44,7 @@
 
         <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
           <TextBlock Text="Serie" Style="{StaticResource OrgLabel}"/>
-          <TextBox x:Name="txtSerie" Height="32"/>
+          <TextBox x:Name="txtSerie" MinHeight="34"/>
         </StackPanel>
 
         <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
@@ -56,7 +55,7 @@
 
         <StackPanel Grid.Row="1" Grid.Column="0">
           <TextBlock Text="Dirección del anexo" Style="{StaticResource OrgLabel}"/>
-          <TextBox x:Name="txtFuente" Height="32"
+          <TextBox x:Name="txtFuente" MinHeight="34"
                    ToolTip="La página con la lista de episodios: Wikipedia, Fandom, la que uses"/>
         </StackPanel>
 

@@ -4,7 +4,9 @@ using System.IO.Pipes;
 using System.Text;
 using System.Threading;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Media;
 
 namespace ShrinkVideo;
 
@@ -18,6 +20,30 @@ public partial class App : Application
     private static string PipeName => "ShrinkStudio.Abrir." + Environment.UserName;
 
     private static Mutex? _mutex;
+
+    /// <summary>
+    /// ¿Este texto se está viendo cortado? Se mide con FormattedText, que es solo lectura:
+    /// la alternativa habitual —volver a llamar a Measure()— invalida el arreglo del control
+    /// y en una tabla virtualizada eso significa recalcular filas cada vez que pasas el ratón.
+    /// </summary>
+    private static bool EstaRecortado(TextBlock tb)
+    {
+        if (tb.TextTrimming == TextTrimming.None) return true;   // no puede recortarse: se respeta el tooltip
+        var texto = tb.Text;
+        if (string.IsNullOrEmpty(texto) || tb.ActualWidth <= 0) return false;
+
+        try
+        {
+            var medida = new FormattedText(
+                texto, System.Globalization.CultureInfo.CurrentCulture, tb.FlowDirection,
+                new Typeface(tb.FontFamily, tb.FontStyle, tb.FontWeight, tb.FontStretch),
+                tb.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(tb).PixelsPerDip);
+
+            double disponible = tb.ActualWidth - tb.Padding.Left - tb.Padding.Right;
+            return medida.Width > disponible + 0.5;   // medio píxel de holgura para el redondeo
+        }
+        catch { return true; }   // ante la duda, mejor enseñar el tooltip que ocultarlo
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -45,6 +71,15 @@ public partial class App : Application
             new RoutedEventHandler((s, _) =>
             {
                 if (s is Window w) WindowCorners.Round(new WindowInteropHelper(w).Handle);
+            }));
+
+        // El tema pone un tooltip en todo lo que puede acabar en puntos suspensivos. Aquí se
+        // cancela cuando el texto cabía entero: si no, saldría un tooltip repitiendo lo que
+        // ya se está leyendo, que molesta más de lo que ayuda.
+        EventManager.RegisterClassHandler(typeof(TextBlock), ToolTipService.ToolTipOpeningEvent,
+            new ToolTipEventHandler((s, e) =>
+            {
+                if (s is TextBlock tb && !EstaRecortado(tb)) e.Handled = true;
             }));
 
         var win = new MainWindow();

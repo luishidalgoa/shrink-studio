@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Preferencias" Width="580" Height="470" WindowStyle="None" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}" Background="Transparent">
+        FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}" Background="{StaticResource Bg}">
   <!-- 8 px: el mismo radio que Windows 11 recorta por fuera, para que el borde dibujado
        y el recorte del sistema coincidan en vez de pelearse en la esquina. -->
   <Border Background="{StaticResource Bg}" BorderBrush="{StaticResource Divider}" BorderThickness="1" CornerRadius="8">

@@ -241,23 +241,23 @@
   </Style>
 
   <!-- ══ Evidencia ＋ / － de las tarjetas de candidato ══ -->
-  <Style x:Key="EvidenciaMas" TargetType="TextBlock">
+  <Style x:Key="EvidenciaMas" TargetType="TextBlock" BasedOn="{StaticResource TextoRecortable}">
     <Setter Property="Foreground" Value="{StaticResource OrgOk}"/>
     <Setter Property="FontSize" Value="12"/>
     <Setter Property="Margin" Value="0,0,6,0"/>
   </Style>
-  <Style x:Key="EvidenciaMenos" TargetType="TextBlock">
+  <Style x:Key="EvidenciaMenos" TargetType="TextBlock" BasedOn="{StaticResource TextoRecortable}">
     <Setter Property="Foreground" Value="{StaticResource Neutral500}"/>
     <Setter Property="FontSize" Value="12"/>
     <Setter Property="Margin" Value="0,0,6,0"/>
   </Style>
 
   <!-- ══ Texto atenuado de la página ══ -->
-  <Style x:Key="OrgMuted" TargetType="TextBlock">
+  <Style x:Key="OrgMuted" TargetType="TextBlock" BasedOn="{StaticResource TextoRecortable}">
     <Setter Property="Foreground" Value="{StaticResource Neutral500}"/>
     <Setter Property="FontSize" Value="12"/>
   </Style>
-  <Style x:Key="OrgLabel" TargetType="TextBlock">
+  <Style x:Key="OrgLabel" TargetType="TextBlock" BasedOn="{StaticResource TextoRecortable}">
     <Setter Property="Foreground" Value="{StaticResource Neutral500}"/>
     <Setter Property="FontSize" Value="11"/>
     <Setter Property="Margin" Value="0,0,0,4"/>

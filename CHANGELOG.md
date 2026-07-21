@@ -29,6 +29,21 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Cambiado
+
+- **Los avisos y las preguntas ya no son los cuadros grises de Windows.** Toda la app usa
+  ahora su propio diálogo, con el mismo tema que el resto, y el texto se puede seleccionar
+  y copiar — que es lo primero que quieres hacer cuando el aviso trae una ruta o el texto
+  de un error.
+- **Lo que se corta con puntos suspensivos enseña el texto completo al pasar el ratón.** No
+  hace falta ensanchar la ventana para leer un nombre largo. Solo aparece cuando el texto
+  está recortado de verdad, para no repetir lo que ya se ve.
+
+### Corregido
+
+- **El texto se cortaba por abajo en los campos de «Generar con IA».** Tenían una altura
+  fija que no daba para una línea con su espaciado.
+
 ## [0.7.0] - 2026-07-21
 
 ### Añadido
