@@ -46,7 +46,9 @@ es un acuerdo de buena voluntad: está verificado.
 
 - **Al elegir un episodio en el explorador, su JSON emerge en el lateral.** Es el fragmento
   del catálogo tal y como lo está leyendo el identificador —no una reconstrucción— con botón
-  de copiar. Para cuando la vista bonita no basta y quieres ver la fuente.
+  de copiar. Para cuando la vista bonita no basta y quieres ver la fuente. El JSON va
+  **coloreado** (claves, textos, números y símbolos, con los colores del tema) y el panel se
+  cierra con su aspa.
 
 ### Corregido
 

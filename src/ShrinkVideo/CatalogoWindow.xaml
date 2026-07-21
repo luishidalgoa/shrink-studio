@@ -95,20 +95,28 @@
 
         <!-- El JSON del episodio elegido, tal y como está en el catálogo: la referencia
              final cuando la vista bonita no basta. Emerge al elegir una fila. -->
-        <Border Grid.Column="1" Margin="10,0,0,0" Background="{StaticResource Field}"
-                BorderBrush="{StaticResource Divider}" BorderThickness="1" CornerRadius="8">
+        <Border x:Name="bordeJson" Grid.Column="1" Margin="10,0,0,0" Background="{StaticResource Field}"
+                BorderBrush="{StaticResource Divider}" BorderThickness="1" CornerRadius="8"
+                Visibility="Collapsed">
           <Grid>
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
             <Grid Margin="12,9,10,4">
               <TextBlock x:Name="lblJsonTitulo" FontSize="12" FontWeight="Medium"
                          Foreground="{StaticResource Accent300}" VerticalAlignment="Center"/>
-              <Button x:Name="btnCopiarJson" Style="{StaticResource BtnGhostMuted}" Content="Copiar"
-                      FontSize="11" Padding="7,2" HorizontalAlignment="Right"/>
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="btnCopiarJson" Style="{StaticResource BtnGhostMuted}" Content="Copiar"
+                        FontSize="11" Padding="7,2"/>
+                <Button x:Name="btnCerrarJson" Style="{StaticResource BtnGhostMuted}" Content="✕"
+                        FontSize="10" Padding="6,2" Margin="4,0,0,0"
+                        ToolTip="Cerrar el panel del JSON"/>
+              </StackPanel>
             </Grid>
-            <TextBox x:Name="txtJson" Grid.Row="1" IsReadOnly="True" Background="Transparent"
-                     BorderThickness="0" Foreground="{StaticResource Neutral300}"
-                     FontFamily="{StaticResource FontMono}" FontSize="11.5" Padding="12,2,12,10"
-                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+            <!-- RichTextBox y no TextBox: es el que sabe pintar cada trozo de un color.
+                 Sigue siendo de solo lectura y con selección para copiar a mano. -->
+            <RichTextBox x:Name="rtbJson" Grid.Row="1" IsReadOnly="True" Background="Transparent"
+                         BorderThickness="0" FontFamily="{StaticResource FontMono}" FontSize="11.5"
+                         Padding="6,0,6,8" VerticalScrollBarVisibility="Auto"
+                         IsUndoEnabled="False"/>
           </Grid>
         </Border>
       </Grid>
