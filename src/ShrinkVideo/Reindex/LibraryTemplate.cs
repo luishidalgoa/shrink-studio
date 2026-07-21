@@ -10,9 +10,32 @@ namespace ShrinkVideo.Reindex;
 /// transforma el nombre que ya hay con búsqueda/reemplazo; este CONSTRUYE el nombre desde
 /// el catálogo. Son dos sistemas distintos y el diseño decide no unificarlos.
 /// </summary>
+/// <summary>
+/// Una marca de la plantilla, con lo necesario para ofrecerla en la interfaz. Vive junto al
+/// código que la sustituye: separarlas garantizaría que un día la lista diga una cosa y el
+/// renderizado haga otra.
+/// </summary>
+public sealed record MarcaPlantilla(string Marca, string Nombre, string Descripcion, string Ejemplo);
+
 public sealed class LibraryTemplate
 {
     public const string PatronPorDefecto = "<serie> - S<temp>E<num> - <título>";
+
+    /// <summary>Las marcas disponibles, en el orden en que se ofrecen.</summary>
+    public static readonly MarcaPlantilla[] Marcas =
+    {
+        new("<serie>",  "Serie",
+            "El nombre de la serie, tal cual lo escribiste en el catálogo.", "Doraemon (2005)"),
+        new("<temp>",   "Temporada",
+            "El año o número de temporada del episodio. Si el catálogo no lo trae, se usa el de la carpeta.", "2005"),
+        new("<num>",    "Número",
+            "El número del episodio según el catálogo: el que se corrige si el fichero traía otro.", "2"),
+        new("<título>", "Título",
+            "El título del episodio. Si tiene varias historias se unen con «+».",
+            "Con calma y con prisa + La mujer de Nobita"),
+        new("<seg>",    "Sub-segmento",
+            "La letra de «[438a]», para distinguir mitades de un mismo episodio. Vacío si no la hay.", "a"),
+    };
 
     public string Patron { get; }
 

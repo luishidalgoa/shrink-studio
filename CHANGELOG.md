@@ -60,8 +60,17 @@ es un acuerdo de buena voluntad: está verificado.
   numeración oficial es un especial, así que elegir mal desplaza la serie entera. Ahora el
   encargo manda usar el de transmisión salvo que digas otra cosa, y lo explica con ese caso.
 
+- **La plantilla de nombres se construye, no se adivina.** El botón «Editar» no hacía nada
+  que no hicieras pinchando en el propio campo; en su sitio hay un desplegable de marcas que
+  las inserta donde tengas el cursor y explica qué hace cada una. Debajo, un ejemplo en vivo
+  con un episodio real del catálogo, para ver cómo queda el nombre antes de aplicar nada.
+
 ### Corregido
 
+- **Se ofrecían «alternativas» en filas que ya estaban resueltas.** Un episodio identificado
+  al 100 % venía acompañado de dos candidatos al 67 % y al 65 %: ruido en una fila correcta,
+  que encima invitaba a un clic equivocado. Ahora las alternativas solo salen donde hay algo
+  que decidir de verdad.
 - **El resolutor de conflictos ofrecía dos episodios y ninguno era el bueno.** Enseñaba
   solo los descartados, así que la propuesta correcta no aparecía por ningún lado y las dos
   opciones parecían equivocadas —lo estaban—. Ahora la primera tarjeta es la que propone la

@@ -68,7 +68,7 @@ public partial class OrganizarView : UserControl
         btnMemoria.Click += (_, _) => AbrirMemoria();
         btnAceptarVerdes.Click += (_, _) => AceptarVerdes();
         btnConfirmarEspeciales.Click += (_, _) => FiltrarSolo(ReindexEstado.Especial);
-        btnPlantilla.Click += (_, _) => txtPlantilla.Focus();
+        listaMarcas.ItemsSource = LibraryTemplate.Marcas;
 
         btnConfCancelar.Click += (_, _) => overlayConfirmar.Visibility = Visibility.Collapsed;
         btnConfAceptar.Click += (_, _) => { overlayConfirmar.Visibility = Visibility.Collapsed; Aplicar(); };
@@ -77,6 +77,9 @@ public partial class OrganizarView : UserControl
         txtCarpeta.KeyDown += (_, e) => { if (e.Key == Key.Enter) RevisarCarpeta(); };
         txtPlantilla.LostFocus += (_, _) => CambiarPlantilla();
         txtPlantilla.KeyDown += (_, e) => { if (e.Key == Key.Enter) CambiarPlantilla(); };
+        // La vista previa se refresca mientras escribes, no al confirmar: es lo que hace que
+        // se entienda qué produce cada marca.
+        txtPlantilla.TextChanged += (_, _) => RefrescarVistaPrevia();
 
         cboSerie.SelectionChanged += (_, _) => ElegirCatalogo(cboSerie.SelectedItem as CatalogoGuardado);
 
@@ -114,6 +117,7 @@ public partial class OrganizarView : UserControl
         }
         finally { _cargando = false; }
         ActualizarEstado();
+        RefrescarVistaPrevia();
     }
 
     private void CargarCatalogos()
@@ -157,6 +161,7 @@ public partial class OrganizarView : UserControl
         PintarTarjetas();
         CargarCatalogoElegido();
         ActualizarEstado();
+        RefrescarVistaPrevia();
     }
 
     private void OnUsarCatalogo(object sender, RoutedEventArgs e)
@@ -220,6 +225,46 @@ public partial class OrganizarView : UserControl
         // La plantilla cambia el nombre propuesto de cada fila ya calculada
         foreach (var f in _filas) f.Recalcular();
         ActualizarContadores();
+        RefrescarVistaPrevia();
+    }
+
+    /// <summary>Inserta la marca donde esté el cursor, no al final: se está editando un patrón.</summary>
+    private void OnInsertarMarca(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not string marca) return;
+
+        int pos = txtPlantilla.SelectionStart;
+        txtPlantilla.Text = txtPlantilla.Text.Remove(pos, txtPlantilla.SelectionLength).Insert(pos, marca);
+        txtPlantilla.SelectionStart = pos + marca.Length;
+
+        btnMarcas.IsChecked = false;
+        txtPlantilla.Focus();
+        CambiarPlantilla();
+    }
+
+    /// <summary>
+    /// Enseña cómo queda la plantilla con un episodio DE VERDAD del catálogo elegido. Con un
+    /// ejemplo inventado no se ve el problema de siempre: que el título real trae dos puntos,
+    /// interrogaciones o tres segmentos encadenados.
+    /// </summary>
+    private void RefrescarVistaPrevia()
+    {
+        if (lblVistaPrevia == null) return;
+
+        var ejemplo = _catalogoCargado?.Episodios.FirstOrDefault(x => x.TitulosSalida.Count > 0)
+                      ?? _catalogoCargado?.Episodios.FirstOrDefault();
+
+        if (_catalogoCargado == null || ejemplo == null)
+        {
+            lblVistaPrevia.Text = "Elige un catálogo para ver un ejemplo";
+            return;
+        }
+
+        var muestra = _filas.FirstOrDefault()?.Res.Archivo ?? SignalExtractor.Extract("ejemplo.mkv", "");
+        var nombre = new LibraryTemplate(txtPlantilla.Text).Render(_catalogoCargado, ejemplo, muestra);
+        lblVistaPrevia.Text = nombre == null
+            ? "⚠ Esa plantilla no deja nombre: añade alguna marca o texto"
+            : "Quedaría: " + nombre;
     }
 
     // ─────────────────────────── catálogos ───────────────────────────

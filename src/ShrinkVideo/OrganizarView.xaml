@@ -81,9 +81,50 @@
                      Foreground="{StaticResource Neutral400}"
                      ToolTip="Cómo se compone el nombre final. No es el «Renombrado libre» de Herramientas: aquí el nombre se construye desde el catálogo."/>
           </Border>
-          <Button x:Name="btnPlantilla" Grid.Column="1" Style="{StaticResource BtnGhost}" Content="Editar" Margin="6,0,0,0"
-                  ToolTip="Cambiar la plantilla de nombres"/>
+          <!-- «Editar» no hacía nada que no hiciera pinchar en el propio campo. En su sitio,
+               un desplegable que inserta las marcas y explica qué es cada una. -->
+          <ToggleButton x:Name="btnMarcas" Grid.Column="1" Style="{StaticResource FiltroChip}"
+                        Margin="6,0,0,0" Padding="10,7" VerticalAlignment="Center"
+                        ToolTip="Insertar una marca en la plantilla">
+            <TextBlock><Run Text="Marcas"/><Run Text=" ▾" Foreground="{StaticResource Neutral500}"/></TextBlock>
+          </ToggleButton>
+
+          <Popup x:Name="popMarcas" PlacementTarget="{Binding ElementName=btnMarcas}" Placement="Bottom"
+                 IsOpen="{Binding IsChecked, ElementName=btnMarcas, Mode=TwoWay}"
+                 StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="-260">
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Neutral800}"
+                    BorderThickness="1" CornerRadius="8" Padding="6" Margin="0,4,12,12" MaxWidth="420">
+              <StackPanel>
+                <TextBlock Text="Se inserta donde tengas el cursor" Style="{StaticResource OrgMuted}"
+                           FontSize="11" Margin="8,4,8,6"/>
+                <ItemsControl x:Name="listaMarcas">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Style="{StaticResource BtnGhostMuted}" HorizontalContentAlignment="Stretch"
+                              Padding="8,6" Click="OnInsertarMarca" Tag="{Binding Marca}">
+                        <StackPanel>
+                          <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Marca}" FontFamily="{StaticResource FontMono}"
+                                       FontSize="12" Foreground="{StaticResource Accent}"/>
+                            <TextBlock Text="{Binding Nombre}" Margin="10,0,0,0" FontSize="12"
+                                       Foreground="{StaticResource Text}"/>
+                          </StackPanel>
+                          <TextBlock Text="{Binding Descripcion}" FontSize="11.5" TextWrapping="Wrap"
+                                     Foreground="{StaticResource Neutral500}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </Popup>
         </Grid>
+
+        <!-- Cómo queda de verdad, con un episodio real del catálogo elegido: sin esto hay
+             que aplicar para descubrir qué produce la plantilla. -->
+        <TextBlock x:Name="lblVistaPrevia" Margin="0,5,0,0" FontSize="11" TextTrimming="CharacterEllipsis"
+                   Foreground="{StaticResource Neutral500}" ToolTip="Ejemplo con un episodio real del catálogo"/>
       </StackPanel>
     </Grid>
 
