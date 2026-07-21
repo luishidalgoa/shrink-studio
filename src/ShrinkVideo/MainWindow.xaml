@@ -439,73 +439,14 @@
                         ToolTip="Ficha del vídeo seleccionado y previsualización de 10 s con los ajustes actuales.">
                   <TextBlock Text="Detalle" FontSize="12.5" Foreground="{StaticResource Accent300}"/>
                 </Border>
-                <Border x:Name="tabEstim" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="2,0,2,5" Margin="0,0,14,0" Cursor="Hand"
+                <Border x:Name="tabEstim" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="2,0,2,5" Cursor="Hand"
                         ToolTip="Pronóstico de tamaño y ahorro del vídeo seleccionado con los ajustes actuales.">
                   <TextBlock Text="Estimación" FontSize="12.5" Foreground="{StaticResource Neutral400}"/>
-                </Border>
-                <Border x:Name="tabPasos" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="2,0,2,5" Cursor="Hand"
-                        ToolTip="Por dónde va el vídeo que se está comprimiendo ahora mismo.">
-                  <TextBlock Text="Pasos" FontSize="12.5" Foreground="{StaticResource Neutral400}"/>
                 </Border>
               </StackPanel>
 
               <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
-              <!-- Pasos: complementa al registro, no lo sustituye. El registro cuenta qué
-                   pasó DESPUÉS; esto contesta «¿por dónde va?» MIENTRAS corre. -->
-              <StackPanel x:Name="panelPasos" Visibility="Collapsed">
-                <TextBlock x:Name="lblPasosTitulo" FontSize="12.5" FontWeight="Medium" Margin="0,0,0,10"
-                           TextTrimming="CharacterEllipsis" Text="Nada en marcha"/>
-                <ItemsControl x:Name="listaPasos">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Grid x:Name="fila" Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="20"/><ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="gl" Text="{Binding Glifo}" FontSize="12.5" VerticalAlignment="Top"
-                                   Foreground="{StaticResource Neutral500}" RenderTransformOrigin="0.5,0.5">
-                          <TextBlock.RenderTransform><RotateTransform/></TextBlock.RenderTransform>
-                        </TextBlock>
-                        <StackPanel Grid.Column="1">
-                          <TextBlock x:Name="tx" Text="{Binding Texto}" FontSize="12.5"
-                                     Foreground="{StaticResource Text}" TextWrapping="Wrap"/>
-                          <TextBlock Text="{Binding Detalle}" FontSize="11" Margin="0,1,0,0"
-                                     Foreground="{StaticResource Neutral500}" TextWrapping="Wrap"/>
-                        </StackPanel>
-                      </Grid>
-                      <DataTemplate.Triggers>
-                        <!-- Lo que aún no ha pasado se atenúa: así el actual salta a la vista -->
-                        <DataTrigger Binding="{Binding Apagado}" Value="True">
-                          <Setter TargetName="fila" Property="Opacity" Value="0.4"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Estado}" Value="Hecho">
-                          <Setter TargetName="gl" Property="Foreground" Value="{StaticResource OrgOk}"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Estado}" Value="Fallo">
-                          <Setter TargetName="gl" Property="Foreground" Value="{StaticResource OrgDanger}"/>
-                          <Setter TargetName="tx" Property="Foreground" Value="{StaticResource OrgDanger}"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding EnCurso}" Value="True">
-                          <Setter TargetName="gl" Property="Foreground" Value="{StaticResource Accent}"/>
-                          <Setter TargetName="tx" Property="FontWeight" Value="Medium"/>
-                          <DataTrigger.EnterActions>
-                            <BeginStoryboard Name="sbGiro">
-                              <Storyboard>
-                                <DoubleAnimation Storyboard.TargetName="gl"
-                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
-                                                 From="0" To="360" Duration="0:0:1.1" RepeatBehavior="Forever"/>
-                              </Storyboard>
-                            </BeginStoryboard>
-                          </DataTrigger.EnterActions>
-                          <DataTrigger.ExitActions><StopStoryboard BeginStoryboardName="sbGiro"/></DataTrigger.ExitActions>
-                        </DataTrigger>
-                      </DataTemplate.Triggers>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-
               <!-- Detalle -->
               <StackPanel x:Name="panelDetalle">
                 <Border CornerRadius="4" Height="130" ClipToBounds="True">

@@ -36,6 +36,12 @@ es un acuerdo de buena voluntad: está verificado.
   No pregunta nada porque no se pierde nada: las decisiones que hayas tomado a mano se guardan
   en cuanto las tomas y se reaplican solas al volver a simular. La carpeta elegida se conserva.
 
+### Eliminado
+
+- **La pestaña «Pasos» se retira.** Se añadió en la 0.8.0 y no ha convencido en el uso, así
+  que se quita entera en vez de dejarla ocupando sitio. El registro sigue igual: nunca llegó
+  a sustituirlo, así que no se pierde nada de lo que ya había.
+
 ### Corregido
 
 - **Las marcas de la plantilla salían dentadas.** Cada una empezaba en una sangría distinta,

@@ -88,14 +88,6 @@ public interface IEngineReporter
     /// </summary>
     void FileSkipped(string sourcePath, string reason) { }
 
-    /// <summary>
-    /// En qué punto del trabajo va el archivo actual, para la caja de pasos.
-    ///
-    /// Se avisa a propósito en vez de deducirlo de las líneas del registro: el registro es
-    /// texto para leer, y colgar la interfaz de su redacción exacta significa que cambiar
-    /// una palabra rompe la caja sin que nada lo note.
-    /// </summary>
-    void Paso(string clave, string detalle) { }
 }
 
 /// <summary>
@@ -530,7 +522,6 @@ public sealed class Engine
             rep.Log($"    {infoLine}");
             if (renamedTo != null) rep.Log($"    renombrado → {Path.GetFileName(outPath)}");
             rep.FileStart(n, total, name, durSec);
-            rep.Paso("plan", infoLine);
 
             Directory.CreateDirectory(outDir);
             await WaitForSpaceAsync(outDir, MinFreeBytes, rep, ct);   // no empezar si el disco ya está lleno
@@ -542,7 +533,6 @@ public sealed class Engine
 
             try
             {
-                rep.Paso("codificar", "");
                 int code; string err;
                 while (true)
                 {
@@ -574,7 +564,6 @@ public sealed class Engine
                     long inB = fi.Length, outB = new FileInfo(outPath).Length;
                     int pct = (int)Math.Round(100 - (outB / (double)Math.Max(inB, 1) * 100));
                     rep.Log($"    OK  {inB / 1048576} MB → {outB / 1048576} MB  (-{pct}%)");
-                    rep.Paso("guardar", $"{inB / 1048576} MB → {outB / 1048576} MB  (-{pct}%)");
                     var r = new FileResult
                     {
                         Name = name, InBytes = inB, OutBytes = outB, Status = $"-{pct}%",
