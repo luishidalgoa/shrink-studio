@@ -44,14 +44,13 @@ public partial class App : Application
         if (files.Count > 0) win.AddFilesFromShell(files);
     }
 
-    /// <summary>De los argumentos se queda solo con los vídeos que existen de verdad.</summary>
-    private static List<string> FilterVideos(IEnumerable<string> args) => args
-        .Where(a => !a.StartsWith('-') && !a.StartsWith('/'))
-        .Where(File.Exists)
-        .Where(a => Engine.VideoExtensions.Contains(Path.GetExtension(a).ToLowerInvariant()))
-        .Select(Path.GetFullPath)
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .ToList();
+    /// <summary>
+    /// De los argumentos se queda con los vídeos: admite archivos y carpetas (misma
+    /// lógica que al soltar con el ratón, para que las tres vías se comporten igual).
+    /// </summary>
+    private static List<string> FilterVideos(IEnumerable<string> args) =>
+        ShellIntegration.ExpandVideos(
+            args.Where(a => !a.StartsWith('-') && !a.StartsWith('/')), recurse: true);
 
     // ---------- instancia nueva → instancia viva ----------
 

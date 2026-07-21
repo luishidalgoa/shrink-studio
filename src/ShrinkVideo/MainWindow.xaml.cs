@@ -86,6 +86,11 @@ public partial class MainWindow : Window
         chkRec.Checked += (_, _) => PersistRecurse();
         chkRec.Unchecked += (_, _) => PersistRecurse();
 
+        // arrastrar vídeos (o carpetas) desde el Explorador y soltarlos en la ventana
+        AllowDrop = true;
+        DragOver += OnDragOver;
+        Drop += OnDropFiles;
+
         // quitar de la lista con Supr + menú contextual de la tabla
         lst.PreviewKeyDown += Lst_KeyDown;
         lst.PreviewMouseRightButtonDown += Lst_RightButtonDown;
@@ -302,9 +307,25 @@ public partial class MainWindow : Window
         lblLangHint.Text = " detectando…";
         await ProbeRowsAsync(nuevos);
     }
+    // ---------- arrastrar y soltar desde el Explorador ----------
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnDropFiles(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths) return;
+        var vids = ShellIntegration.ExpandVideos(paths, chkRec.IsChecked == true);
+        if (vids.Count == 0) { lblProg.Text = "Ahí no había vídeos que añadir."; return; }
+        AddFilesFromShell(vids);
+    }
+
     /// <summary>
-    /// Añade a la tabla los vídeos que llegan desde el Explorador (menú contextual o
-    /// «abrir con»), los deja seleccionados y trae la ventana al frente.
+    /// Añade a la tabla los vídeos que llegan desde el Explorador (menú contextual,
+    /// «Enviar a», arrastrar y soltar), y deja la ventana lista para trabajar.
     /// </summary>
     public async void AddFilesFromShell(IReadOnlyList<string> paths)
     {

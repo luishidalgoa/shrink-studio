@@ -63,6 +63,37 @@ internal static class ShellIntegration
         catch { return false; }
     }
 
+    /// <summary>
+    /// Convierte lo que llega desde el Explorador —por argumentos, «Enviar a» o soltando
+    /// con el ratón— en una lista de vídeos: acepta archivos y también carpetas, que se
+    /// recorren buscando vídeos.
+    /// </summary>
+    public static List<string> ExpandVideos(IEnumerable<string> paths, bool recurse)
+    {
+        var res = new List<string>();
+        foreach (var p in paths)
+        {
+            if (string.IsNullOrWhiteSpace(p)) continue;
+            try
+            {
+                if (File.Exists(p))
+                {
+                    if (Engine.VideoExtensions.Contains(Path.GetExtension(p).ToLowerInvariant()))
+                        res.Add(Path.GetFullPath(p));
+                }
+                else if (Directory.Exists(p))
+                {
+                    var opt = recurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                    res.AddRange(Directory.EnumerateFiles(p, "*.*", opt)
+                        .Where(f => Engine.VideoExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                        .Select(Path.GetFullPath));
+                }
+            }
+            catch { /* ruta inaccesible: se ignora */ }
+        }
+        return res.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     /// <summary>¿Está la entrada puesta y apuntando a este mismo ejecutable?</summary>
     public static bool IsRegistered()
     {

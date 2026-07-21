@@ -37,6 +37,8 @@ es un acuerdo de buena voluntad: está verificado.
   Preferencias → General.
 - **Atajo en «Enviar a»**, que se activa junto al anterior. Es la vía más fiable: aparece al
   momento sin reiniciar el Explorador y admite selecciones grandes, que el menú clásico recorta.
+- **Arrastrar y soltar**: puedes soltar vídeos —o carpetas enteras— sobre la ventana de la app y
+  entran en la lista. Es la forma más directa, sin menús de por medio.
 
 ### Cambiado
 
