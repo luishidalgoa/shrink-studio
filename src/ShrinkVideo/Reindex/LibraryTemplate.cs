@@ -46,16 +46,24 @@ public sealed class LibraryTemplate
     }
 
     /// <summary>
-    /// Quita lo que Windows no admite en un nombre de fichero y recorta el resultado para
-    /// no pasarse del límite de ruta. Un título con «:» o «?» es de lo más normal en estas
-    /// series, así que esto salta constantemente.
+    /// Caracteres prohibidos en un nombre de fichero de Windows. Se usa esta lista fija en
+    /// TODAS las plataformas en vez de <c>Path.GetInvalidFileNameChars()</c>, que en Linux
+    /// solo devuelve «/» y el nulo: una biblioteca de vídeo termina casi siempre en un disco
+    /// compartido o en un NAS que la sirve a Windows, así que un «:» colado desde Linux
+    /// rompería el fichero justo donde se va a ver. Mejor un nombre válido en todas partes.
+    /// </summary>
+    private static readonly char[] Prohibidos = { '<', '>', ':', '"', '/', '\\', '|', '?', '*' };
+
+    /// <summary>
+    /// Quita lo que no vale en un nombre de fichero y recorta el resultado para no pasarse
+    /// del límite de ruta. Un título con «:» o «?» es de lo más normal en estas series, así
+    /// que esto salta constantemente.
     /// </summary>
     private static string Limpiar(string s)
     {
-        var invalidos = Path.GetInvalidFileNameChars();
         var sb = new StringBuilder(s.Length);
         foreach (var ch in s)
-            sb.Append(Array.IndexOf(invalidos, ch) >= 0 ? ' ' : ch);
+            sb.Append(Array.IndexOf(Prohibidos, ch) >= 0 || char.IsControl(ch) ? ' ' : ch);
 
         var limpio = System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"\s{2,}", " ").Trim();
         // Windows no admite terminar en punto o espacio: el propio explorador los borra
