@@ -53,6 +53,39 @@ public partial class CatalogoWindow : Window
         txtBuscar.Text = consultaInicial ?? "";
         Refrescar();
         Loaded += (_, _) => txtBuscar.Focus();
+
+        lista.SelectionChanged += (_, _) => MostrarJson();
+        btnCopiarJson.Click += (_, _) =>
+        {
+            try { Clipboard.SetText(txtJson.Text); lblJsonTitulo.Text += "  · copiado"; }
+            catch { /* portapapeles ocupado por otro proceso: se reintenta a mano */ }
+        };
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions OpcionesJson = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        // Un episodio sin temporada no debe enseñar «"temporada": null»: en el fichero del
+        // usuario esa clave sencillamente no está, y esto pretende ser LO QUE HAY.
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    /// <summary>
+    /// El JSON del episodio elegido, serializado desde el MISMO modelo que usa el motor: lo
+    /// que se ve aquí es lo que el identificador está leyendo, no una reconstrucción.
+    /// </summary>
+    private void MostrarJson()
+    {
+        if (lista.SelectedItem is not EpisodioVista v)
+        {
+            colJson.Width = new GridLength(0);
+            return;
+        }
+
+        colJson.Width = new GridLength(300);
+        lblJsonTitulo.Text = $"E{v.Ep.Num} · JSON del catálogo";
+        txtJson.Text = System.Text.Json.JsonSerializer.Serialize(v.Ep, OpcionesJson);
     }
 
     private void Refrescar()

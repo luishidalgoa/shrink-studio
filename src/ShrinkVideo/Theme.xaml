@@ -536,6 +536,33 @@
     </Style.Triggers>
   </Style>
 
+  <!-- Botón que flota SOBRE contenido (las tarjetas de catálogo): fondo OPACO con
+       acabado de cristal — degradado sutil y brillo en el canto superior. Los normales
+       heredan fondo transparente, y encima de un texto se leía el texto a través. -->
+  <Style x:Key="BtnCristal" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+    <Setter Property="BorderBrush" Value="#3DE9E9ED"/>
+    <Setter Property="Background">
+      <Setter.Value>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+          <GradientStop Color="#FF34364A" Offset="0"/>
+          <GradientStop Color="#FF262838" Offset="1"/>
+        </LinearGradientBrush>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background">
+          <Setter.Value>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="#FF3E4157" Offset="0"/>
+              <GradientStop Color="#FF2C2E40" Offset="1"/>
+            </LinearGradientBrush>
+          </Setter.Value>
+        </Setter>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
   <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnBase}">
     <Setter Property="Foreground" Value="{StaticResource Accent}"/>
     <Setter Property="Padding" Value="6,4"/>

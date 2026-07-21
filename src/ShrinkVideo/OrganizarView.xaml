@@ -218,30 +218,42 @@
                             BorderBrush="{Binding Borde}">
                       <StackPanel>
                         <Grid Margin="0,0,0,6">
-                          <StackPanel Orientation="Horizontal">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+                          <!-- El texto tiene SU columna y se recorta. Grid y NO StackPanel
+                               horizontal: el StackPanel mide con ancho infinito, el recorte
+                               nunca actúa y el texto seguía corriendo bajo los botones —
+                               la misma trampa que ya mordió tres veces en este fichero. -->
+                          <Grid Grid.Column="0">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
                             <TextBlock Text="{Binding Cat.Serie}" FontSize="13.5" FontWeight="Medium"
                                        Foreground="{StaticResource Text}" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding Cat.Resumen}" Style="{StaticResource OrgMuted}"
-                                       FontSize="11.5" Margin="10,1,0,0" VerticalAlignment="Center"/>
-                          </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{Binding Cat.Resumen}" Style="{StaticResource OrgMuted}"
+                                       FontSize="11.5" Margin="10,1,8,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                          </Grid>
                           <!-- Los tres en UNA fila. Antes iban alineados a la derecha en la
                                misma celda: «seleccionado» y «Usar» son excluyentes y no
                                chocaban, pero «Quitar» sale siempre y quedaba encima de ambos.
                                Con fondo sólido, además: transparentes sobre el título de al
                                lado no había quien los leyera. -->
-                          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                          <StackPanel Orientation="Horizontal" Grid.Column="1"
                                       VerticalAlignment="Center">
                             <Border Background="{StaticResource Accent800}" CornerRadius="6" Padding="8,2"
-                                    VerticalAlignment="Center"
+                                    Margin="0,0,6,0" VerticalAlignment="Center"
                                     Visibility="{Binding Seleccionado, Converter={StaticResource B2V}}">
                               <TextBlock Text="seleccionado" FontSize="10.5"
                                          Foreground="{StaticResource Accent200}"/>
                             </Border>
-                            <Button Content="Usar" Style="{StaticResource BtnSecondary}" FontSize="11.5"
-                                    Padding="10,3" Tag="{Binding Cat.Ruta}" Click="OnUsarCatalogo"
+                            <Button Content="Usar" Style="{StaticResource BtnCristal}" FontSize="11.5"
+                                    Padding="10,3" Margin="0,0,6,0" Tag="{Binding Cat.Ruta}"
+                                    Click="OnUsarCatalogo"
                                     Visibility="{Binding NoSeleccionado, Converter={StaticResource B2V}}"/>
-                            <Button Style="{StaticResource BtnSecondary}" FontSize="11.5" Padding="10,3"
-                                    Margin="6,0,0,0" Content="Quitar" Tag="{Binding Cat.Ruta}"
+                            <Button Style="{StaticResource BtnCristal}" FontSize="11.5" Padding="10,3"
+                                    Content="Quitar" Tag="{Binding Cat.Ruta}"
                                     Click="OnQuitarCatalogo"
                                     ToolTip="Quitar este catálogo de la app (no borra tu fichero JSON)"/>
                           </StackPanel>
