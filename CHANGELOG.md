@@ -35,6 +35,9 @@ es un acuerdo de buena voluntad: está verificado.
   ahora su propio diálogo, con el mismo tema que el resto, y el texto se puede seleccionar
   y copiar — que es lo primero que quieres hacer cuando el aviso trae una ruta o el texto
   de un error.
+- **El campo en el que estás escribiendo se señala con un haz de luz que recorre su borde.**
+  Sustituye al resalte estático: se ve de un vistazo dónde va a ir lo que teclees, incluso
+  con la ventana llena de campos. Solo gira mientras el campo tiene el foco.
 - **Lo que se corta con puntos suspensivos enseña el texto completo al pasar el ratón.** No
   hace falta ensanchar la ventana para leer un nombre largo. Solo aparece cuando el texto
   está recortado de verdad, para no repetir lo que ya se ve.
