@@ -42,8 +42,18 @@ es un acuerdo de buena voluntad: está verificado.
   una sugerencia obligaba a rebuscar en el JSON a mano — y esa fricción deja dudas razonables
   sin comprobar.
 
+### Añadido (explorador)
+
+- **Al elegir un episodio en el explorador, su JSON emerge en el lateral.** Es el fragmento
+  del catálogo tal y como lo está leyendo el identificador —no una reconstrucción— con botón
+  de copiar. Para cuando la vista bonita no basta y quieres ver la fuente.
+
 ### Corregido
 
+- **Los botones de las tarjetas de catálogo, ahora opacos y sin pisar el texto.** Seguían
+  siendo transparentes (se leía el resumen a través) y el texto corría por debajo de ellos.
+  Ahora tienen acabado de cristal opaco con brillo en el canto, y el resumen se recorta en su
+  columna en vez de invadir la de los botones.
 - **Las casillas de aplicar no respondían al ratón y ya se pueden marcar arrastrando.** El
   «volver a pinchar una fila la cierra» oía el clic antes que la casilla y se lo comía
   cuando la fila estaba seleccionada: la casilla parecía muerta. Ahora el clic de la casilla
