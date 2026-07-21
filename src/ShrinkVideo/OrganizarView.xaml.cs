@@ -184,29 +184,31 @@ public partial class OrganizarView : UserControl
         }
     }
 
-    /// <summary>Cuenta los vídeos de la carpeta. No lee metadatos: eso es «Simular».</summary>
+    /// <summary>
+    /// Cuenta los vídeos de la carpeta Y DE SUS SUBCARPETAS. No lee metadatos: eso es «Simular».
+    ///
+    /// El recorrido baja porque así está montada una biblioteca: se apunta a la carpeta de la
+    /// serie y las temporadas cuelgan dentro. Quedándose en el primer nivel, una serie entera
+    /// se veía como «no hay vídeos».
+    /// </summary>
     private void RevisarCarpeta()
     {
         var carpeta = txtCarpeta.Text?.Trim() ?? "";
         _ficheros = Array.Empty<string>();
 
-        if (Directory.Exists(carpeta))
-        {
-            try
-            {
-                _ficheros = Directory.EnumerateFiles(carpeta)
-                    .Where(f => Engine.VideoExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                    .OrderBy(f => f, StringComparer.CurrentCultureIgnoreCase)
-                    .ToArray();
-            }
-            catch (Exception ex) { Aviso($"No se pudo leer la carpeta: {ex.Message}"); }
-        }
+        try { _ficheros = LibraryScan.Escanear(carpeta, Engine.VideoExtensions); }
+        catch (Exception ex) { Aviso($"No se pudo leer la carpeta: {ex.Message}"); }
+
+        int carpetas = _ficheros.Select(f => LibraryScan.Grupo(carpeta, f)).Distinct().Count();
 
         lblFicheros.Text = _ficheros.Length switch
         {
             0 when !Directory.Exists(carpeta) => "Elige una carpeta para empezar",
-            0 => "No hay vídeos en esta carpeta",
+            0 => "No hay vídeos en esta carpeta ni en sus subcarpetas",
             1 => $"1 fichero en {carpeta}",
+            // Decir en cuántas carpetas están confirma que el recorrido ha bajado: si sale «1»
+            // sobre una serie con temporadas, se sabe al momento que se apuntó demasiado adentro.
+            _ when carpetas > 1 => $"{_ficheros.Length} ficheros en {carpetas} carpetas de {carpeta}",
             _ => $"{_ficheros.Length} ficheros en {carpeta}",
         };
 
@@ -373,9 +375,13 @@ public partial class OrganizarView : UserControl
                 return ReindexEngine.Resolve(señales, catalogo, decisiones);
             });
 
+            var raiz = txtCarpeta.Text?.Trim() ?? "";
             _filas.Clear();
-            foreach (var r in resoluciones) _filas.Add(new OrganizarRow(r, catalogo, _plantilla));
+            foreach (var r in resoluciones)
+                _filas.Add(new OrganizarRow(r, catalogo, _plantilla,
+                    LibraryScan.Etiqueta(LibraryScan.Grupo(raiz, r.Archivo.Path))));
 
+            AgruparPorCarpeta();
             MostrarRevision();
             ActualizarContadores();
             Escribir($"Simulación: {_filas.Count} ficheros contra «{catalogo.Serie}».");
@@ -447,6 +453,22 @@ public partial class OrganizarView : UserControl
         var sinFechas = avisos.FirstOrDefault(a => a.Contains("Sin fechas"));
         if (sinFechas != null) return "Este catálogo no trae fechas de emisión, así que solo se puede tirar del título.";
         return "Revisa los conflictos y los especiales antes de aplicar.";
+    }
+
+    /// <summary>
+    /// Separa la tabla por carpeta de origen, con su cabecera entre temporada y temporada.
+    ///
+    /// Solo si hay más de una: con una sola, la cabecera repetiría lo que ya dice el cuadro
+    /// de la carpeta y se comería una fila por nada.
+    /// </summary>
+    private void AgruparPorCarpeta()
+    {
+        var vista = CollectionViewSource.GetDefaultView(_filas);
+        if (vista == null) return;
+
+        vista.GroupDescriptions.Clear();
+        if (_filas.Select(f => f.Grupo).Distinct().Count() > 1)
+            vista.GroupDescriptions.Add(new PropertyGroupDescription(nameof(OrganizarRow.Grupo)));
     }
 
     private void AplicarFiltro()
