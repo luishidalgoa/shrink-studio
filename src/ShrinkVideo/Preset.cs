@@ -14,6 +14,13 @@ public sealed class Preset
     public int Quality { get; set; }   // índice de cboQ
     public int Res { get; set; }       // índice de cboRes
     public int Audio { get; set; }     // índice de cboAud
+
+    /// <summary>
+    /// Ya no se usa: «analizar subcarpetas» es un ajuste de exploración del usuario
+    /// (Preferencias), no parte de la receta de codificación. Se conserva la propiedad
+    /// para que los presets guardados con versiones antiguas se sigan leyendo.
+    /// </summary>
+    [Obsolete("La recursión la manda Preferencias, no el preset.")]
     public bool Recurse { get; set; } = true;
 
     public override string ToString() => Factory ? Name : Name + "  ·  guardado";

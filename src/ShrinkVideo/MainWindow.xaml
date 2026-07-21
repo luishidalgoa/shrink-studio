@@ -216,8 +216,8 @@
               <StackPanel.Resources><Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}"><Setter Property="Margin" Value="8,1"/></Style></StackPanel.Resources>
               <Border BorderBrush="{StaticResource Divider}" BorderThickness="1,0,0,0" Padding="10,0,0,0">
                 <StackPanel>
-                  <CheckBox x:Name="chkRec" Content="Subcarpetas" IsChecked="True"
-                            ToolTip="Al analizar, entra también en las carpetas de dentro del origen."/>
+                  <CheckBox x:Name="chkRec" Content="Subcarpetas"
+                            ToolTip="Al analizar, entra también en las carpetas de dentro del origen. Es el mismo ajuste que «Analizar subcarpetas» de Preferencias: lo que cambies aquí se guarda."/>
                   <CheckBox x:Name="chkForce" Content="Reprocesar hechos"
                             ToolTip="Vuelve a comprimir aunque ya exista el archivo de salida, y sin saltarse los vídeos que ya estaban bien comprimidos."/>
                   <CheckBox x:Name="chkDry" Content="Solo simular"

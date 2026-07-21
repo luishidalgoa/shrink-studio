@@ -82,6 +82,10 @@ public partial class MainWindow : Window
         miCheckUpd.Click += async (_, _) => await CheckUpdateAsync(manual: true);
         miAbout.Click += (_, _) => ShowAbout();
 
+        // «Subcarpetas» es el mismo ajuste que el de Preferencias: se mantienen en sync
+        chkRec.Checked += (_, _) => PersistRecurse();
+        chkRec.Unchecked += (_, _) => PersistRecurse();
+
         // banda de selección estilo explorador
         lst.PreviewMouseLeftButtonDown += Lst_MouseDown;
         lst.PreviewMouseMove += Lst_MouseMove;
@@ -130,6 +134,15 @@ public partial class MainWindow : Window
         Estimator.ComplexityFactor = Math.Clamp(_settings.ComplexityFactor, 0.15, 4.0);
         chkRec.IsChecked = _settings.Recurse;
         UpdateRenameStatus();
+    }
+
+    /// <summary>La casilla «Subcarpetas» y la preferencia son lo mismo: al cambiarla, se guarda.</summary>
+    private void PersistRecurse()
+    {
+        bool v = chkRec.IsChecked == true;
+        if (v == _settings.Recurse) return;   // evita reescribir al aplicar los ajustes
+        _settings.Recurse = v;
+        SettingsStore.Save(_settings);
     }
 
     private void OpenPreferences()
@@ -816,7 +829,10 @@ public partial class MainWindow : Window
         _applyingPreset = true;
         cboFmt.SelectedIndex = p.Fmt; cboCodec.SelectedIndex = p.Codec;
         cboQ.SelectedIndex = p.Quality; cboRes.SelectedIndex = p.Res; cboAud.SelectedIndex = p.Audio;
-        cboLang.Text = p.Lang; chkRec.IsChecked = p.Recurse;
+        cboLang.Text = p.Lang;
+        // «Subcarpetas» NO se toca aquí: es un ajuste de exploración del disco que manda
+        // el usuario desde Preferencias, no parte de la receta de codificación. Antes el
+        // preset lo reactivaba y pisaba la preferencia.
         _applyingPreset = false;
         UpdateEstimate();
     }
@@ -831,7 +847,7 @@ public partial class MainWindow : Window
         {
             Name = name, Fmt = cboFmt.SelectedIndex, Codec = cboCodec.SelectedIndex,
             Quality = cboQ.SelectedIndex, Res = cboRes.SelectedIndex, Audio = cboAud.SelectedIndex,
-            Lang = cboLang.Text, Recurse = chkRec.IsChecked == true,
+            Lang = cboLang.Text,
         });
         PresetStore.SaveUser(user);
         ReloadPresets(name);
