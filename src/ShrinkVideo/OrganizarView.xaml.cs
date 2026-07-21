@@ -381,10 +381,11 @@ public partial class OrganizarView : UserControl
                 _filas.Add(new OrganizarRow(r, catalogo, _plantilla,
                     LibraryScan.Etiqueta(LibraryScan.Grupo(raiz, r.Archivo.Path))));
 
-            RecalcularSeparadores();
+            int temporadas = RecalcularSeparadores();
             MostrarRevision();
             ActualizarContadores();
-            Escribir($"Simulación: {_filas.Count} ficheros contra «{catalogo.Serie}».");
+            Escribir($"Simulación: {_filas.Count} ficheros contra «{catalogo.Serie}»" +
+                     (temporadas > 0 ? $", repartidos en {temporadas} temporadas." : "."));
         }
         catch (Exception ex) { Aviso($"La simulación falló: {ex.Message}"); }
         finally { ActualizarEstado(); }
@@ -465,16 +466,18 @@ public partial class OrganizarView : UserControl
     /// Solo se separa si hay más de una carpeta: con una sola, la banda repetiría lo que ya
     /// dice el cuadro de la carpeta y se comería una fila por nada.
     /// </summary>
-    private void RecalcularSeparadores()
+    /// <returns>Cuántas temporadas han quedado separadas. 0 = no hay nada que separar.</returns>
+    private int RecalcularSeparadores()
     {
         var vista = CollectionViewSource.GetDefaultView(_filas);
-        if (vista == null) return;
+        if (vista == null) return 0;
 
         var visibles = vista.Cast<OrganizarRow>().ToList();
         foreach (var f in visibles) { f.PrimeraDeGrupo = false; f.GrupoConteo = ""; }
 
-        if (visibles.Select(f => f.Grupo).Distinct().Count() <= 1) return;
+        if (visibles.Select(f => f.Grupo).Distinct().Count() <= 1) return 0;
 
+        int bandas = 0;
         for (int i = 0; i < visibles.Count;)
         {
             int j = i;
@@ -482,8 +485,10 @@ public partial class OrganizarView : UserControl
 
             visibles[i].PrimeraDeGrupo = true;
             visibles[i].GrupoConteo = j - i == 1 ? "· 1 fichero" : $"· {j - i} ficheros";
+            bandas++;
             i = j;
         }
+        return bandas;
     }
 
     private void AplicarFiltro()
