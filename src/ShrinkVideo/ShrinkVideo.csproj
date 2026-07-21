@@ -17,7 +17,7 @@
     <Product>ShrinkStudio</Product>
     <Company>luishidalgoa</Company>
     <Authors>luishidalgoa</Authors>
-    <Description>ShrinkStudio — transcodificador de vídeo: comprime a HEVC/H.264/AV1 en MP4/MKV conservando los idiomas de audio elegidos.</Description>
+    <Description>ShrinkStudio — compresor de vídeo por lotes: reduce a HEVC/H.264/AV1 en MKV/MP4/WebM con aceleración por hardware, conservando los idiomas de audio elegidos y sin tocar los originales.</Description>
     <Copyright>© luishidalgoa</Copyright>
 
     <!-- Repo de GitHub del que la app descarga sus actualizaciones -->

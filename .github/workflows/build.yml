@@ -24,7 +24,7 @@ jobs:
   verificar-version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Comprobar el contrato del CHANGELOG
         shell: bash
@@ -78,7 +78,7 @@ jobs:
           { echo "$BODY"; } > release-notes.md
 
       - name: Guardar las notas de la versión
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-notes
           path: release-notes.md
@@ -90,10 +90,10 @@ jobs:
     needs: verificar-version
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Instalar .NET 9 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '9.0.x'
 
@@ -105,14 +105,14 @@ jobs:
         run: ./build.ps1
 
       - name: Subir instalador como artefacto
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ShrinkStudio-Setup
           path: installer/Output/*.exe
 
       - name: Adjuntar al Release (solo en tags)
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: installer/Output/*.exe
 
@@ -134,10 +134,10 @@ jobs:
           - { os: windows-latest,   rid: win-x64,     nombre: windows-x64 }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Instalar .NET 9 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '9.0.x'
 
@@ -180,7 +180,7 @@ jobs:
           fi
 
       - name: Subir como artefacto
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: shrinkstudio-${{ matrix.nombre }}
           path: |
@@ -190,7 +190,7 @@ jobs:
 
       - name: Adjuntar al Release (solo en tags)
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             shrinkstudio-${{ matrix.nombre }}.zip
@@ -204,11 +204,11 @@ jobs:
     needs: [windows-instalador, cli]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-notes
 
       - name: Publicar notas
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: release-notes.md
