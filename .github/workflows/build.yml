@@ -125,11 +125,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest,  rid: linux-x64,   nombre: linux-x64 }
+          - { os: ubuntu-latest,    rid: linux-x64,   nombre: linux-x64 }
           - { os: ubuntu-24.04-arm, rid: linux-arm64, nombre: linux-arm64 }
-          - { os: macos-latest,   rid: osx-arm64,   nombre: macos-arm64 }
-          - { os: macos-13,       rid: osx-x64,     nombre: macos-x64 }
-          - { os: windows-latest, rid: win-x64,     nombre: windows-x64 }
+          - { os: macos-latest,     rid: osx-arm64,   nombre: macos-arm64 }
+          # macOS Intel se compila de forma cruzada desde el runner ARM: los runners
+          # macos-13 escasean y dejaban el job encolado más de 10 minutos.
+          - { os: macos-latest,     rid: osx-x64,     nombre: macos-x64, cruzado: true }
+          - { os: windows-latest,   rid: win-x64,     nombre: windows-x64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -146,7 +148,9 @@ jobs:
           -p:PublishSingleFile=true -p:DebugType=none
           -o publicado
 
+      # Solo se puede ejecutar lo compilado para la propia arquitectura del runner.
       - name: Comprobar que arranca
+        if: ${{ !matrix.cruzado }}
         shell: bash
         run: |
           BIN=publicado/shrinkstudio
@@ -154,6 +158,15 @@ jobs:
           chmod +x "$BIN" || true
           "$BIN" version
           "$BIN" --help > /dev/null
+
+      # Para el binario cruzado comprobamos al menos que es un Mach-O de x86_64.
+      - name: Comprobar el formato del binario cruzado
+        if: ${{ matrix.cruzado }}
+        shell: bash
+        run: |
+          file publicado/shrinkstudio
+          file publicado/shrinkstudio | grep -q "Mach-O 64-bit executable x86_64" \
+            || { echo "::error::El binario no es un Mach-O x86_64"; exit 1; }
 
       - name: Empaquetar
         shell: bash
