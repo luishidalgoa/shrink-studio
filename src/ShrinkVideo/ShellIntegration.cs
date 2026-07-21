@@ -94,6 +94,56 @@ internal static class ShellIntegration
         return res.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    // ---------- «Abrir con» ----------
+    // Tercera vía, y la más visible en Windows 11: la app aparece en el submenú
+    // «Abrir con» del primer nivel del menú contextual (donde salen Fotos o Clipchamp),
+    // sin firma y por usuario. Se hace registrando un ProgId propio y añadiéndolo a
+    // OpenWithProgids de cada extensión de vídeo.
+
+    private const string ProgId = "ShrinkStudio.Video";
+
+    private static bool RegisterOpenWith()
+    {
+        try
+        {
+            using (var prog = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{ProgId}"))
+            {
+                prog.SetValue(null, "Vídeo (ShrinkStudio)");
+                using var icon = prog.CreateSubKey("DefaultIcon");
+                icon.SetValue(null, $"\"{ExePath}\",0");
+                using var open = prog.CreateSubKey(@"shell\open");
+                open.SetValue(null, "Comprimir con ShrinkStudio");
+                using var cmd = open.CreateSubKey("command");
+                cmd.SetValue(null, $"\"{ExePath}\" \"%1\"");
+            }
+            foreach (var ext in Engine.VideoExtensions)
+            {
+                using var k = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{ext}\OpenWithProgids");
+                k.SetValue(ProgId, Array.Empty<byte>(), RegistryValueKind.None);
+            }
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private static void UnregisterOpenWith()
+    {
+        try
+        {
+            foreach (var ext in Engine.VideoExtensions)
+            {
+                try
+                {
+                    using var k = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{ext}\OpenWithProgids", writable: true);
+                    k?.DeleteValue(ProgId, throwOnMissingValue: false);
+                }
+                catch { }
+            }
+            Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\{ProgId}", throwOnMissingSubKey: false);
+        }
+        catch { }
+    }
+
     /// <summary>¿Está la entrada puesta y apuntando a este mismo ejecutable?</summary>
     public static bool IsRegistered()
     {
@@ -125,6 +175,7 @@ internal static class ShellIntegration
                 cmd.SetValue(null, $"\"{ExePath}\" \"%1\"");
             }
             CreateSendTo();                 // además, atajo en «Enviar a»
+            RegisterOpenWith();             // y en el submenú «Abrir con» del menú moderno
             ShellNotify.AssociationsChanged();
             return true;
         }
@@ -142,6 +193,7 @@ internal static class ShellIntegration
                 catch { }
             }
             RemoveSendTo();
+            UnregisterOpenWith();
             ShellNotify.AssociationsChanged();
             return true;
         }
