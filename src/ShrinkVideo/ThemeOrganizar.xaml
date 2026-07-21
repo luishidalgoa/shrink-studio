@@ -1,6 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+  <BooleanToVisibilityConverter x:Key="BoolAVisible"/>
+
   <!--
     Página «Organizar» — tokens y estilos del handoff de diseño.
     Va aparte de Theme.xaml solo por tamaño: son los mismos cimientos Nocturne.
@@ -194,7 +196,12 @@
                      agrupar deja de repartir las columnas en «*» contra el ancho real y se
                      quedan aplastadas. Aquí el DataGridCellsPresenter sigue siendo hijo
                      directo de la fila, igual que antes, así que los anchos no se enteran. -->
-                <Border x:Name="banda" Visibility="Collapsed" Padding="12,7"
+                <!-- Enlace directo y no un DataTrigger: al desplazar, el DataGrid RECICLA los
+                     contenedores de fila y solo les cambia el DataContext. Un enlace se
+                     reevalúa con ese cambio por definición; un disparador de plantilla es
+                     justo donde aparecen los «a veces sí y a veces no». -->
+                <Border x:Name="banda" Padding="12,7"
+                        Visibility="{Binding PrimeraDeGrupo, Converter={StaticResource BoolAVisible}}"
                         Background="{StaticResource Accent900}"
                         BorderBrush="{StaticResource Divider}" BorderThickness="0,1,0,1">
                   <StackPanel Orientation="Horizontal">
@@ -214,9 +221,6 @@
             </Border>
           </Border>
           <ControlTemplate.Triggers>
-            <DataTrigger Binding="{Binding PrimeraDeGrupo}" Value="True">
-              <Setter TargetName="banda" Property="Visibility" Value="Visible"/>
-            </DataTrigger>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="fill" Property="Background" Value="{StaticResource RowHover}"/>
             </Trigger>
