@@ -21,22 +21,36 @@ public partial class RenameWindow : Window
 {
     private readonly IReadOnlyList<(string name, DateTime created)> _items;
     private readonly ObservableCollection<RenamePreviewRow> _preview = new();
+    private readonly List<string> _histSearch, _histReplace;
     private bool _loaded;
 
     /// <summary>Regla resultante tras pulsar Aplicar/Quitar (null si se cancela).</summary>
     public RenameRule? Result { get; private set; }
 
-    public RenameWindow(RenameRule current, IReadOnlyList<(string name, DateTime created)> items)
+    public RenameWindow(RenameRule current, IReadOnlyList<(string name, DateTime created)> items,
+                        List<string> historySearch, List<string> historyReplace)
     {
         InitializeComponent();
         _items = items;
+        _histSearch = historySearch;
+        _histReplace = historyReplace;
         lstPrev.ItemsSource = _preview;
 
         header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         btnX.Click += (_, _) => Close();
         btnCancel.Click += (_, _) => Close();
-        btnApply.Click += (_, _) => { Result = Build(enabled: true); DialogResult = true; };
+        btnApply.Click += (_, _) =>
+        {
+            Remember(_histSearch, txtSearch.Text);
+            Remember(_histReplace, txtReplace.Text);
+            Result = Build(enabled: true);
+            DialogResult = true;
+        };
         btnClear.Click += (_, _) => { Result = new RenameRule(); DialogResult = true; };
+
+        // autocompletado reactivo bajo cada campo
+        _ = new SuggestionBox(txtSearch, popSearch, lstSearch, Suggestions.Search, () => _histSearch, AutoEnable);
+        _ = new SuggestionBox(txtReplace, popReplace, lstReplace, Suggestions.Replace, () => _histReplace, AutoEnable);
 
         // cargar la regla actual
         txtSearch.Text = current.Search;
@@ -62,6 +76,26 @@ public partial class RenameWindow : Window
 
         _loaded = true;
         Refresh();
+    }
+
+    /// <summary>Al elegir una sugerencia, activa sola la opción que esa sugerencia necesita.</summary>
+    private void AutoEnable(SuggestionItem it)
+    {
+        switch (it.Enables)
+        {
+            case "regex": chkRegex.IsChecked = true; break;
+            case "enum": chkEnum.IsChecked = true; break;
+            case "rand": chkRand.IsChecked = true; break;
+        }
+    }
+
+    /// <summary>Guarda un valor en el historial (el más reciente primero, sin duplicados, máx. 10).</summary>
+    private static void Remember(List<string> hist, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        hist.RemoveAll(h => string.Equals(h, value, StringComparison.Ordinal));
+        hist.Insert(0, value);
+        if (hist.Count > 10) hist.RemoveRange(10, hist.Count - 10);
     }
 
     private RenameRule Build(bool enabled) => new()

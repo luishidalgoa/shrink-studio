@@ -33,10 +33,50 @@
         <StackPanel Grid.Column="0">
           <TextBlock Text="Buscar" FontSize="11" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
           <TextBox x:Name="txtSearch"/>
+          <Popup x:Name="popSearch" PlacementTarget="{Binding ElementName=txtSearch}" Placement="Bottom"
+                 AllowsTransparency="True" StaysOpen="False" Focusable="False" PopupAnimation="Fade"
+                 MinWidth="{Binding ActualWidth, ElementName=txtSearch}">
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
+                    CornerRadius="8" Padding="4" Margin="0,3,12,12">
+              <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.5" Color="#000000"/></Border.Effect>
+              <ListBox x:Name="lstSearch" MaxHeight="260" Background="Transparent" BorderThickness="0"
+                       ItemContainerStyle="{StaticResource SuggestItem}"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel>
+                      <TextBlock Text="{Binding Text}" FontFamily="{StaticResource FontMono}" FontSize="11.5" Foreground="{StaticResource Accent300}"/>
+                      <TextBlock Text="{Binding Desc}" FontSize="10.5" Foreground="{StaticResource Neutral600}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Border>
+          </Popup>
         </StackPanel>
         <StackPanel Grid.Column="2">
           <TextBlock Text="Reemplazar por" FontSize="11" Foreground="{StaticResource Neutral500}" Margin="0,0,0,4"/>
           <TextBox x:Name="txtReplace"/>
+          <Popup x:Name="popReplace" PlacementTarget="{Binding ElementName=txtReplace}" Placement="Bottom"
+                 AllowsTransparency="True" StaysOpen="False" Focusable="False" PopupAnimation="Fade"
+                 MinWidth="{Binding ActualWidth, ElementName=txtReplace}">
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
+                    CornerRadius="8" Padding="4" Margin="0,3,12,12">
+              <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.5" Color="#000000"/></Border.Effect>
+              <ListBox x:Name="lstReplace" MaxHeight="260" Background="Transparent" BorderThickness="0"
+                       ItemContainerStyle="{StaticResource SuggestItem}"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel>
+                      <TextBlock Text="{Binding Text}" FontFamily="{StaticResource FontMono}" FontSize="11.5" Foreground="{StaticResource Accent300}"/>
+                      <TextBlock Text="{Binding Desc}" FontSize="10.5" Foreground="{StaticResource Neutral600}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Border>
+          </Popup>
         </StackPanel>
       </Grid>
 

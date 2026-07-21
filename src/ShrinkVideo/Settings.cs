@@ -27,6 +27,8 @@ public sealed class Settings
 
     // --- Renombrado de la salida (estilo PowerRename) ---
     public RenameRule Rename { get; set; } = new();
+    public List<string> RenameSearchHistory { get; set; } = new();    // valores recientes de «Buscar»
+    public List<string> RenameReplaceHistory { get; set; } = new();   // valores recientes de «Reemplazar por»
 
     // --- Rendimiento y disco ---
     public int MinFreeMb { get; set; } = 200;            // margen mínimo de disco antes de pausar

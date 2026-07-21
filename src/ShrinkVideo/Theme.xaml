@@ -584,6 +584,30 @@
     </Setter>
   </Style>
 
+  <!-- ══ Elemento del desplegable de autocompletado ══ -->
+  <Style x:Key="SuggestItem" TargetType="ListBoxItem">
+    <Setter Property="Padding" Value="8,5"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="b" Background="Transparent" CornerRadius="5" Padding="{TemplateBinding Padding}">
+            <ContentPresenter/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="b" Property="Background" Value="{StaticResource RowHover}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="b" Property="Background" Value="{StaticResource Accent900}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- ══ RadioButton (oscuro) ══ -->
   <Style TargetType="RadioButton">
     <Setter Property="Foreground" Value="{StaticResource Text}"/>

@@ -154,10 +154,11 @@ public partial class MainWindow : Window
             .Select(r => (name: Path.GetFileNameWithoutExtension(r.Name) + ext, created: SafeCreated(r.Path)))
             .ToList();
 
-        var dlg = new RenameWindow(_settings.Rename, items) { Owner = this };
+        var dlg = new RenameWindow(_settings.Rename, items,
+                                   _settings.RenameSearchHistory, _settings.RenameReplaceHistory) { Owner = this };
         if (dlg.ShowDialog() == true && dlg.Result != null)
         {
-            _settings.Rename = dlg.Result;
+            _settings.Rename = dlg.Result;   // los historiales se mutan dentro del diálogo
             SettingsStore.Save(_settings);
             UpdateRenameStatus();
             lblProg.Text = _settings.Rename.HasEffect
