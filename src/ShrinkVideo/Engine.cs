@@ -66,6 +66,7 @@ public interface IEngineReporter
     void FileStart(int index, int total, string name, double durationSec);
     void FileProgress(double fraction, string rawLine);   // 0..1 del archivo actual
     void FileDone(FileResult result);
+    void DiskFull(bool paused) { }                        // disco lleno: en pausa esperando espacio
 }
 
 /// <summary>
@@ -193,7 +194,7 @@ public sealed class Engine
         int abr = opt.AudioBitrate > 0 ? opt.AudioBitrate : 192;
         a.AddRange(new[] { "-c:a", "aac", "-b:a", $"{abr}k", dest });
 
-        int code = await RunFfmpegAsync(a, 10, rep, ct);
+        var (code, _) = await RunFfmpegAsync(a, 10, rep, ct);
         return code == 0 && File.Exists(dest) ? dest : null;
     }
 
@@ -380,7 +381,7 @@ public sealed class Engine
                 aargs.Add(atmp);
                 try
                 {
-                    int acode = await RunFfmpegAsync(aargs, durSec, rep, ct);
+                    var (acode, _) = await RunFfmpegAsync(aargs, durSec, rep, ct);
                     if (acode == 0 && File.Exists(atmp))
                     {
                         try { if (File.Exists(outPath)) File.Delete(outPath); } catch { }
@@ -448,19 +449,32 @@ public sealed class Engine
             rep.FileStart(n, total, name, durSec);
 
             Directory.CreateDirectory(outDir);
+            await WaitForSpaceAsync(outDir, MinFreeBytes, rep, ct);   // no empezar si el disco ya está lleno
             string tmp = outPath + ".tmp.mkv";
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
 
             try
             {
-                int code = await RunFfmpegAsync(BuildArgs(true).Append(tmp).ToList(), durSec, rep, ct);
-
-                // reintento sin subtítulos (algunos formatos no se copian a MKV)
-                if (code != 0 && subs.Count > 0 && !ct.IsCancellationRequested)
+                int code; string err;
+                while (true)
                 {
-                    rep.Log("    reintentando sin subtítulos…");
-                    try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
-                    code = await RunFfmpegAsync(BuildArgs(false).Append(tmp).ToList(), durSec, rep, ct);
+                    (code, err) = await RunFfmpegAsync(BuildArgs(true).Append(tmp).ToList(), durSec, rep, ct);
+
+                    // reintento sin subtítulos (algunos formatos no se copian a MKV)
+                    if (code != 0 && !IsDiskFull(err) && subs.Count > 0 && !ct.IsCancellationRequested)
+                    {
+                        rep.Log("    reintentando sin subtítulos…");
+                        try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                        (code, err) = await RunFfmpegAsync(BuildArgs(false).Append(tmp).ToList(), durSec, rep, ct);
+                    }
+
+                    if (code != 0 && IsDiskFull(err))
+                    {
+                        try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }   // liberar el temporal a medias
+                        await WaitForSpaceAsync(outDir, MinFreeBytes, rep, ct);      // pausa hasta que haya espacio
+                        continue;                                                   // reintentar el MISMO archivo (la cola se mantiene)
+                    }
+                    break;
                 }
 
                 if (code == 0 && File.Exists(tmp))
@@ -500,7 +514,36 @@ public sealed class Engine
     private static readonly Regex TimeRx =
         new(@"time=(\d+):(\d+):(\d+)\.(\d+)", RegexOptions.Compiled);
 
-    private async Task<int> RunFfmpegAsync(
+    // ---------- detección y espera por disco lleno ----------
+    private const long MinFreeBytes = 200L * 1024 * 1024;   // margen mínimo de disco: 200 MB
+
+    internal static bool IsDiskFull(string err) =>
+        err.Contains("No space left", StringComparison.OrdinalIgnoreCase) ||
+        err.Contains("ENOSPC", StringComparison.OrdinalIgnoreCase);
+
+    // Inyectable para pruebas (simular disco lleno). En producción consulta el disco real.
+    internal static Func<string, long> FreeSpaceProvider = DefaultFreeSpace;
+    private static long DefaultFreeSpace(string dir)
+    {
+        try { return new DriveInfo(Path.GetPathRoot(Path.GetFullPath(dir))!).AvailableFreeSpace; }
+        catch { return long.MaxValue; }
+    }
+    private static long FreeSpace(string dir) => FreeSpaceProvider(dir);
+
+    /// <summary>Espera (sin bloquear ni cancelar) hasta que haya al menos `need` bytes libres.</summary>
+    private static async Task WaitForSpaceAsync(string dir, long need, IEngineReporter rep, CancellationToken ct)
+    {
+        bool notified = false;
+        while (FreeSpace(dir) < need)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!notified) { rep.DiskFull(true); rep.Log("    Disco lleno — pausado. Libera espacio y continuará automáticamente."); notified = true; }
+            await Task.Delay(2500, ct);
+        }
+        if (notified) { rep.DiskFull(false); rep.Log("    Espacio disponible — continuando…"); }
+    }
+
+    private async Task<(int code, string err)> RunFfmpegAsync(
         List<string> args, double durSec, IEngineReporter rep, CancellationToken ct)
     {
         var psi = new ProcessStartInfo(Ffmpeg)
@@ -516,6 +559,7 @@ public sealed class Engine
         using var proc = new Process { StartInfo = psi };
         proc.Start();
         _active = proc;
+        var err = new StringBuilder();
         try
         {
             var stderrTask = Task.Run(async () =>
@@ -531,6 +575,10 @@ public sealed class Engine
                                    + int.Parse(m.Groups[3].Value)
                                    + double.Parse("0." + m.Groups[4].Value, System.Globalization.CultureInfo.InvariantCulture);
                         rep.FileProgress(Math.Clamp(sec / durSec, 0, 1), line);
+                    }
+                    else if (line.Length > 0)
+                    {
+                        lock (err) { if (err.Length < 4000) err.AppendLine(line); }   // guardar líneas de error
                     }
                 }
             });
@@ -548,7 +596,8 @@ public sealed class Engine
                 throw;
             }
             try { await stderrTask; } catch { }
-            return proc.ExitCode;
+            string errStr; lock (err) errStr = err.ToString();
+            return (proc.ExitCode, errStr);
         }
         finally { _active = null; }
     }
