@@ -29,6 +29,18 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Organizar ya lee la serie entera, no solo el primer nivel de la carpeta.** Al apuntar a
+  la carpeta de una serie —la que tiene dentro `Season 2005`, `Season 2006`…— decía «no hay
+  vídeos» sobre una carpeta con cientos, porque solo miraba los ficheros sueltos de arriba.
+  Ahora baja por las subcarpetas y te dice en cuántas ha encontrado los ficheros, así que se
+  ve al momento si has apuntado demasiado adentro.
+- **La tabla sale separada por temporada**, con su cabecera y su recuento entre una y otra,
+  en el orden de la biblioteca: 2005, 2006, 2007… y los vídeos sueltos de la raíz al final.
+  Saber de qué carpeta viene cada fila es la mitad de la información cuando hay que decidir
+  si una propuesta tiene sentido.
+
 ### Cambiado
 
 - **Los avisos y las preguntas ya no son los cuadros grises de Windows.** Toda la app usa

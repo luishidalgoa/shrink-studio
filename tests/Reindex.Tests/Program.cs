@@ -26,6 +26,7 @@ public static class Program
         Prompt();
         Plantilla();
         Almacen();
+        BibliotecaPorTemporadas();
         CatalogosReales();
 
         Console.WriteLine($"\n── {_ok} pasan · {_fallos} fallan ──");
@@ -852,6 +853,78 @@ public static class Program
             var r = Uno(cat, F("[1] Shin-chan se va de compras.mkv"));
             Eq(1, r.Episodio?.Num, "identifica el episodio 1 de Shin-chan por título");
         }
+    }
+
+    // ──────────────── Biblioteca con subcarpetas de temporada ────────────────
+
+    /// <summary>
+    /// Una biblioteca de verdad no es una carpeta plana: «Doraemon (2005)» son nueve
+    /// «Season 20xx» y ni un solo vídeo en la raíz. Mirando solo el primer nivel, esa
+    /// carpeta con cientos de ficheros se veía como «no hay vídeos».
+    /// </summary>
+    private static void BibliotecaPorTemporadas()
+    {
+        Seccion("Biblioteca con subcarpetas de temporada");
+
+        var raiz = Path.Combine("D", "Doraemon (2005)");
+        string Bajo(params string[] tramos) => Path.Combine(new[] { raiz }.Concat(tramos).ToArray());
+
+        // ── a qué temporada pertenece cada fichero ──
+        Eq("Season 2005", LibraryScan.Grupo(raiz, Bajo("Season 2005", "a.mkv")),
+            "la subcarpeta directa es el grupo");
+        Eq("Season 2005", LibraryScan.Grupo(raiz, Bajo("Season 2005", "Extras", "b.mkv")),
+            "lo que cuelga más abajo sigue perteneciendo a su temporada");
+        Eq("", LibraryScan.Grupo(raiz, Bajo("suelto.mkv")), "un vídeo en la raíz no tiene temporada");
+        Eq("", LibraryScan.Grupo(raiz, Path.Combine("D", "Otra serie", "x.mkv")),
+            "algo de fuera de la raíz no se cuela en ningún grupo");
+
+        Eq("Season 2005", LibraryScan.Etiqueta("Season 2005"), "la etiqueta es el nombre de la carpeta");
+        Eq(LibraryScan.EtiquetaRaiz, LibraryScan.Etiqueta(""), "los sueltos se nombran aparte");
+
+        // ── orden de lectura: temporadas en orden, lo raro al final ──
+        var carpetas = new[] { "Season 2013", "", "Especiales", "Season 2005", "Temporada 3" };
+        var ordenadas = carpetas.OrderBy(LibraryScan.Orden)
+                                .ThenBy(c => c, StringComparer.OrdinalIgnoreCase)
+                                .ToArray();
+        Eq("Temporada 3|Season 2005|Season 2013|Especiales|",
+            string.Join("|", ordenadas),
+            "temporadas por número; lo que no lleva número después; los sueltos, últimos");
+
+        Eq(2005, SignalExtractor.TemporadaDeCarpeta("Season 2005"), "«Season 2005»");
+        Eq(3, SignalExtractor.TemporadaDeCarpeta("Temporada 3"), "«Temporada 3»");
+        Eq(3, SignalExtractor.TemporadaDeCarpeta("S03"), "«S03»");
+        Eq(2007, SignalExtractor.TemporadaDeCarpeta("2007"), "un año a secas");
+        Eq(null, SignalExtractor.TemporadaDeCarpeta("Especiales"), "«Especiales» no es un número");
+
+        // ── el recorrido de verdad, sobre disco: es el que se rompió ──
+        var tmp = Path.Combine(Path.GetTempPath(), "shrinkvideo-scan-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tmp, "Season 2005"));
+            Directory.CreateDirectory(Path.Combine(tmp, "Season 2006"));
+            foreach (var r in new[]
+                     {
+                         Path.Combine(tmp, "Season 2005", "b.mkv"),
+                         Path.Combine(tmp, "Season 2005", "a.mkv"),
+                         Path.Combine(tmp, "Season 2005", "leeme.txt"),
+                         Path.Combine(tmp, "Season 2006", "c.mp4"),
+                         Path.Combine(tmp, "suelto.mkv"),
+                     })
+                File.WriteAllText(r, "");
+
+            var extensiones = new[] { ".mkv", ".mp4" };
+            var hallados = LibraryScan.Escanear(tmp, extensiones);
+
+            Eq(4, hallados.Length, "encuentra los vídeos de las subcarpetas, no solo los del primer nivel");
+            Eq("a.mkv|b.mkv|c.mp4|suelto.mkv",
+                string.Join("|", hallados.Select(Path.GetFileName)),
+                "2005 antes que 2006, alfabético dentro, y el suelto al final");
+            Assert(hallados.All(h => Path.GetExtension(h) != ".txt"), "lo que no es vídeo se queda fuera");
+
+            Eq(0, LibraryScan.Escanear(Path.Combine(tmp, "no-existe"), extensiones).Length,
+                "una carpeta que no está no revienta el escaneo");
+        }
+        finally { try { Directory.Delete(tmp, recursive: true); } catch { /* limpieza */ } }
     }
 
     // ───────────────────────────── utilidades ─────────────────────────────

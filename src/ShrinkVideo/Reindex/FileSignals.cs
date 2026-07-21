@@ -163,14 +163,7 @@ public static partial class SignalExtractor
         }
 
         // 4. temporada de la carpeta contenedora
-        int? temporada = null;
-        var mCarpeta = RxCarpetaTemporada().Match(carpeta.Trim());
-        if (mCarpeta.Success && int.TryParse(mCarpeta.Groups[1].Value, out var t)) temporada = t;
-        else
-        {
-            var mCarpSE = RxSxxExx().Match(carpeta);
-            if (mCarpSE.Success) temporada = int.Parse(mCarpSE.Groups[1].Value);
-        }
+        int? temporada = TemporadaDeCarpeta(carpeta);
 
         // 5. lo que queda es el título; los trozos si venía multi-segmento
         var titulo = LimpiarTitulo(resto);
@@ -197,6 +190,25 @@ public static partial class SignalExtractor
             Segmentos = segmentos,
             Fingerprint = fingerprint ?? rutaCompleta,
         };
+    }
+
+    /// <summary>
+    /// Qué temporada dice el NOMBRE de una carpeta: «Season 2005», «Temporada 3», «S03» o
+    /// un año a secas. Null si no dice ninguna («Especiales», «Películas»…).
+    ///
+    /// Lo usan dos sitios —las señales de un fichero y el orden de la biblioteca— y tienen
+    /// que estar de acuerdo: si una reconociera «Season 2005» y la otra no, la tabla
+    /// ordenaría por un criterio distinto del que luego identifica.
+    /// </summary>
+    public static int? TemporadaDeCarpeta(string carpeta)
+    {
+        if (string.IsNullOrWhiteSpace(carpeta)) return null;
+
+        var m = RxCarpetaTemporada().Match(carpeta.Trim());
+        if (m.Success && int.TryParse(m.Groups[1].Value, out var t)) return t;
+
+        var mSE = RxSxxExx().Match(carpeta);
+        return mSE.Success ? int.Parse(mSE.Groups[1].Value) : null;
     }
 
     /// <summary>Quita separadores sobrantes de los bordes y espacios repetidos.</summary>

@@ -48,6 +48,9 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     public LibraryTemplate Plantilla { get; }
     public ReindexCatalog Catalogo { get; }
 
+    /// <summary>Carpeta de temporada de la que salió, ya con nombre presentable. Agrupa la tabla.</summary>
+    public string Grupo { get; }
+
     /// <summary>Nombre final que se escribirá, o null si esta fila no se toca.</summary>
     public string? NombreNuevo { get; private set; }
 
@@ -59,11 +62,13 @@ public sealed class OrganizarRow : INotifyPropertyChanged
         set { _aplicado = value; RefrescarTodo(); }
     }
 
-    public OrganizarRow(ReindexResolution res, ReindexCatalog catalogo, LibraryTemplate plantilla)
+    public OrganizarRow(ReindexResolution res, ReindexCatalog catalogo, LibraryTemplate plantilla,
+                        string grupo = "")
     {
         Res = res;
         Catalogo = catalogo;
         Plantilla = plantilla;
+        Grupo = grupo;
         Recalcular();
     }
 
