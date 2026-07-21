@@ -102,7 +102,7 @@ public static class ReindexStore
         Serie = cat.Serie,
         Episodios = cat.Episodios.Count,
         Especiales = cat.Especiales.Count,
-        ConVariosSegmentos = cat.Episodios.Count(e => e.TitulosVisibles.Count > 1),
+        ConVariosSegmentos = cat.Episodios.Count(e => e.TitulosSalida.Count > 1),
         Advertencias = cat.Advertencias,
     };
 

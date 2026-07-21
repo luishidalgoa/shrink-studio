@@ -145,6 +145,9 @@
               <Button x:Name="btnEjemplo" Style="{StaticResource BtnSecondary}" Padding="10,5" FontSize="12"
                       Content="Crear ejemplo…" Margin="0,0,8,0"
                       ToolTip="Guarda un catálogo de ejemplo válido para que lo edites con tus episodios"/>
+              <Button x:Name="btnPrompt" Style="{StaticResource BtnSecondary}" Padding="10,5" FontSize="12"
+                      Content="Generar con IA…" Margin="0,0,8,0"
+                      ToolTip="Arma el encargo para que una IA convierta un anexo de episodios (Wikipedia, Fandom…) en un catálogo"/>
               <Button x:Name="btnImportar" Style="{StaticResource BtnSecondary}"
                       Padding="10,5" FontSize="12"
                       ToolTip="Añadir un catálogo de referencia en formato JSON (esquema reindex/1.0)">

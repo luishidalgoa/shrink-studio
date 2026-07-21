@@ -36,6 +36,7 @@ completes, menos dudas tendrás que resolver a mano.
 | `clave` | no | Qué significa `num` en esta serie: `"oficial"`, `"segmento"`, `"continuo"`… Es documentación para ti; la app no decide nada con ello. |
 | `notas` | no | Texto libre. Un buen sitio para apuntar rarezas de la serie. |
 | `total` | no | Cuántos episodios esperas. **La app no lo usa para recorrer nada**, solo es informativo. |
+| `idiomas` | no | Qué idioma se escribe y con cuáles se compara (ver abajo). Ausente = se escribe `es` y se compara contra todos. |
 
 > **Por qué `total` no manda:** las numeraciones oficiales saltan números. Doraemon (2005) no
 > tiene el 56, el 138 ni el 173. Si el programa recorriera `1..total` daría por perdidos
@@ -77,6 +78,30 @@ llamado `Con calma y con prisa.mkv`.
 
 Solo se comparan **`es`, `lat` y `aliases`**. El japonés se guarda como referencia pero no se
 usa para emparejar, porque tus ficheros no vienen en japonés.
+
+### Reconocer en un idioma, nombrar en otro
+
+Son dos cosas distintas, y por eso se configuran por separado:
+
+```json
+"idiomas": { "salida": "es", "comparar": ["es", "en"] }
+```
+
+- **`salida`** es el idioma del título que acaba escrito en el nombre del fichero.
+- **`comparar`** son los idiomas con los que se intenta reconocer el fichero.
+
+El caso que lo justifica: tus ficheros llegan titulados en inglés (`Help Wanted.mkv`) pero
+los quieres en español. Con `en` entre los comparables, el motor reconoce el fichero por su
+título inglés y propone `… - Ayudante de cocina.mkv`. Sin él, ese fichero no se identifica
+en absoluto.
+
+Si omites `comparar`, se comparan **todos** los idiomas del catálogo, que es lo razonable:
+comparar de más no hace daño —los idiomas que no comparten alfabeto con el nombre del
+fichero se descartan solos al normalizar, porque el japonés se queda en cadena vacía— y
+comparar de menos deja ficheros sin reconocer.
+
+Si a un episodio le falta el idioma de salida, se usa el primero que tenga: mejor un nombre
+en otro idioma que un «Episodio 437» a secas.
 
 ### La fecha vale más que el título
 
@@ -178,6 +203,22 @@ episodios con `especial: true`, nunca contra la numeración regular.
 ```
 
 ---
+
+## Generarlo con una IA
+
+Escribir a mano el catálogo de una serie de 800 episodios no es razonable. En la página
+**Organizar**, el botón **«Generar con IA…»** arma el encargo por ti: le pones el nombre de
+la serie, la dirección del anexo (Wikipedia, Fandom…) y los idiomas, y te copia un texto
+listo para pegárselo a una IA que sepa leer páginas web.
+
+Ese texto ya lleva dentro este formato y estas reglas, así que no tienes que explicar nada
+más. Además le dice cómo resolver lo que cambia de un anexo a otro: qué columna es el
+número cuando hay dos numeraciones, qué hacer si solo numeran por temporada, cómo tratar
+los episodios con varias historias en una emisión, y qué fecha usar cuando aparecen la de
+emisión original y la de estreno en España.
+
+Lo que devuelva, impórtalo con **«Importar JSON»**. Si algo no cuadra, la validación te lo
+dirá con el episodio concreto.
 
 ## Cómo se compone el nombre final
 

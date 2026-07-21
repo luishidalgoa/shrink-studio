@@ -59,6 +59,7 @@ public partial class OrganizarView : UserControl
         btnCatalogos.Click += (_, _) => ImportarCatalogo();
         btnFormato.Click += (_, _) => AbrirEspecificacion();
         btnEjemplo.Click += (_, _) => GuardarEjemplo();
+        btnPrompt.Click += (_, _) => AbrirGeneradorDePrompt();
         btnSimular.Click += (_, _) => Simular();
         btnSimularGrande.Click += (_, _) => Simular();
         btnAplicar.Click += (_, _) => PedirConfirmacion();
@@ -266,6 +267,17 @@ public partial class OrganizarView : UserControl
     /// evita el peor arranque posible: escribir el JSON a ciegas y que el primer intento
     /// de importar sea una lista de errores.
     /// </summary>
+    /// <summary>
+    /// Abre el generador del encargo para la IA. Se le sugiere el nombre de la serie que
+    /// tengas elegida, que es el caso más común: ampliar un catálogo que ya usas.
+    /// </summary>
+    private void AbrirGeneradorDePrompt()
+    {
+        var ventana = new PromptWindow(_catalogoElegido?.Serie ?? "")
+        { Owner = Window.GetWindow(this) };
+        ventana.ShowDialog();
+    }
+
     private void GuardarEjemplo()
     {
         var dlg = new SaveFileDialog

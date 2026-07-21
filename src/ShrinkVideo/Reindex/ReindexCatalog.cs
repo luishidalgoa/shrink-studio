@@ -23,12 +23,21 @@ public sealed class CatalogEpisode
 
     // ---- calculado al cargar, no viene del JSON ----
     [JsonIgnore] public DateOnly? FechaParsed { get; private set; }
-    /// <summary>Todos los títulos comparables (es + lat + aliases), ya normalizados.</summary>
-    [JsonIgnore] public IReadOnlyList<string> TitulosNorm { get; private set; } = Array.Empty<string>();
-    /// <summary>Los mismos títulos sin normalizar, para mostrarlos.</summary>
-    [JsonIgnore] public IReadOnlyList<string> TitulosVisibles { get; private set; } = Array.Empty<string>();
 
-    internal void Precompute()
+    /// <summary>
+    /// Títulos del idioma de SALIDA: los que se escriben en el nombre del fichero.
+    /// Se separan de los comparables a propósito — puedes querer el nombre en español
+    /// aunque el fichero venga titulado en inglés.
+    /// </summary>
+    [JsonIgnore] public IReadOnlyList<string> TitulosSalida { get; private set; } = Array.Empty<string>();
+
+    /// <summary>Todos los títulos con los que se intenta emparejar, sin normalizar.</summary>
+    [JsonIgnore] public IReadOnlyList<string> TitulosComparables { get; private set; } = Array.Empty<string>();
+
+    /// <summary>Los comparables ya normalizados, que es contra lo que mide el motor.</summary>
+    [JsonIgnore] public IReadOnlyList<string> TitulosNorm { get; private set; } = Array.Empty<string>();
+
+    internal void Precompute(IdiomasCatalogo idiomas)
     {
         // Mismo formato exacto que exige la validación: si aceptara más de lo que se valida,
         // las dos reglas podrían separarse con el tiempo y el catálogo diría una cosa y el
@@ -37,24 +46,61 @@ public sealed class CatalogEpisode
             System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var d) ? d : null;
 
-        var visibles = new List<string>();
-        // el japonés no se compara: los ficheros del usuario vienen en español
-        foreach (var idioma in new[] { "es", "lat" })
-            if (Titulos.TryGetValue(idioma, out var lista))
-                visibles.AddRange(lista.Where(t => !string.IsNullOrWhiteSpace(t)));
-        visibles.AddRange(Aliases.Where(a => !string.IsNullOrWhiteSpace(a)));
+        static IEnumerable<string> Limpios(IEnumerable<string>? xs) =>
+            (xs ?? Enumerable.Empty<string>()).Where(t => !string.IsNullOrWhiteSpace(t));
 
-        TitulosVisibles = visibles;
-        TitulosNorm = visibles.Select(TitleMatch.Norm).Where(s => s.Length > 0).Distinct().ToList();
+        // ── el que se escribe ──
+        var salida = new List<string>();
+        if (Titulos.TryGetValue(idiomas.Salida, out var deSalida)) salida.AddRange(Limpios(deSalida));
+        // Si ese idioma falta en este episodio, se tira del primero que haya: mejor un
+        // nombre en otro idioma que un «Episodio 437» sin más.
+        if (salida.Count == 0)
+            foreach (var lista in Titulos.Values) { salida.AddRange(Limpios(lista)); if (salida.Count > 0) break; }
+        TitulosSalida = salida;
+
+        // ── los que se comparan ──
+        // Por defecto TODOS los idiomas del catálogo. No es temerario: norm() reduce lo que
+        // no sea [a-z0-9] a espacios, así que un título en japonés queda en cadena vacía y
+        // se descarta solo. El inglés, en cambio, sobrevive — y es justo lo que hace falta
+        // cuando el fichero viene titulado en un idioma y lo quieres nombrado en otro.
+        var comparables = new List<string>();
+        foreach (var (idioma, lista) in Titulos)
+            if (idiomas.SeCompara(idioma)) comparables.AddRange(Limpios(lista));
+        comparables.AddRange(Limpios(Aliases));
+
+        TitulosComparables = comparables;
+        TitulosNorm = comparables.Select(TitleMatch.Norm).Where(s => s.Length > 0).Distinct().ToList();
     }
 
-    /// <summary>Título preferente para el nombre final (el primero en español).</summary>
-    public string TituloPrincipal => TitulosVisibles.Count > 0 ? TitulosVisibles[0] : $"Episodio {Num}";
+    /// <summary>Título preferente para el nombre final.</summary>
+    public string TituloPrincipal => TitulosSalida.Count > 0 ? TitulosSalida[0] : $"Episodio {Num}";
 
     /// <summary>Todos los segmentos unidos, para mostrar en la propuesta.</summary>
-    public string TituloCompleto => TitulosVisibles.Count > 1
-        ? string.Join(" + ", TitulosVisibles.Take(3))
+    public string TituloCompleto => TitulosSalida.Count > 1
+        ? string.Join(" + ", TitulosSalida.Take(3))
         : TituloPrincipal;
+}
+
+/// <summary>
+/// Qué idioma se escribe y con cuáles se compara. Son cosas distintas: puedes querer los
+/// ficheros nombrados en español aunque te lleguen titulados en inglés, y entonces el
+/// inglés hace falta para reconocerlos aunque no se escriba nunca.
+/// </summary>
+public sealed class IdiomasCatalogo
+{
+    /// <summary>Idioma del título que acaba en el nombre del fichero.</summary>
+    [JsonPropertyName("salida")] public string Salida { get; set; } = "es";
+
+    /// <summary>
+    /// Idiomas con los que se intenta emparejar. Vacío o ausente = todos los del catálogo,
+    /// que es lo razonable: comparar de más no hace daño (los que no comparten alfabeto se
+    /// descartan solos al normalizar) y comparar de menos deja ficheros sin identificar.
+    /// </summary>
+    [JsonPropertyName("comparar")] public List<string>? Comparar { get; set; }
+
+    public bool SeCompara(string idioma) =>
+        Comparar == null || Comparar.Count == 0 ||
+        Comparar.Contains(idioma, StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>Catálogo de referencia de una serie (esquema reindex/1.0).</summary>
@@ -67,6 +113,13 @@ public sealed class ReindexCatalog
     [JsonPropertyName("notas")] public string Notas { get; set; } = "";
     [JsonPropertyName("total")] public int Total { get; set; }
     [JsonPropertyName("episodios")] public List<CatalogEpisode> Episodios { get; set; } = new();
+
+    /// <summary>Qué idioma se escribe y con cuáles se compara. Ausente = español de salida
+    /// y comparación contra todos los idiomas que traiga el catálogo.</summary>
+    [JsonPropertyName("idiomas")] public IdiomasCatalogo? Idiomas { get; set; }
+
+    /// <summary>La configuración efectiva, con los valores por defecto ya aplicados.</summary>
+    [JsonIgnore] public IdiomasCatalogo IdiomasEfectivos => Idiomas ?? new IdiomasCatalogo();
 
     // ---- índices calculados ----
     [JsonIgnore] private Dictionary<int, CatalogEpisode> _porNum = new();
@@ -218,7 +271,7 @@ public sealed class ReindexCatalog
 
     private void Index()
     {
-        foreach (var e in Episodios) e.Precompute();
+        foreach (var e in Episodios) e.Precompute(IdiomasEfectivos);
 
         // NUNCA iterar 1..Total: la numeración salta valores (56/138/173 en Doraemon 2005)
         _porNum = new Dictionary<int, CatalogEpisode>();
