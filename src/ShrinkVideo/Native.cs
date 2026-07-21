@@ -68,6 +68,45 @@ internal static class WindowActivation
     }
 }
 
+/// <summary>
+/// Esquinas redondeadas al estilo de Windows 11.
+///
+/// La app dibuja su propia barra de título (<c>WindowStyle="None"</c>), y eso hace que
+/// Windows deje de aplicar el redondeo que sí le da a las ventanas normales: la ventana
+/// queda como un rectángulo recto que desentona con el resto del escritorio.
+///
+/// No se dibuja a mano: se le PIDE al gestor de ventanas con
+/// <c>DWMWA_WINDOW_CORNER_PREFERENCE</c>. Así el radio, el antialiasing y la sombra son
+/// exactamente los del sistema, cambian solos si Microsoft los cambia, y el redondeo
+/// desaparece al maximizar igual que en cualquier otra ventana.
+///
+/// Hacerlo a mano exigiría <c>AllowsTransparency</c>, que convierte la ventana en una
+/// capa: adiós a la aceleración por hardware y a buena parte del comportamiento nativo
+/// de arrastre y redimensión.
+/// </summary>
+internal static class WindowCorners
+{
+    // Disponible desde Windows 11 (build 22000). En Windows 10 la llamada falla y no pasa
+    // nada: las esquinas rectas son justo el aspecto correcto en Windows 10.
+    private const int DwmwaWindowCornerPreference = 33;
+    private const int DwmwcpRound = 2;   // radio grande, el de las ventanas principales
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    public static void Round(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero || !OperatingSystem.IsWindows()) return;
+        try
+        {
+            int preferencia = DwmwcpRound;
+            DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref preferencia, sizeof(int));
+        }
+        catch (DllNotFoundException) { }   // dwmapi no existe: sistema sin composición
+        catch (EntryPointNotFoundException) { }
+    }
+}
+
 /// <summary>Avisar al Explorador de que han cambiado las asociaciones de archivo.</summary>
 internal static class ShellNotify
 {

@@ -36,6 +36,17 @@ public partial class App : Application
 
         base.OnStartup(e);
 
+        // Esquinas redondeadas de Windows 11 para TODA ventana de la app. Se engancha una
+        // sola vez por clase en vez de repetirlo en cada ventana: así una ventana que se
+        // añada mañana lo hereda sola, en lugar de salir con esquinas rectas hasta que
+        // alguien se acuerde. SourceInitialized es el momento exacto en que ya existe el
+        // handle nativo y todavía no se ha pintado nada.
+        EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent,
+            new RoutedEventHandler((s, _) =>
+            {
+                if (s is Window w) WindowCorners.Round(new WindowInteropHelper(w).Handle);
+            }));
+
         var win = new MainWindow();
         MainWindow = win;
         win.Show();

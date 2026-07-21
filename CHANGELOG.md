@@ -49,6 +49,11 @@ es un acuerdo de buena voluntad: está verificado.
   códec eficiente se quedan sin marcar, con su motivo a la vista, en vez de descubrirlo al
   lanzar la tanda.
 - La lista vacía ahora explica qué hacer en vez de ser un hueco en negro.
+- **Las ventanas tienen las esquinas redondeadas de Windows 11.** Como la app dibuja su
+  propia barra de título, Windows dejaba de redondearlas y quedaban como un rectángulo
+  recto que desentonaba con el resto del escritorio. El redondeo lo pone ahora el propio
+  sistema, así que la sombra y el radio son los suyos y desaparecen al maximizar, igual
+  que en cualquier otra ventana. En Windows 10 se mantienen rectas, que es su aspecto.
 
 ### Corregido
 
