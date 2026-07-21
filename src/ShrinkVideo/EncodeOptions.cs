@@ -17,4 +17,5 @@ public sealed class EncodeOptions
     public int AudioBitrate { get; set; }   // 0 = copiar audio original
     public bool Force { get; set; }
     public bool DryRun { get; set; }
+    public RenameRule? NameRule { get; set; }   // renombrado del archivo de salida (estilo PowerRename)
 }

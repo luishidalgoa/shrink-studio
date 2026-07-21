@@ -76,6 +76,8 @@ public partial class MainWindow : Window
         miSelNone.Click += (_, _) => lst.UnselectAll();
         miSelInvert.Click += (_, _) => InvertSelection();
         miDelSel.Click += (_, _) => DeleteSelected();
+        miRename.Click += (_, _) => OpenRenameDialog();
+        btnRename.Click += (_, _) => OpenRenameDialog();
         miPrefs.Click += (_, _) => OpenPreferences();
         miCheckUpd.Click += async (_, _) => await CheckUpdateAsync(manual: true);
         miAbout.Click += (_, _) => ShowAbout();
@@ -125,6 +127,7 @@ public partial class MainWindow : Window
         Engine.MinFreeBytes = _settings.MinFreeMb * 1024L * 1024;
         Engine.AllowHardware = _settings.UseHardware;
         chkRec.IsChecked = _settings.Recurse;
+        UpdateRenameStatus();
     }
 
     private void OpenPreferences()
@@ -138,6 +141,42 @@ public partial class MainWindow : Window
             ApplySettings();
             lblProg.Text = "Preferencias guardadas.";
         }
+    }
+
+    // ---------- renombrado de la salida (estilo PowerRename) ----------
+    private void OpenRenameDialog()
+    {
+        string ext = Engine.OutputExtension(BuildOptions());
+        var rows = SelectedRows();
+        if (rows.Count == 0) rows = _rows.ToList();   // sin selección: previsualiza con toda la lista
+
+        var items = rows
+            .Select(r => (name: Path.GetFileNameWithoutExtension(r.Name) + ext, created: SafeCreated(r.Path)))
+            .ToList();
+
+        var dlg = new RenameWindow(_settings.Rename, items) { Owner = this };
+        if (dlg.ShowDialog() == true && dlg.Result != null)
+        {
+            _settings.Rename = dlg.Result;
+            SettingsStore.Save(_settings);
+            UpdateRenameStatus();
+            lblProg.Text = _settings.Rename.HasEffect
+                ? "Regla de renombrado activa."
+                : "Renombrado desactivado: la salida conserva el nombre original.";
+        }
+    }
+
+    private static DateTime SafeCreated(string path)
+    {
+        try { return File.GetCreationTime(path); } catch { return DateTime.Now; }
+    }
+
+    /// <summary>Refleja en el botón si hay una regla de renombrado activa (para que nunca sea silenciosa).</summary>
+    private void UpdateRenameStatus()
+    {
+        bool on = _settings.Rename.HasEffect;
+        lblRename.Text = on ? "Renombrar salida ✓" : "Renombrar salida";
+        lblRename.Foreground = on ? (Brush)FindResource("Accent300") : (Brush)FindResource("Text");
     }
 
     private void ShowAbout() => MessageBox.Show(this,
@@ -626,6 +665,7 @@ public partial class MainWindow : Window
             KeepLangs = CheckedLangs(pnlALang),
             Force = chkForce.IsChecked == true,
             DryRun = chkDry.IsChecked == true,
+            NameRule = _settings.Rename,
             VideoCodec = cboCodec.SelectedIndex switch { 1 => "h264", 2 => "av1", _ => "hevc" },
         };
         switch (cboFmt.SelectedIndex)

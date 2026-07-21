@@ -25,6 +25,9 @@ public sealed class Settings
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public AfterCompress AfterCompress { get; set; } = AfterCompress.Ask;
 
+    // --- Renombrado de la salida (estilo PowerRename) ---
+    public RenameRule Rename { get; set; } = new();
+
     // --- Rendimiento y disco ---
     public int MinFreeMb { get; set; } = 200;            // margen mínimo de disco antes de pausar
     public bool UseHardware { get; set; } = true;        // usar aceleración por hardware si existe

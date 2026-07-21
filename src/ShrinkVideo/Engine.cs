@@ -220,6 +220,11 @@ public sealed class Engine
     {
         "m4a" => ".m4a", "flac" => ".flac", "opus" => ".opus", _ => ".mp3",
     };
+
+    /// <summary>Extensión del archivo de salida según el formato elegido (la usa también la vista previa de renombrado).</summary>
+    public static string OutputExtension(EncodeOptions opt) => opt.AudioOnly ? AudioExt(opt.AudioFormat)
+        : opt.Container == "mp4" ? ".mp4"
+        : opt.Container == "webm" ? ".webm" : ".mkv";
     private static List<string> AudioOnlyArgs(EncodeOptions opt)
     {
         int br = opt.AudioBitrate > 0 ? opt.AudioBitrate : 192;
@@ -331,6 +336,8 @@ public sealed class Engine
         bool subsAll = opt.SubLangs == null || opt.SubLangs.Count == 0 || opt.SubLangs.Contains("all");
 
         int total = files.Count, n = 0;
+        int renamedCount = 0;                                              // contador de la regla de renombrado
+        var usedOutputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in files)
         {
             ct.ThrowIfCancellationRequested();
@@ -338,10 +345,22 @@ public sealed class Engine
             var fi = new FileInfo(f);
             string name = fi.Name;
             string outDir = opt.Output ?? Path.Combine(fi.DirectoryName!, "comprimido");
-            string ext = opt.AudioOnly ? AudioExt(opt.AudioFormat)
-                       : opt.Container == "mp4" ? ".mp4"
-                       : opt.Container == "webm" ? ".webm" : ".mkv";
-            string outPath = Path.Combine(outDir, Path.GetFileNameWithoutExtension(name) + ext);
+            string ext = OutputExtension(opt);
+
+            // nombre de salida, con la regla de renombrado (estilo PowerRename) si la hay
+            string outName = Path.GetFileNameWithoutExtension(name) + ext;
+            string? renamedTo = null;
+            if (opt.NameRule is { } rule && rule.HasEffect)
+            {
+                DateTime created;
+                try { created = fi.CreationTime; } catch { created = DateTime.Now; }
+                if (rule.Apply(outName, renamedCount, created) is { } nuevo)
+                {
+                    outName = renamedTo = nuevo;
+                    renamedCount++;
+                }
+            }
+            string outPath = UniqueOutput(Path.Combine(outDir, outName), usedOutputs);
 
             if (File.Exists(outPath) && !opt.Force) { rep.Log($"[{n}/{total}] {name} → ya hecho, salto"); continue; }
             if (StillDownloading(f)) { rep.Log($"[{n}/{total}] {name} → descargando aún, salto"); continue; }
@@ -374,6 +393,7 @@ public sealed class Engine
                 if (opt.DryRun) { rep.Log($"[{n}/{total}] {name} → solo audio → {opt.AudioFormat}"); continue; }
                 rep.Log($"[{n}/{total}] {name}");
                 rep.Log($"    extrayendo audio ({audio.Count} pista/s) → {opt.AudioFormat}");
+                if (renamedTo != null) rep.Log($"    renombrado → {Path.GetFileName(outPath)}");
                 rep.FileStart(n, total, name, durSec);
                 Directory.CreateDirectory(outDir);
                 string atmp = outPath + ".tmp" + ext;
@@ -449,6 +469,7 @@ public sealed class Engine
 
             rep.Log($"[{n}/{total}] {name}");
             rep.Log($"    {infoLine}");
+            if (renamedTo != null) rep.Log($"    renombrado → {Path.GetFileName(outPath)}");
             rep.FileStart(n, total, name, durSec);
 
             Directory.CreateDirectory(outDir);
@@ -506,6 +527,23 @@ public sealed class Engine
             }
         }
         return results;
+    }
+
+    /// <summary>
+    /// Evita que dos vídeos distintos acaben escribiendo en el mismo archivo dentro de
+    /// la misma tanda (posible al renombrar): al segundo se le añade " (2)", " (3)"…
+    /// </summary>
+    private static string UniqueOutput(string path, HashSet<string> used)
+    {
+        if (used.Add(path)) return path;
+        string dir = Path.GetDirectoryName(path) ?? "";
+        string bn = Path.GetFileNameWithoutExtension(path);
+        string ex = Path.GetExtension(path);
+        for (int i = 2; ; i++)
+        {
+            var cand = Path.Combine(dir, $"{bn} ({i}){ex}");
+            if (used.Add(cand)) return cand;
+        }
     }
 
     // ---------- pausa / reanudación del FFmpeg en curso ----------
