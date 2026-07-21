@@ -39,6 +39,17 @@ es un acuerdo de buena voluntad: está verificado.
   error— y solo entonces se aplica. Cada lote aplicado se puede deshacer entero, y las
   decisiones que tomas se recuerdan para no volver a preguntarte lo mismo. (KRO-REIDX)
 
+### Cambiado
+
+- **La columna «Estado» de la tabla ahora sirve para algo.** Antes ponía «listo» tras analizar
+  y no volvía a cambiar nunca. Ahora cuenta lo que pasa con cada vídeo: si ya está bien
+  comprimido y por qué se salta, cuándo está en cola, el avance mientras se comprime, y al
+  terminar cuánto se ha ahorrado y cuánto ocupa.
+- **Al analizar se marcan solos los vídeos que conviene comprimir.** Los que ya están en un
+  códec eficiente se quedan sin marcar, con su motivo a la vista, en vez de descubrirlo al
+  lanzar la tanda.
+- La lista vacía ahora explica qué hacer en vez de ser un hueco en negro.
+
 ## [0.5.0] - 2026-07-21
 
 ### Añadido

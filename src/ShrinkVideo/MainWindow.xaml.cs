@@ -46,6 +46,10 @@ public partial class MainWindow : Window
         _settings = SettingsStore.Load();
         ApplySettings();
 
+        // el estado vacío solo se ve cuando no hay nada en la lista
+        _rows.CollectionChanged += (_, _) =>
+            emptyState.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
         // barra de título propia
         btnMin.Click += (_, _) => WindowState = WindowState.Minimized;
         btnMax.Click += (_, _) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
@@ -426,7 +430,11 @@ public partial class MainWindow : Window
             row.Dur = $"{info.DurationSec / 3600:D1}:{info.DurationSec % 3600 / 60:D2}:{info.DurationSec % 60:D2}";
             row.Audio = string.Join("+", info.AudioLangs);
             row.Subs = string.Join("+", info.SubLangs);
-            row.Estado = "listo";
+            // El estado dice algo útil desde el análisis: si ya está bien comprimido, se
+            // avisa aquí y no se preselecciona, en vez de descubrirlo al lanzar la tanda.
+            int totalKbps = row.DurationSec > 0 ? (int)(row.Bytes * 8.0 / row.DurationSec / 1000.0) : 0;
+            row.YaComprimido = Engine.AlreadyCompressed(info.Codec, totalKbps);
+            row.Estado = row.YaComprimido ? $"Ya en {info.Codec.ToUpperInvariant()}" : "Pendiente";
             row.Width = info.Width; row.Height = info.Height; row.Fps = info.Fps;
             row.DurationSec = info.DurationSec;
             row.VideoBitrateKbps = info.VideoBitrateKbps; row.AudioBitrateKbps = info.AudioBitrateKbps;
@@ -435,7 +443,20 @@ public partial class MainWindow : Window
             foreach (var l in info.SubLangs) if (l != "?") EnsureLangChip(pnlSLang, l);
         }
         UpdateLangCombo();
-        lblProg.Text = $"{_rows.Count} vídeo(s) en la lista.";
+
+        // Preselección inteligente: se marcan solo los que conviene comprimir. Los que ya
+        // están en un códec eficiente se dejan fuera, que era justo lo que prometía el
+        // texto de la lista vacía y no cumplía nadie.
+        int utiles = _rows.Count(r => !r.YaComprimido);
+        if (utiles > 0 && utiles < _rows.Count)
+        {
+            lst.UnselectAll();
+            foreach (var r in _rows.Where(r => !r.YaComprimido)) lst.SelectedItems.Add(r);
+            lblProg.Text = $"{_rows.Count} vídeo(s) · {utiles} por comprimir · {_rows.Count - utiles} ya comprimidos (sin marcar).";
+        }
+        else lblProg.Text = utiles == 0 && _rows.Count > 0
+            ? $"{_rows.Count} vídeo(s): todos están ya bien comprimidos."
+            : $"{_rows.Count} vídeo(s) en la lista.";
     }
 
     /// <summary>Llena el combo de idioma principal con los idiomas de audio realmente detectados.</summary>
@@ -709,9 +730,12 @@ public partial class MainWindow : Window
             });
     }
 
-    private static string Human(long bytes) => bytes >= (1L << 30)
-        ? $"{bytes / (double)(1L << 30):n2} GB"
-        : $"{bytes / (double)(1L << 20):n0} MB";
+    private static string Human(long bytes) => bytes switch
+    {
+        >= (1L << 30) => $"{bytes / (double)(1L << 30):n2} GB",
+        >= (1L << 20) => $"{bytes / (double)(1L << 20):n0} MB",
+        _ => $"{bytes / 1024.0:n0} KB",   // por debajo de 1 MB, «0 MB» no dice nada
+    };
 
     private static string FmtTime(int sec) => $"{sec / 60}:{sec % 60:D2}";
 
@@ -912,7 +936,8 @@ public partial class MainWindow : Window
         ActualizarTextoPildora(0, sel.Count, 0);
         ActualizarPildoraFondo();
 
-        var reporter = new Reporter(this, deleteOriginals);
+        foreach (var r in selRows) r.Estado = "En cola";
+        var reporter = new Reporter(this, deleteOriginals, selRows);
         try
         {
             var results = await _engine.CompressAsync(sel, opt, reporter, _cts.Token);
@@ -1088,7 +1113,16 @@ public partial class MainWindow : Window
     {
         private readonly MainWindow _w;
         private readonly bool _del;
-        public Reporter(MainWindow w, bool deleteOriginals) { _w = w; _del = deleteOriginals; }
+        private readonly IReadOnlyList<VideoRow> _queue;   // mismo orden que las rutas del motor
+        private VideoRow? _current;
+        private int _lastPct = -1;
+
+        public Reporter(MainWindow w, bool deleteOriginals, IReadOnlyList<VideoRow> queue)
+        { _w = w; _del = deleteOriginals; _queue = queue; }
+
+        private VideoRow? RowOf(string path) =>
+            _w._rows.FirstOrDefault(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase));
+
         public void Log(string line) => _w.Dispatcher.BeginInvoke(() => _w.AppendLog(line));
         // El índice y el total se guardan para la píldora de la barra de título: cuando el
         // usuario se va a «Organizar» deja de ver la barra de progreso, y esa píldora es lo
@@ -1101,19 +1135,45 @@ public partial class MainWindow : Window
                 _idx = i; _total = t;
                 _w.lblProg.Text = $"[{i}/{t}] {name}";
                 _w.bar.Value = 0;
+                _lastPct = -1;
+                // el motor numera del 1 al total en el mismo orden en que se le pasó la cola
+                _current = i >= 1 && i <= _queue.Count ? _queue[i - 1] : null;
+                if (_current != null) _current.Estado = "Comprimiendo…";
                 _w.ActualizarTextoPildora(i, t, 0);
             });
-        public void FileProgress(double frac, string raw) =>
+
+        public void FileProgress(double frac, string raw)
+        {
+            int pct = (int)Math.Round(Math.Clamp(frac, 0, 1) * 100);
             _w.Dispatcher.BeginInvoke(() =>
             {
                 _w.bar.Value = frac;
+                // solo se reescribe la fila al cambiar de entero: si no, repinta sin parar
+                if (_current != null && pct != _lastPct) { _lastPct = pct; _current.Estado = $"Comprimiendo… {pct}%"; }
                 _w.ActualizarTextoPildora(_idx, _total, frac);
+            });
+        }
+
+        /// <summary>Un archivo que el motor se salta: la fila cuenta el motivo.</summary>
+        public void FileSkipped(string sourcePath, string reason) =>
+            _w.Dispatcher.BeginInvoke(() =>
+            {
+                if (RowOf(sourcePath) is { } row) row.Estado = reason;
             });
 
         // Borrado iteración a iteración: en cuanto un archivo se comprime OK, su original
         // se envía a la Papelera (en segundo plano, sin bloquear la codificación siguiente).
         public void FileDone(FileResult r)
         {
+            // el resultado se queda escrito en la fila: cuánto se ahorró, o que falló
+            _w.Dispatcher.BeginInvoke(() =>
+            {
+                if (RowOf(r.SourcePath) is { } row)
+                    row.Estado = r.Ok ? $"{r.Status} · {Human(r.OutBytes!.Value)}" : "Error";
+                if (_current != null && string.Equals(_current.Path, r.SourcePath, StringComparison.OrdinalIgnoreCase))
+                    _current = null;
+            });
+
             if (!Engine.ShouldRecycleSource(_del, r)) return;
             Task.Run(() =>
             {
