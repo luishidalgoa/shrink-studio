@@ -44,6 +44,11 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **Las casillas de aplicar no respondían al ratón y ya se pueden marcar arrastrando.** El
+  «volver a pinchar una fila la cierra» oía el clic antes que la casilla y se lo comía
+  cuando la fila estaba seleccionada: la casilla parecía muerta. Ahora el clic de la casilla
+  es de la casilla, y además puedes arrastrar por la columna para marcar o desmarcar varias
+  de una pasada — el arrastre contagia el valor del primer toque, sin alternar fila a fila.
 - **El nombre de la serie dentro del fichero ya no estropea la identificación por título.**
   «Doraemon (2005) S2009E175 - El planeta espejo» se comparaba con el prefijo incluido, el
   parecido caía por debajo del umbral y acababa ganando el número equivocado del propio
