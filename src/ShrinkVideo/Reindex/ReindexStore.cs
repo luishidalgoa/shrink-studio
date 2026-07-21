@@ -21,10 +21,27 @@ public sealed class CatalogoGuardado
     /// <summary>Solo el nombre del fichero de origen, para la tarjeta.</summary>
     public string Origen => OrigenRuta.Length == 0 ? "" : Path.GetFileName(OrigenRuta);
 
-    /// <summary>«desde entrada.json · 21/07/2026» o vacío si viene de antes de guardarse esto.</summary>
+    /// <summary>«desde entrada.json · 21/07/2026».</summary>
     public string Procedencia => Origen.Length == 0
-        ? "origen desconocido"
+        // Los importados antes de que esto existiera no tienen de dónde sacarlo. Decir solo
+        // «origen desconocido» deja al usuario igual que estaba: mejor decirle qué hacer.
+        ? "no consta de dónde se importó — vuelve a importarlo y quedará registrado"
         : $"desde {Origen}" + (Importado.Length > 0 ? $" · {Importado}" : "");
+
+    /// <summary>
+    /// Para el globo: la ruta de origen completa y, si no consta, al menos dónde está la copia
+    /// que la app usa de verdad. Siempre hay algo concreto que enseñar.
+    /// </summary>
+    public string ProcedenciaDetalle => OrigenRuta.Length > 0
+        ? $"Importado de:\n{OrigenRuta}"
+        : $"No consta el origen. La copia que usa la app está en:\n{Ruta}";
+
+    /// <summary>
+    /// Lo que accesibilidad lee de este catálogo. Sin esto, un lector de pantalla anuncia el
+    /// nombre del tipo: la plantilla del desplegable pinta bien el nombre, pero la capa de
+    /// accesibilidad no la mira y cae en ToString().
+    /// </summary>
+    public override string ToString() => Serie;
     public int Episodios { get; init; }
     public int Especiales { get; init; }
     public int ConVariosSegmentos { get; init; }
