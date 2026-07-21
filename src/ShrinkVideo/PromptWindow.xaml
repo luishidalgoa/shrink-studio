@@ -44,7 +44,7 @@
 
         <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
           <TextBlock Text="Serie" Style="{StaticResource OrgLabel}"/>
-          <TextBox x:Name="txtSerie" MinHeight="34"/>
+          <TextBox x:Name="txtSerie"/>
         </StackPanel>
 
         <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
@@ -55,7 +55,7 @@
 
         <StackPanel Grid.Row="1" Grid.Column="0">
           <TextBlock Text="Dirección del anexo" Style="{StaticResource OrgLabel}"/>
-          <TextBox x:Name="txtFuente" MinHeight="34"
+          <TextBox x:Name="txtFuente"
                    ToolTip="La página con la lista de episodios: Wikipedia, Fandom, la que uses"/>
         </StackPanel>
 
