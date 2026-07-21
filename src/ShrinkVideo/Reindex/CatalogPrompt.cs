@@ -18,19 +18,11 @@ namespace ShrinkVideo.Reindex;
 public static class CatalogPrompt
 {
     /// <summary>Idiomas que se ofrecen, con su etiqueta para la interfaz.</summary>
-    public static readonly (string Codigo, string Nombre)[] IdiomasConocidos =
-    {
-        ("es",  "Español (España)"),
-        ("lat", "Español (Hispanoamérica)"),
-        ("en",  "Inglés"),
-        ("jp",  "Japonés (original)"),
-        ("ca",  "Catalán"),
-        ("gl",  "Gallego"),
-        ("eu",  "Euskera"),
-    };
-
-    public static string Nombre(string codigo) =>
-        IdiomasConocidos.FirstOrDefault(i => i.Codigo == codigo).Nombre ?? codigo;
+    /// <summary>
+    /// La lista de idiomas vive en <see cref="IsoLanguages"/>, que es la norma ISO entera.
+    /// Aquí había siete a mano, y dos ni siquiera eran códigos de idioma.
+    /// </summary>
+    public static string Nombre(string codigo) => IsoLanguages.Nombre(codigo);
 
     /// <summary>
     /// Redacta el encargo. <paramref name="comparar"/> son los idiomas que el catálogo debe
@@ -45,9 +37,14 @@ public static class CatalogPrompt
 
         // El de salida SIEMPRE se incluye entre los comparables: sería absurdo escribir un
         // título que el motor no sabe reconocer.
-        var idiomas = new List<string> { salida };
+        // Se normalizan aquí para que el encargo pida siempre códigos ISO: si alguien trae un
+        // «jp» de los de antes, la IA no debe aprenderlo y perpetuarlo en el catálogo nuevo.
+        var idiomas = new List<string> { IsoLanguages.Normalizar(salida) };
         foreach (var c in comparar)
-            if (!idiomas.Contains(c, StringComparer.OrdinalIgnoreCase)) idiomas.Add(c);
+        {
+            var n = IsoLanguages.Normalizar(c);
+            if (n.Length > 0 && !idiomas.Contains(n, StringComparer.OrdinalIgnoreCase)) idiomas.Add(n);
+        }
 
         var listaIdiomas = string.Join(", ", idiomas.Select(c => $"`{c}` ({Nombre(c)})"));
         var jsonComparar = string.Join(", ", idiomas.Select(c => $"\"{c}\""));

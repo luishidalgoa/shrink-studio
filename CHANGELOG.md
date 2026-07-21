@@ -29,6 +29,26 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **El selector de idiomas es ahora la norma ISO entera, con buscador.** Antes eran siete
+  opciones fijas elegidas a ojo; si tu serie venía titulada en cualquier otro idioma, no
+  había forma de decirlo. Ahora se busca por nombre o por código, sin tildes y a medias
+  («japones», «ja», «catal»), los elegidos quedan a la vista como etiquetas y se quitan de
+  una en una.
+
+### Cambiado
+
+- **Dos códigos de idioma estaban mal y se han corregido a ISO**: el japonés era `jp` —que
+  es el código del *país*, no del idioma— y ahora es `ja`; el español de Hispanoamérica era
+  `lat` y ahora es `es-419`. **Tus catálogos existentes se siguen leyendo igual**: los
+  códigos viejos se traducen solos al abrirlos, así que no hay que regenerar nada. Lo que
+  cambia es que los catálogos nuevos ya salen con códigos correctos.
+- **«Idiomas para reconocer los ficheros» se llama ahora «Idiomas en los que vienen
+  titulados tus ficheros»**, y explica en el globo de ayuda para qué sirve exactamente y en
+  qué se diferencia del idioma del nombre final. El rótulo viejo se leía como si fuera el
+  idioma del programa.
+
 ### Corregido
 
 - **Organizar ya lee la serie entera, no solo el primer nivel de la carpeta.** Al apuntar a
