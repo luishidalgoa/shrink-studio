@@ -93,6 +93,7 @@ public partial class MainWindow : Window
             c.SelectionChanged += (_, _) => UpdateEstimate();
 
         btnPreview.Click += async (_, _) => await OnPreviewAsync();
+        btnMeasure.Click += async (_, _) => await OnMeasureAsync();
         _scrubTimer.Tick += async (_, _) => { _scrubTimer.Stop(); await ShowScrubFrameAsync(); };
         sldPreview.ValueChanged += (_, _) =>
         {
@@ -126,6 +127,7 @@ public partial class MainWindow : Window
     {
         Engine.MinFreeBytes = _settings.MinFreeMb * 1024L * 1024;
         Engine.AllowHardware = _settings.UseHardware;
+        Estimator.ComplexityFactor = Math.Clamp(_settings.ComplexityFactor, 0.15, 4.0);
         chkRec.IsChecked = _settings.Recurse;
         UpdateRenameStatus();
     }
@@ -576,6 +578,53 @@ public partial class MainWindow : Window
         : $"{bytes / (double)(1L << 20):n0} MB";
 
     private static string FmtTime(int sec) => $"{sec / 60}:{sec % 60:D2}";
+
+    // ---------- medición real del tamaño (muestreo) ----------
+    private async Task OnMeasureAsync()
+    {
+        if (lst.SelectedItem is not VideoRow r || !r.Probed)
+        {
+            MessageBox.Show(this, "Selecciona un vídeo analizado.", "Medir", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (_running) { MessageBox.Show(this, "Espera a que termine la compresión en curso.", "Medir", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+
+        var opt = BuildOptions();
+        if (opt.AudioOnly) { MessageBox.Show(this, "En modo «solo audio» el tamaño ya es exacto: no hace falta medir.", "Medir", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+
+        btnMeasure.IsEnabled = false;
+        progRow.Visibility = Visibility.Visible; bar.Value = 0;
+        lblProg.Text = "Midiendo con muestras reales…";
+        lblMeasure.Text = "Codificando 3 fragmentos con estos ajustes…";
+        var cts = new CancellationTokenSource();
+        try
+        {
+            int kbps = await _engine.MeasureVideoBitrateAsync(r.Path, opt, new PreviewReporter(this), cts.Token);
+            if (kbps <= 0)
+            {
+                lblMeasure.Text = "No se pudo medir este vídeo.";
+                lblProg.Text = "No se pudo medir.";
+                return;
+            }
+            // el contenido manda: deducimos su factor de complejidad y recalibramos
+            double factor = Estimator.FactorFromMeasurement(r, opt, kbps);
+            Estimator.ComplexityFactor = factor;
+            _settings.ComplexityFactor = factor;
+            SettingsStore.Save(_settings);
+            UpdateEstimate();
+            lblMeasure.Text = $"Medido: vídeo ≈ {kbps} kbps. Contenido {(factor < 0.85 ? "más fácil" : factor > 1.15 ? "más exigente" : "normal")} " +
+                              $"de lo típico (×{factor:0.00}); el resto de la lista ya usa esta calibración.";
+            lblProg.Text = "Medición aplicada a la estimación.";
+        }
+        catch (OperationCanceledException) { lblMeasure.Text = "Medición cancelada."; }
+        catch (Exception ex) { lblMeasure.Text = "Error al medir: " + ex.Message; }
+        finally
+        {
+            cts.Dispose();
+            btnMeasure.IsEnabled = true;
+            progRow.Visibility = Visibility.Collapsed;
+        }
+    }
 
     // ---------- previsualización de 10 s ----------
     private async Task OnPreviewAsync()

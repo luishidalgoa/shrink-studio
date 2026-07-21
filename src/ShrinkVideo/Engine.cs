@@ -530,6 +530,74 @@ public sealed class Engine
     }
 
     /// <summary>
+    /// Mide el bitrate de vídeo REAL codificando varias muestras cortas repartidas por el
+    /// vídeo con los ajustes elegidos. Es la única forma fiable de anticipar el tamaño:
+    /// CRF fija la calidad, no el tamaño, así que el peso depende del contenido y ninguna
+    /// fórmula lo adivina. Devuelve kbps (0 si no se pudo medir).
+    /// </summary>
+    public async Task<int> MeasureVideoBitrateAsync(string input, EncodeOptions opt, IEngineReporter rep,
+                                                    CancellationToken ct, int samples = 3, int secondsEach = 8)
+    {
+        var pr = await ProbeFullAsync(input);
+        var video = pr?.Streams.FirstOrDefault(s => s.CodecType == "video" && !CoverCodecs.Contains(s.CodecName));
+        if (pr == null || video == null) return 0;
+        double dur = double.TryParse(pr.Format?.Duration, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0;
+        if (dur < 4) return 0;
+
+        string vcodec = opt.Container == "webm" ? "vp9" : opt.VideoCodec;
+        var encoder = await SelectEncoderAsync(vcodec);
+        int quality = opt.Quality > 0 ? opt.Quality : (IsHardware(encoder) ? 27 : 23);
+        var encArgs = EncoderArgs(encoder, quality);
+
+        // repartimos las muestras por el 90% central (evita cabecera y créditos)
+        samples = Math.Max(1, samples);
+        double start0 = dur * 0.05, usable = dur * 0.90;
+        if (usable < (double)samples * secondsEach) secondsEach = Math.Max(2, (int)(usable / samples));
+
+        string dir = Path.Combine(Path.GetTempPath(), "shrinkvideo_measure");
+        Directory.CreateDirectory(dir);
+        long totalBytes = 0; double totalSecs = 0;
+        try
+        {
+            for (int i = 0; i < samples; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                double at = start0 + usable * (i + 0.5) / samples - secondsEach / 2.0;
+                at = Math.Clamp(at, 0, Math.Max(0, dur - secondsEach));
+                string tmp = Path.Combine(dir, $"m{i}_{Guid.NewGuid():N}.mkv");
+                var a = new List<string>
+                {
+                    "-hide_banner", "-loglevel", "error", "-y",
+                    "-ss", at.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+                    "-i", input,
+                    "-t", secondsEach.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    "-map", $"0:{video.Index}", "-an", "-sn",
+                };
+                if (opt.MaxHeight > 0 && (video.Height ?? 0) > opt.MaxHeight)
+                    a.AddRange(new[] { "-vf", $"scale=-2:{opt.MaxHeight}" });
+                a.AddRange(encArgs);
+                a.Add(tmp);
+
+                var (code, _) = await RunFfmpegAsync(a, 0, rep, ct);
+                if (code == 0 && File.Exists(tmp))
+                {
+                    totalBytes += new FileInfo(tmp).Length;
+                    totalSecs += secondsEach;
+                }
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                rep.FileProgress((i + 1.0) / samples, "");
+            }
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+
+        if (totalSecs <= 0 || totalBytes <= 0) return 0;
+        // Cada muestra empieza con un fotograma clave, así que salen algo "caras"
+        // respecto a una codificación continua: descontamos ese sesgo.
+        const double SampleKeyframeBias = 0.94;
+        return (int)Math.Round(totalBytes * 8.0 / totalSecs / 1000.0 * SampleKeyframeBias);
+    }
+
+    /// <summary>
     /// Evita que dos vídeos distintos acaben escribiendo en el mismo archivo dentro de
     /// la misma tanda (posible al renombrar): al segundo se le añade " (2)", " (3)"…
     /// </summary>
