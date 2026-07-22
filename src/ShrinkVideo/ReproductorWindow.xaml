@@ -84,6 +84,27 @@
                      TextAlignment="Right" FontFamily="{StaticResource FontMono}" FontSize="11"
                      Foreground="#D6D9E8" Text="0:00"/>
           <Slider x:Name="barra" Grid.Column="1" Style="{StaticResource BarraVideo}" VerticalAlignment="Center"/>
+
+          <!-- El globo de la previa vive en un lienzo de altura 0 sobre la barra, así que
+               puede salirse hacia arriba y taparse el vídeo sin empujar nada. -->
+          <Canvas x:Name="capaPrevia" Grid.Column="1" Height="0" VerticalAlignment="Top"
+                  IsHitTestVisible="False">
+            <Border x:Name="globoPrevia" Visibility="Collapsed" Background="#F00A0B14"
+                    CornerRadius="6" Padding="3" BorderBrush="{StaticResource Accent700}"
+                    BorderThickness="1">
+              <Grid>
+                <Image x:Name="imgPrevia" Width="192" Height="108" Stretch="UniformToFill"/>
+                <Border Background="#B0000000" CornerRadius="3" Padding="5,1"
+                        HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="5">
+                  <TextBlock x:Name="lblPrevia" FontFamily="{StaticResource FontMono}"
+                             FontSize="11" Foreground="White" Text="0:00"/>
+                </Border>
+                <TextBlock x:Name="lblPreviaCargando" Text="…" FontSize="16"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{StaticResource Neutral500}"/>
+              </Grid>
+            </Border>
+          </Canvas>
           <TextBlock x:Name="lblDur" Grid.Column="2" VerticalAlignment="Center" Margin="11,0,0,0" MinWidth="42"
                      FontFamily="{StaticResource FontMono}" FontSize="11"
                      Foreground="#B9BECF" Text="0:00"/>
