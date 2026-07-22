@@ -47,6 +47,10 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **Lo ya renombrado deja de contar como «corregido».** Tras aplicar, esas filas seguían
+  sumando en el chip de corregidos y saliendo al filtrar por él, como si quedara trabajo
+  pendiente que ya no existe. Ahora cuentan como limpias —están bien en el disco— y, si
+  tenías el filtro de corregidos puesto, salen de la vista solas.
 - **Simular tarda la mitad.** Sobre 546 ficheros: de ~50 s a ~28 s. El motor preguntaba al
   catálogo dos veces lo mismo — un recorrido completo comparando títulos para elegir el
   mejor episodio y otro idéntico para sacar las alternativas que se te ofrecen. Ahora es un

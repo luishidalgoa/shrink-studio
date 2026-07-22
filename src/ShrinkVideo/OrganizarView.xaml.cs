@@ -717,11 +717,13 @@ public partial class OrganizarView : UserControl
 
     private void ActualizarContadores()
     {
-        int limpios = _filas.Count(f => f.Res.Estado == ReindexEstado.Limpio);
-        int corregidos = _filas.Count(f => f.Res.Estado == ReindexEstado.Corregido);
-        int especiales = _filas.Count(f => f.Res.Estado == ReindexEstado.Especial);
-        int conflictos = _filas.Count(f => f.Res.Estado == ReindexEstado.Conflicto);
-        int errores = _filas.Count(f => f.Res.Estado == ReindexEstado.Error);
+        // EstadoVisible, no Res.Estado: lo ya aplicado cuenta como limpio — está bien en el
+        // disco y no queda nada que hacerle.
+        int limpios = _filas.Count(f => f.EstadoVisible == ReindexEstado.Limpio);
+        int corregidos = _filas.Count(f => f.EstadoVisible == ReindexEstado.Corregido);
+        int especiales = _filas.Count(f => f.EstadoVisible == ReindexEstado.Especial);
+        int conflictos = _filas.Count(f => f.EstadoVisible == ReindexEstado.Conflicto);
+        int errores = _filas.Count(f => f.EstadoVisible == ReindexEstado.Error);
 
         runLimpios.Text = $" {limpios} limpios";
         runCorregidos.Text = $" {corregidos} corregidos";
@@ -920,7 +922,7 @@ public partial class OrganizarView : UserControl
             if (o is not OrganizarRow f) return false;
             if (soloDudas && !f.EsDuda) return false;
             if (!PasaTexto(f)) return false;
-            return estados.Count == 0 || estados.Contains(f.Res.Estado);
+            return estados.Count == 0 || estados.Contains(f.EstadoVisible);
         };
 
         // Las bandas dependen de lo que quede visible, así que se rehacen tras cada filtro
@@ -1160,6 +1162,9 @@ public partial class OrganizarView : UserControl
         _ultimoLote = lote;
         RefrescarUltimoLote();
         ActualizarContadores();
+        // Y se rehace el filtro: lo aplicado ya cuenta como limpio, así que con el chip de
+        // «corregidos» puesto las filas hechas tienen que salir de la vista solas.
+        AplicarFiltro();
 
         var extra = companerosMovidos > 0
             ? $" (+{companerosMovidos} compañeros .nfo/.srt)" : "";
