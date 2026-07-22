@@ -29,6 +29,16 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Cambiado
+
+- **La cola es ahora una cola de verdad, no un filtro.** Estaba mal planteada: añadir pedía
+  escribir un motivo y verla era encender un filtro que escondía filas. Ahora funciona como
+  la cola de un reproductor de música: el botón derecho la añade **de un clic, sin preguntar
+  nada**, y el botón «Cola» de abajo a la derecha abre la lista con todo lo guardado. Desde
+  ahí pulsas uno y te lleva a él —quitando el filtro que lo estuviera tapando—, o lo sacas
+  con la ✕. El botón está siempre a la vista, también antes de simular, que es cuando abres
+  la app y quieres saber qué tenías pendiente.
+
 ### Corregido
 
 - **La app ya no se arrastra mientras exportas.** Dos causas, las dos medidas. La capa de

@@ -96,7 +96,7 @@ public partial class OrganizarView : UserControl
 
         cboSerie.SelectionChanged += (_, _) => ElegirCatalogo(cboSerie.SelectedItem as CatalogoGuardado);
 
-        foreach (var chip in new[] { chipLimpios, chipCorregidos, chipEspeciales, chipConflictos, chipErrores, chipDudas, chipRevision })
+        foreach (var chip in new[] { chipLimpios, chipCorregidos, chipEspeciales, chipConflictos, chipErrores, chipDudas })
         {
             chip.Checked += (_, _) => AplicarFiltro();
             chip.Unchecked += (_, _) => AplicarFiltro();
@@ -138,9 +138,7 @@ public partial class OrganizarView : UserControl
             miUbicacion.IsEnabled = miReproducir.IsEnabled;
             // El mismo sitio sirve para apartar y para desapartar: el rótulo dice cuál de
             // las dos toca ahora, así no hay que recordar el estado de la fila.
-            miRevisar.Header = r.Apartada
-                ? "Quitar de la cola de revisión"
-                : "Apartar para revisar luego…";
+            miRevisar.Header = r.Apartada ? "Quitar de la cola" : "Añadir a la cola";
         };
         miReproducir.Click += (_, _) => ReproducirFila(tabla.SelectedItem as OrganizarRow);
         miRecortar.Click += (_, _) =>
@@ -150,6 +148,8 @@ public partial class OrganizarView : UserControl
         };
         miUbicacion.Click += (_, _) => AbrirUbicacion(tabla.SelectedItem as OrganizarRow);
         miRevisar.Click += (_, _) => AlternarApartada(tabla.SelectedItem as OrganizarRow);
+        btnCola.Checked += (_, _) => PintarCola();
+        btnVaciarCola.Click += (_, _) => VaciarCola();
 
         tabla.PreviewKeyDown += OnTablaKeyDown;
         tabla.PreviewMouseLeftButtonDown += OnTablaClic;
@@ -630,11 +630,7 @@ public partial class OrganizarView : UserControl
                     LibraryScan.Etiqueta(LibraryScan.Grupo(raiz, r.Archivo.Path)));
                 // Lo que apartaste la última vez sigue apartado: es toda la razón de ser de
                 // la cola — no volver a buscarlo entre cientos al reabrir la app.
-                if (_revision.Tiene(fila.RutaActual))
-                {
-                    fila.Apartada = true;
-                    fila.NotaApartada = _revision.Nota(fila.RutaActual);
-                }
+                if (_revision.Tiene(fila.RutaActual)) fila.Apartada = true;
                 _filas.Add(fila);
             }
 
@@ -751,10 +747,7 @@ public partial class OrganizarView : UserControl
         runConflictos.Text = $" {conflictos} conflictos";
         runErrores.Text = $" {errores} errores";
 
-        int apartados = _filas.Count(f => f.Apartada);
-        runRevision.Text = $" {apartados} apartados";
-        chipRevision.IsEnabled = apartados > 0;
-        if (apartados == 0) chipRevision.IsChecked = false;
+        ActualizarBotonCola();
 
         chipEspeciales.IsEnabled = especiales > 0;
         chipConflictos.IsEnabled = conflictos > 0;
@@ -917,7 +910,6 @@ public partial class OrganizarView : UserControl
         if (vista == null) return;
 
         bool soloDudas = chipDudas.IsChecked == true;
-        bool soloApartados = chipRevision.IsChecked == true;
         var estados = new List<ReindexEstado>();
         if (chipLimpios.IsChecked == true) estados.Add(ReindexEstado.Limpio);
         if (chipCorregidos.IsChecked == true) estados.Add(ReindexEstado.Corregido);
@@ -940,14 +932,13 @@ public partial class OrganizarView : UserControl
                 || TitleMatch.Norm(f.Propuesta).Contains(q, StringComparison.Ordinal);
         }
 
-        if (estados.Count == 0 && !soloDudas && !soloApartados && q.Length == 0)
+        if (estados.Count == 0 && !soloDudas && q.Length == 0)
         { vista.Filter = null; RecalcularSeparadores(); return; }
 
         vista.Filter = o =>
         {
             if (o is not OrganizarRow f) return false;
             if (soloDudas && !f.EsDuda) return false;
-            if (soloApartados && !f.Apartada) return false;
             if (!PasaTexto(f)) return false;
             return estados.Count == 0 || estados.Contains(f.EstadoVisible);
         };
@@ -956,10 +947,20 @@ public partial class OrganizarView : UserControl
         RecalcularSeparadores();
     }
 
+    /// <summary>Una entrada de la cola, tal como se ve en el desplegable.</summary>
+    private sealed class EnLaCola
+    {
+        public required string Ruta { get; init; }
+        public required string Nombre { get; init; }
+        /// <summary>Dónde está o en qué estado: para reconocerlo sin abrir nada.</summary>
+        public required string Detalle { get; init; }
+    }
+
     /// <summary>
-    /// Aparta la fila para revisarla otro día, o la saca de la cola si ya estaba.
-    /// La nota es opcional pero es lo que hace útil volver: dentro de una semana «raro» no
-    /// dice nada y «el título no cuadra con el .nfo» sí.
+    /// Mete la fila en la cola, o la saca si ya estaba. UN CLIC: no pregunta nada.
+    ///
+    /// Es una cola de las de «esto lo miro luego», no un formulario. Cada pregunta de más
+    /// entre el impulso y el resultado es una razón para no usarla.
     /// </summary>
     private void AlternarApartada(OrganizarRow? f)
     {
@@ -969,39 +970,147 @@ public partial class OrganizarView : UserControl
         {
             _revision.Sacar(f.RutaActual);
             f.Apartada = false;
-            f.NotaApartada = "";
-            Escribir($"«{f.Original}» sale de la cola de revisión.");
+            Escribir($"«{f.Original}» sale de la cola.");
         }
         else
         {
-            var nota = DialogWindow.Escribir(Window.GetWindow(this), "Apartar para revisar luego",
-                $"{f.Original}{Environment.NewLine}{Environment.NewLine}" +
-                "¿Qué le pasa? (opcional — te lo encontrarás escrito al volver)",
-                pista: "Por ejemplo: «no sé si es el 173 o el 174»",
-                aceptar: "Apartar");
-            if (nota == null) return;   // cancelar no aparta nada
-
-            _revision.Meter(f.RutaActual, nota);
+            _revision.Meter(f.RutaActual);
             f.Apartada = true;
-            f.NotaApartada = nota;
-            Escribir($"«{f.Original}» apartado para revisar." + (nota.Length > 0 ? $" ({nota})" : ""));
+            Escribir($"«{f.Original}» a la cola.");
         }
 
         GuardarRevision();
-        ActualizarContadores();
-        AplicarFiltro();
+        ActualizarBotonCola();
+        if (btnCola.IsChecked == true) PintarCola();
     }
 
     private void GuardarRevision()
     {
         try { ReindexStore.GuardarRevision(_revision); }
-        catch (Exception ex) { Escribir($"No se pudo guardar la cola de revisión: {ex.Message}"); }
+        catch (Exception ex) { Escribir($"No se pudo guardar la cola: {ex.Message}"); }
+    }
+
+    /// <summary>El botón lleva el número puesto: sin abrirlo ya sabes si hay algo dentro.</summary>
+    private void ActualizarBotonCola()
+    {
+        int n = _revision.Cuantos;
+        runCola.Text = n == 0 ? " Cola" : $" Cola · {n}";
+        btnCola.IsEnabled = true;   // se puede abrir vacía: dice cómo se llena
+    }
+
+    /// <summary>
+    /// Rehace la lista del desplegable. Se hace al ABRIRLO y no en cada cambio: es el único
+    /// momento en que se mira, y así una cola larga no cuesta nada mientras trabajas.
+    /// </summary>
+    private void PintarCola()
+    {
+        var enTabla = _filas.ToDictionary(f => f.RutaActual, f => f, StringComparer.OrdinalIgnoreCase);
+
+        var items = _revision.Todos.Select(a =>
+        {
+            enTabla.TryGetValue(a.Ruta, out var fila);
+            return new EnLaCola
+            {
+                Ruta = a.Ruta,
+                Nombre = Path.GetFileName(a.Ruta),
+                // Si el fichero no está en esta simulación se dice, en vez de dejar que
+                // pulses y no pase nada: casi siempre es que estás en otra carpeta.
+                Detalle = fila != null
+                    ? $"{fila.EstadoTexto} · {Path.GetFileName(Path.GetDirectoryName(a.Ruta)) ?? ""}"
+                    : (File.Exists(a.Ruta)
+                        ? "no está en esta simulación — pulsa para abrir su carpeta"
+                        : "ya no está en el disco"),
+            };
+        }).ToList();
+
+        listaCola.ItemsSource = items;
+        bool hay = items.Count > 0;
+        visorCola.Visibility = hay ? Visibility.Visible : Visibility.Collapsed;
+        lblColaVacia.Visibility = hay ? Visibility.Collapsed : Visibility.Visible;
+        btnVaciarCola.IsEnabled = hay;
+    }
+
+    /// <summary>
+    /// Saltar al fichero: se selecciona y se trae a la vista. Si no está en esta simulación
+    /// —otra carpeta, otra serie— se abre su carpeta, que es lo único útil que queda.
+    /// </summary>
+    private void OnIrAFicheroDeLaCola(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not string ruta) return;
+
+        var fila = _filas.FirstOrDefault(f =>
+            string.Equals(f.RutaActual, ruta, StringComparison.OrdinalIgnoreCase));
+
+        if (fila == null)
+        {
+            btnCola.IsChecked = false;
+            if (File.Exists(ruta)) AbrirCarpetaDe(ruta);
+            else Aviso($"«{Path.GetFileName(ruta)}» ya no está en el disco. Sácalo de la cola.");
+            return;
+        }
+
+        btnCola.IsChecked = false;
+        // Un filtro puesto puede estar escondiendo justo esta fila, y entonces «ir» no
+        // llevaría a ninguna parte. Se quita: has pedido ver ESTE fichero.
+        if (CollectionViewSource.GetDefaultView(_filas)?.Filter != null &&
+            !CollectionViewSource.GetDefaultView(_filas)!.Filter(fila))
+            LimpiarFiltros();
+
+        tabla.SelectedItem = fila;
+        tabla.ScrollIntoView(fila);
+        tabla.Focus();
+    }
+
+    private void OnQuitarDeLaCola(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not string ruta) return;
+        _revision.Sacar(ruta);
+        foreach (var f in _filas)
+            if (string.Equals(f.RutaActual, ruta, StringComparison.OrdinalIgnoreCase))
+                f.Apartada = false;
+        GuardarRevision();
+        ActualizarBotonCola();
+        PintarCola();
+    }
+
+    private void VaciarCola()
+    {
+        if (_revision.Cuantos == 0) return;
+        if (!DialogWindow.Confirmar(Window.GetWindow(this), "Vaciar la cola",
+                $"Se van a quitar los {_revision.Cuantos} ficheros de la cola." +
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                "No se toca ningún fichero: solo se olvida la lista."))
+            return;
+
+        foreach (var a in _revision.Todos.ToList()) _revision.Sacar(a.Ruta);
+        foreach (var f in _filas) f.Apartada = false;
+        GuardarRevision();
+        ActualizarBotonCola();
+        PintarCola();
+        Escribir("Cola vaciada.");
+    }
+
+    /// <summary>Mete rutas en la cola y abre el desplegable. Solo para las pruebas.</summary>
+    internal void ColaDePrueba(params string[] rutas)
+    {
+        foreach (var r in rutas) _revision.Meter(r);
+        ActualizarBotonCola();
+        btnCola.IsChecked = true;
+        PintarCola();
+    }
+
+    private void LimpiarFiltros()
+    {
+        chipLimpios.IsChecked = chipCorregidos.IsChecked = chipEspeciales.IsChecked =
+            chipConflictos.IsChecked = chipErrores.IsChecked = chipDudas.IsChecked = false;
+        txtBuscarTabla.Text = "";
+        AplicarFiltro();
     }
 
     private void FiltrarSolo(ReindexEstado estado)
     {
         chipLimpios.IsChecked = chipCorregidos.IsChecked = chipConflictos.IsChecked = chipErrores.IsChecked = false;
-        chipDudas.IsChecked = chipRevision.IsChecked = false;
+        chipDudas.IsChecked = false;
         chipEspeciales.IsChecked = estado == ReindexEstado.Especial;
         AplicarFiltro();
     }
@@ -1323,8 +1432,11 @@ public partial class OrganizarView : UserControl
     /// </summary>
     private void AbrirUbicacion(OrganizarRow? fila)
     {
-        if (fila == null) return;
-        var ruta = fila.RutaActual;
+        if (fila != null) AbrirCarpetaDe(fila.RutaActual);
+    }
+
+    private void AbrirCarpetaDe(string ruta)
+    {
         try
         {
             if (File.Exists(ruta))
