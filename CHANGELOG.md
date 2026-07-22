@@ -31,6 +31,21 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Doble clic sobre una fila abre el vídeo en tu reproductor.** Ante la duda de qué
+  capítulo es, verlo gana a cualquier metadato. Funciona también después de aplicar: abre el
+  fichero con su nombre nuevo.
+- **Los ficheros numerados por temporada («S2018E01», el 1.º de 2018) ya se entienden.**
+  Cuando el número del fichero contradice a su carpeta —el episodio 1 del catálogo es de
+  2005, no de 2018— o directamente no existe en la numeración global, se relee como «el N.º
+  de esa temporada». Sale en ámbar (sin título ni fecha que lo confirme, se revisa) con la
+  lectura global de alternativa y la etiqueta «nº de temporada» en la columna del porqué.
+- **Los ficheros compañeros (.nfo, .srt…) se renombran junto al vídeo.** Un .nfo con el
+  nombre viejo queda huérfano y tu reproductor de biblioteca deja de asociarlo. Van al mismo
+  diario del lote, así que «Deshacer» también los devuelve. Un subtítulo «.es.srt» conserva
+  su sufijo completo.
+
+### Añadido
+
 - **Buscador dentro de la tabla de Organizar (Ctrl+K).** Filtra en vivo por el nombre
   original o por la propuesta, con la misma normalización del identificador: «animo» sin
   tilde encuentra «¡Ánimo, antepasado!». Esc lo limpia. Se combina con los filtros de

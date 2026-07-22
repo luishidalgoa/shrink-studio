@@ -40,6 +40,8 @@ public enum ReindexHint
     IndiceFechaAprox,
     /// <summary>Título por debajo del umbral: sugerencia, nunca automático.</summary>
     TituloDebil,
+    /// <summary>El número releído como «el N.º de la temporada de la carpeta».</summary>
+    OrdinalTemporada,
 }
 
 /// <summary>Un episodio propuesto, con por qué se propone.</summary>
@@ -275,6 +277,58 @@ public static class ReindexEngine
                 // P3 nunca es verde por sí sola: la fecha no encaja del todo
                 if (res.Confianza == ReindexConfianza.Alta) res.Confianza = ReindexConfianza.Revisar;
                 return res;
+            }
+        }
+
+        // ── P3b: el número contradice a su propia carpeta → releerlo como ordinal de temporada ──
+        //
+        // El caso real: «S2018E01.mkv» sin título ni fecha, numerado del 1 en adelante DENTRO
+        // de cada temporada. Leído como número global, el 1 es el estreno de 2005: contradice
+        // a la carpeta y encima se pelea con el fichero del episodio 1 de verdad. Si la
+        // temporada del fichero y la del episodio global no cuadran, el N se relee como «el
+        // N.º de la temporada de la carpeta» — y la lectura global queda de alternativa.
+        // Dos puertas de entrada: el global existe pero es de OTRA temporada (contradice a
+        // la carpeta), o el global directamente NO existe (la numeración de la serie salta).
+        // En ambas, el N.º de la carpeta es la única lectura coherente que queda.
+        bool globalContradice = epPorIndice is { Temporada: not null } &&
+                                f.Temporada.HasValue && epPorIndice.Temporada != f.Temporada;
+        bool globalNoExiste = epPorIndice == null && f.Indice.HasValue;
+        if (!f.Fecha.HasValue && f.Temporada.HasValue && f.Indice.HasValue &&
+            (globalContradice || globalNoExiste))
+        {
+            var deTemporada = cat.Episodios
+                .Where(e => e.Temporada == f.Temporada && !e.Especial)
+                .OrderBy(e => e.Num)
+                .ToList();
+
+            if (f.Indice!.Value >= 1 && f.Indice.Value <= deTemporada.Count)
+            {
+                var ordinal = deTemporada[f.Indice.Value - 1];
+                r.Episodio = ordinal;
+                r.Score = 0.9;
+                r.Hint = ReindexHint.OrdinalTemporada;
+                r.Confianza = ReindexConfianza.Revisar;   // sin título ni fecha que lo confirme
+                r.Estado = ReindexEstado.Corregido;
+                r.Motivo = epPorIndice != null
+                    ? $"El {f.Indice}.º de la temporada {f.Temporada} — el episodio {f.Indice} " +
+                      $"del catálogo es de {epPorIndice.Temporada} y no cuadra con la carpeta"
+                    : $"El {f.Indice}.º de la temporada {f.Temporada} — el episodio {f.Indice} " +
+                      "no existe en la numeración global";
+                r.Alternativas = epPorIndice == null
+                    ? Array.Empty<ReindexCandidato>()
+                    : new[]
+                    {
+                        new ReindexCandidato
+                        {
+                            Episodio = epPorIndice, Score = 0.5, Hint = ReindexHint.IndiceFechaAprox,
+                            Evidencia = new[]
+                            {
+                                $"＋ el fichero dice literalmente {f.Indice}",
+                                $"－ pero ese episodio es de {epPorIndice.Temporada} y la carpeta dice {f.Temporada}",
+                            },
+                        },
+                    };
+                return r;
             }
         }
 

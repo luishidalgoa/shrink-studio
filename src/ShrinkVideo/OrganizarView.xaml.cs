@@ -689,6 +689,24 @@ public partial class OrganizarView : UserControl
     /// </summary>
     private void OnTablaClic(object sender, MouseButtonEventArgs e)
     {
+        // Doble clic = ver el video en el reproductor del sistema: ante la duda de que
+        // capitulo es, mirarlo gana a cualquier metadato. Va antes que el cierre de fila
+        // para que el segundo clic no la recoja.
+        if (e.ClickCount == 2 &&
+            Ascender<CheckBox>(e.OriginalSource as DependencyObject) == null &&
+            Ascender<DataGridRow>(e.OriginalSource as DependencyObject)?.Item is OrganizarRow filaVideo)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(filaVideo.RutaActual) { UseShellExecute = true });
+                Escribir($"Abriendo «{Path.GetFileName(filaVideo.RutaActual)}» en el reproductor.");
+            }
+            catch (Exception ex) { Aviso($"No se pudo abrir el vídeo: {ex.Message}"); }
+            e.Handled = true;
+            return;
+        }
+
         // Un clic que nace en una casilla es PARA la casilla. Este manejador oye el clic
         // antes que ella (los Preview van de fuera adentro), y sin esta salida se lo comía
         // cuando la fila estaba seleccionada: la casilla parecía muerta con el ratón — y la
@@ -965,6 +983,7 @@ public partial class OrganizarView : UserControl
         // haber tocado el disco.
         var ocupados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var planeados = new List<(OrganizarRow fila, string destino)>();
+        var companeros = new List<(string de, string a)>();
         foreach (var f in listos)
         {
             var carpeta = Path.GetDirectoryName(f.Res.Archivo.Path)!;
@@ -978,6 +997,22 @@ public partial class OrganizarView : UserControl
             ocupados.Add(destino);
             planeados.Add((f, destino));
             lote.Movimientos.Add(new MovimientoJournal { De = f.Res.Archivo.Path, A = destino });
+
+            // Sus compañeros (.nfo, .srt…) viajan con él: un .nfo con el nombre viejo queda
+            // huérfano y el reproductor de biblioteca deja de asociarlo. Van al MISMO diario,
+            // así que «Deshacer» también los devuelve.
+            try
+            {
+                var vecinos = Directory.EnumerateFiles(carpeta);
+                foreach (var (de, a) in SidecarPlanner.Planear(f.Res.Archivo.Path, destino, vecinos))
+                {
+                    if (ocupados.Contains(a) || File.Exists(a)) continue;
+                    ocupados.Add(a);
+                    companeros.Add((de, a));
+                    lote.Movimientos.Add(new MovimientoJournal { De = de, A = a });
+                }
+            }
+            catch { /* una carpeta ilegible no impide renombrar el vídeo */ }
         }
 
         if (planeados.Count == 0) { Aviso("No quedó nada que renombrar."); return; }
@@ -992,6 +1027,7 @@ public partial class OrganizarView : UserControl
         btnAplicar.IsEnabled = btnSimular.IsEnabled = false;
         lblEstadoOrg.Text = $"Renombrando {planeados.Count} ficheros…";
 
+        var companerosMovidos = 0;
         var resultados = await Task.Run(() =>
         {
             var lista = new List<(OrganizarRow fila, string? error)>();
@@ -1000,6 +1036,8 @@ public partial class OrganizarView : UserControl
                 try { File.Move(fila.Res.Archivo.Path, destino); lista.Add((fila, null)); }
                 catch (Exception ex) { lista.Add((fila, ex.Message)); }
             }
+            foreach (var (de, a) in companeros)
+                try { File.Move(de, a); companerosMovidos++; } catch { /* se cuenta abajo */ }
             return lista;
         });
 
@@ -1015,9 +1053,11 @@ public partial class OrganizarView : UserControl
         RefrescarUltimoLote();
         ActualizarContadores();
 
+        var extra = companerosMovidos > 0
+            ? $" (+{companerosMovidos} compañeros .nfo/.srt)" : "";
         lblBannerAplicado.Text = fallos == 0
-            ? $"{hechos} ficheros renombrados."
-            : $"{hechos} ficheros renombrados · {fallos} no se pudieron.";
+            ? $"{hechos} ficheros renombrados{extra}."
+            : $"{hechos} ficheros renombrados{extra} · {fallos} no se pudieron.";
         bannerAplicado.Visibility = Visibility.Visible;
         Escribir(lblBannerAplicado.Text);
     }

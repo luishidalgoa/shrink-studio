@@ -81,6 +81,14 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     /// <summary>Nombre final que se escribirá, o null si esta fila no se toca.</summary>
     public string? NombreNuevo { get; private set; }
 
+    /// <summary>
+    /// Dónde está el fichero AHORA: tras aplicar, el de disco ya es el nombre nuevo y abrir
+    /// la ruta vieja fallaría.
+    /// </summary>
+    public string RutaActual => Aplicado && NombreNuevo != null
+        ? System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Res.Archivo.Path) ?? "", NombreNuevo)
+        : Res.Archivo.Path;
+
     private bool _aplicado;
     /// <summary>Ya renombrado en disco: la fila pasa a «Hecho ✓».</summary>
     public bool Aplicado
@@ -273,6 +281,7 @@ public sealed class OrganizarRow : INotifyPropertyChanged
             {
                 ReindexHint.Override => "decisión tuya",
                 ReindexHint.IndiceFecha => "nº + fecha exacta",
+                ReindexHint.OrdinalTemporada => "nº de temporada",
                 ReindexHint.Titulo => Res.Archivo.Segmentos.Count > 1
                     ? $"{Res.Archivo.Segmentos.Count} segmentos · títulos"
                     : "título",
