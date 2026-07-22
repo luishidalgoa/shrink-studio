@@ -76,12 +76,15 @@ public static partial class SignalExtractor
     [GeneratedRegex(@"\[\s*(\d{1,4})\s*([a-z])?\s*\]", RegexOptions.IgnoreCase)]
     private static partial Regex RxIndiceCorchetes();
 
-    // «S03E12» / «s03e12»
-    [GeneratedRegex(@"\bS(\d{1,4})E(\d{1,4})\b", RegexOptions.IgnoreCase)]
+    // «S03E12» / «s03e12», y «S2017E487b»: la letra pegada al número es la historia suelta.
+    // Es el formato que ESCRIBE la propia app al marcar «esto es solo la historia b», así
+    // que tiene que saber releerlo: si no, cada pasada deshace la decisión de la anterior.
+    // La letra va sola («b», no «best»): el \b de después lo garantiza.
+    [GeneratedRegex(@"\bS(\d{1,4})E(\d{1,4})([a-z])?\b", RegexOptions.IgnoreCase)]
     private static partial Regex RxSxxExx();
 
-    // «E72» suelto
-    [GeneratedRegex(@"\bE(\d{1,4})\b", RegexOptions.IgnoreCase)]
+    // «E72» suelto, con su letra opcional igual que arriba
+    [GeneratedRegex(@"\bE(\d{1,4})([a-z])?\b", RegexOptions.IgnoreCase)]
     private static partial Regex RxEpisodioE();
 
     // «72 Título» — número al principio seguido de separador
@@ -156,6 +159,7 @@ public static partial class SignalExtractor
         if (mSE.Success)
         {
             indice = int.Parse(mSE.Groups[2].Value);
+            if (mSE.Groups[3].Success) subSegmento = mSE.Groups[3].Value.ToLowerInvariant();
             resto = TrasElMarcador(resto, mSE.Index, mSE.Length);
         }
         else
@@ -173,6 +177,7 @@ public static partial class SignalExtractor
                 if (mE.Success)
                 {
                     indice = int.Parse(mE.Groups[1].Value);
+                    if (mE.Groups[2].Success) subSegmento = mE.Groups[2].Value.ToLowerInvariant();
                     resto = TrasElMarcador(resto, mE.Index, mE.Length);
                 }
                 else

@@ -67,7 +67,12 @@ public partial class RecortesView : UserControl
     private string? _destino;      // null = junto al vídeo original
     private bool _exportando;
     private string? _tempMiniaturas;
-    private readonly List<Image> _miniaturas = new();
+    // Fotogramas ya sacados, por segundo redondeado al hueco. Es la unica cache que hay y
+    // se vacia entera al cambiar de video o al salir de la pagina.
+    private readonly Dictionary<int, BitmapImage> _previas = new();
+    private readonly DispatcherTimer _esperaPrevia;
+    private int _previaPedida = -1;
+    private bool _sacandoPrevia;
 
     /// <summary>Se avisa al anfitrión para que lo escriba en el registro compartido.</summary>
     public event Action<string>? Log;
@@ -145,7 +150,16 @@ public partial class RecortesView : UserControl
         };
         _reloj.Start();
 
-        SizeChanged += (_, _) => { PintarRegla(); PintarTira(); };
+        // Rebote: arrastrando se disparan decenas de posiciones por segundo y sacar un
+        // fotograma cuesta ~200 ms. Se pide el ultimo, no todos.
+        _esperaPrevia = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(90) };
+        _esperaPrevia.Tick += async (_, _) => { _esperaPrevia.Stop(); await SacarPreviaAsync(); };
+
+        barra.MouseMove += AlPasarPorLaBarra;
+        barra.MouseEnter += (_, _) => { if (_fuente != null) popPrevia.IsOpen = true; };
+        barra.MouseLeave += (_, _) => popPrevia.IsOpen = false;
+
+        SizeChanged += (_, _) => PintarRegla();
         // Al salir de la página no se deja nada en memoria ni en disco temporal.
         Unloaded += (_, _) => LiberarMiniaturas();
     }
@@ -173,6 +187,7 @@ public partial class RecortesView : UserControl
         lblVideoDet.Text = "Analizando…";
         lblSinVideo.Visibility = Visibility.Collapsed;
         _tramos.Clear();
+        LiberarMiniaturas();      // los fotogramas del vídeo anterior no valen para este
 
         video.Source = new Uri(ruta);
         video.Play();
@@ -201,8 +216,6 @@ public partial class RecortesView : UserControl
         lblDuracionTotal.Text = TramoFila.Reloj(_duracion);
         MostrarDestino();
 
-        await GenerarMiniaturasAsync(ruta);
-
         Ocupado(false);
         btnCortar.IsEnabled = true;
         RefrescarEstimacion();
@@ -227,78 +240,97 @@ public partial class RecortesView : UserControl
         foreach (var b in new[] { btnPlay, btnAtras, btnAdelante }) b.IsEnabled = !si;
     }
 
+    /// <summary>Cada cuántos segundos se guarda un fotograma. Más fino sería más lento.</summary>
+    private const int HuecoPrevia = 5;
+
     /// <summary>
-    /// La tira de fotogramas del fondo de la línea de tiempo. Cada imagen se carga ENTERA en
-    /// memoria y su fichero temporal se borra al momento (BitmapCacheOption.OnLoad con el
-    /// flujo ya cerrado): así no queda ni un jpg suelto ni el fichero bloqueado. Al cargar
-    /// otro vídeo, o al soltar este, se sueltan también los mapas de bits.
+    /// El globo sigue al cursor por encima de la barra y enseña el fotograma de ese punto.
+    /// La posición se saca del ratón y no del valor del control: así funciona igual pasando
+    /// por encima que arrastrando, y no obliga a mover el vídeo para mirar.
     /// </summary>
-    private async Task GenerarMiniaturasAsync(string ruta)
+    private void AlPasarPorLaBarra(object remitente, MouseEventArgs e)
     {
-        LiberarMiniaturas();
-        if (_duracion <= 0) return;
+        if (_fuente == null || _duracion <= 0) { popPrevia.IsOpen = false; return; }
 
-        const int cuantas = 12;
-        _tempMiniaturas = Path.Combine(Path.GetTempPath(), "shrinkstudio-tira-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_tempMiniaturas);
+        double x = Math.Clamp(e.GetPosition(barra).X, 0, barra.ActualWidth);
+        double seg = x / Math.Max(1, barra.ActualWidth) * _duracion;
 
-        barCarga.IsIndeterminate = false;
-        lblCarga.Text = "Sacando fotogramas para la línea de tiempo…";
+        popPrevia.IsOpen = true;
+        popPrevia.HorizontalOffset = x - 100;      // centrado sobre el cursor (192/2 + borde)
+        popPrevia.VerticalOffset = -132;           // encima de la barra
+        lblPrevia.Text = TramoFila.Reloj(seg);
 
-        for (int i = 0; i < cuantas; i++)
+        int hueco = (int)(seg / HuecoPrevia) * HuecoPrevia;
+        if (_previas.TryGetValue(hueco, out var ya))
         {
-            int seg = (int)(_duracion * (i + 0.5) / cuantas);
-            var jpg = Path.Combine(_tempMiniaturas, $"{i:00}.jpg");
-            lblCargaDet.Text = $"{i + 1} de {cuantas}";
-            barCarga.Value = (i + 1) / (double)cuantas;
-
-            if (!await Engine.MakeThumbnailAsync(ruta, jpg, seg)) continue;
-            try
-            {
-                var bmp = new BitmapImage();
-                bmp.BeginInit();
-                bmp.CacheOption = BitmapCacheOption.OnLoad;   // se lee entera y se suelta el fichero
-                bmp.DecodePixelWidth = 160;                   // no hace falta más para 44 px de alto
-                bmp.UriSource = new Uri(jpg);
-                bmp.EndInit();
-                bmp.Freeze();
-                _miniaturas.Add(new Image { Source = bmp, Stretch = Stretch.UniformToFill });
-            }
-            catch { /* un fotograma que no sale no rompe la tira */ }
-            finally { try { File.Delete(jpg); } catch { } }
+            imgPrevia.Source = ya;
+            lblPreviaCargando.Visibility = Visibility.Collapsed;
+            return;
         }
-
-        try { Directory.Delete(_tempMiniaturas, true); } catch { }
-        _tempMiniaturas = null;
-        PintarTira();
+        _previaPedida = hueco;
+        lblPreviaCargando.Visibility = imgPrevia.Source == null ? Visibility.Visible : Visibility.Collapsed;
+        _esperaPrevia.Stop();
+        _esperaPrevia.Start();
     }
 
-    /// <summary>Suelta las imágenes y borra lo que quedara en disco. Nada se acumula.</summary>
+    /// <summary>
+    /// Saca el fotograma pedido. De uno en uno: encadenar ffmpeg por cada píxel del arrastre
+    /// solo consigue una cola que llega tarde. El jpg se carga ENTERO en memoria y se borra
+    /// al momento, así que en disco no queda nada.
+    /// </summary>
+    private async Task SacarPreviaAsync()
+    {
+        if (_sacandoPrevia || _fuente == null) return;
+        int hueco = _previaPedida;
+        if (hueco < 0 || _previas.ContainsKey(hueco)) return;
+
+        _sacandoPrevia = true;
+        try
+        {
+            _tempMiniaturas ??= Path.Combine(Path.GetTempPath(),
+                "shrinkstudio-previa-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_tempMiniaturas);
+            var jpg = Path.Combine(_tempMiniaturas, $"{hueco}.jpg");
+
+            if (await Engine.MakeThumbnailAsync(_fuente.Path, jpg, hueco))
+            {
+                try
+                {
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;   // se lee entera; el fichero queda libre
+                    bmp.DecodePixelWidth = 240;
+                    bmp.UriSource = new Uri(jpg);
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    _previas[hueco] = bmp;
+                    if (_previaPedida == hueco)
+                    {
+                        imgPrevia.Source = bmp;
+                        lblPreviaCargando.Visibility = Visibility.Collapsed;
+                    }
+                }
+                catch { /* un fotograma que no sale no rompe nada */ }
+                finally { try { File.Delete(jpg); } catch { } }
+            }
+        }
+        finally { _sacandoPrevia = false; }
+
+        // Mientras se sacaba ese, el cursor ya estará en otro sitio: se atiende el último.
+        if (_previaPedida != hueco && !_previas.ContainsKey(_previaPedida)) _esperaPrevia.Start();
+    }
+
+    /// <summary>Suelta los fotogramas y borra lo que quedara en disco. Nada se acumula.</summary>
     private void LiberarMiniaturas()
     {
-        tira.Children.Clear();
-        foreach (var i in _miniaturas) i.Source = null;
-        _miniaturas.Clear();
+        popPrevia.IsOpen = false;
+        imgPrevia.Source = null;
+        _previas.Clear();
+        _previaPedida = -1;
         if (_tempMiniaturas != null)
         {
             try { Directory.Delete(_tempMiniaturas, true); } catch { }
             _tempMiniaturas = null;
-        }
-    }
-
-    private void PintarTira()
-    {
-        tira.Children.Clear();
-        if (_miniaturas.Count == 0 || tira.ActualWidth <= 0) return;
-        double ancho = tira.ActualWidth / _miniaturas.Count;
-        for (int i = 0; i < _miniaturas.Count; i++)
-        {
-            var img = _miniaturas[i];
-            img.Width = ancho + 0.5;      // medio píxel de solape: si no, se ven costuras
-            img.Height = tira.ActualHeight;
-            Canvas.SetLeft(img, i * ancho);
-            Canvas.SetTop(img, 0);
-            tira.Children.Add(img);
         }
     }
 
