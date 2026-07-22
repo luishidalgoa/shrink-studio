@@ -18,9 +18,6 @@ namespace ShrinkVideo;
 /// </summary>
 public partial class ReproductorWindow : Window
 {
-    /// <summary>Marca de OneDrive «Archivos a petición»: leerlo dispara la descarga.</summary>
-    private const int RecallOnDataAccess = 0x400000;
-
     private readonly string _ruta;
     private readonly DispatcherTimer _reloj;
     private readonly DispatcherTimer _apagon;   // esconde los controles tras un rato quieto
@@ -262,13 +259,10 @@ public partial class ReproductorWindow : Window
     /// </summary>
     private void RevisarNube()
     {
-        try
         {
-            var attrs = File.GetAttributes(_ruta);
-            bool enNube = attrs.HasFlag(FileAttributes.Offline) || ((int)attrs & RecallOnDataAccess) != 0;
-            Chip(enNube ? "En la nube · OneDrive lo está descargando, puede ir a tirones" : null);
+            Chip(Reindex.Nube.EsMarcador(_ruta)
+                ? "En la nube · OneDrive lo está descargando, puede ir a tirones" : null);
         }
-        catch { Chip(null); }
     }
 
     private void Chip(string? texto)

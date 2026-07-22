@@ -29,6 +29,15 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Identificar una carpeta ya no descarga vídeos de la nube.** Para los ficheros que
+  quedaban en duda sin `.nfo`, la app abría el vídeo con ffprobe a leer su título — y con
+  «Archivos a petición» de OneDrive abrir un fichero lo descarga **entero**: medido, 277 MB
+  en 18 segundos por vídeo. En una biblioteca con 467 ficheros así son 90 GB de tarifa y de
+  disco sin haberlo pedido. Ahora se reconoce el marcador y no se abre; el resumen dice
+  cuántos se han dejado sin mirar por eso. Los `.nfo`, que pesan nada, se siguen leyendo.
+
 ## [0.12.0] - 2026-07-22
 
 ### Añadido
