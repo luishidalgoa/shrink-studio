@@ -45,6 +45,11 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **La app ya sabe releer los ficheros que ella misma marcó como una sola historia.** Al
+  decidir «esto es solo la historia b», escribe la letra pegada al número («S2017E487b»)
+  — pero no sabía volver a leerla: el fichero se quedaba sin número ni segmento, se
+  reidentificaba solo por el título, casaba con el episodio entero y proponía deshacer tu
+  decisión. Cada pasada deshacía la anterior.
 - **Renombrar y volver a simular ya no puede cambiar de episodio.** Si el título de un
   episodio del catálogo llevaba un número entre corchetes —los hay: «Cuido de mamá
   (LA)[30]»— ese número acababa dentro del nombre propuesto, y al releerlo ganaba al
