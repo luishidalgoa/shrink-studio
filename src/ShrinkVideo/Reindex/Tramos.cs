@@ -53,6 +53,26 @@ public static class Tramos
     }
 
     /// <summary>
+    /// Cómo se le pide a ffmpeg un tramo. El salto va ANTES del «-i»: así busca por índice
+    /// en vez de decodificar desde el principio, que en un vídeo largo es la diferencia
+    /// entre empezar al instante o tras un buen rato. La duración va después, con «-t»,
+    /// que siempre se mide sobre la salida y no depende de dónde se puso el salto.
+    ///
+    /// Los números salen SIEMPRE con punto decimal: en una máquina en español «10,5» se
+    /// escribiría con coma y ffmpeg leería otra cosa. Es un fallo que no daría la cara en
+    /// una máquina en inglés.
+    /// </summary>
+    public static (string[] Antes, string[] Despues) ArgsFfmpeg(double? desde, double? duracion)
+    {
+        static string N(double v) =>
+            v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+        var antes = desde is > 0 ? new[] { "-ss", N(desde.Value) } : Array.Empty<string>();
+        var despues = duracion is > 0 ? new[] { "-t", N(duracion.Value) } : Array.Empty<string>();
+        return (antes, despues);
+    }
+
+    /// <summary>
     /// Nombres por defecto. Si el nombre del fichero trae tantas historias como tramos hay,
     /// cada tramo se queda con la suya — que es exactamente el caso de partir un capítulo
     /// doble. Si no cuadra no se inventa nada: se numera.
