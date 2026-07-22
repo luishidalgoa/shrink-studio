@@ -31,6 +31,11 @@ public static class Program
         PrefijoDeSerie();
         BibliotecaPorTemporadas();
         CatalogosReales();
+        SepararHistorias();
+        PeleaPorElMismoEpisodio();
+        PartirEnTramos();
+        ArgsDelTramo();
+        NombresDeLosTramos();
         MarcadorDeNube();
         TituloDelNfo();
         SegmentoRecordado();
@@ -1016,6 +1021,172 @@ public static class Program
             "si el vídeo no cambia de nombre, no hay nada que mover");
     }
 
+    // ─────────────── Otras formas de separar las historias ───────────────
+
+    /// <summary>
+    /// Cada web reparte las dos historias de un capítulo a su manera: «A ┃ B», «A + B» o
+    /// «A - B», y muchas dejan pegada la etiqueta de la fuente («[Boing HD]»). Si no se
+    /// reconocen, el título entero se compara contra uno solo del catálogo y sale un 58 %
+    /// — por debajo del umbral, o sea trabajo manual para algo que era evidente.
+    /// </summary>
+    private static void SepararHistorias()
+    {
+        Seccion("Otras formas de separar las historias");
+
+        var conMas = SignalExtractor.Extract(F("Doraemon (2005) - S2017E485 - El elixir duplicador + Gimnastiescuela a la fuerza.mkv"));
+        Eq(true, conMas.TituloNombre?.EndsWith("El elixir duplicador + Gimnastiescuela a la fuerza") ?? false,
+            "el título entero se conserva");
+        Eq(2, conMas.Segmentos.Count, "«+» separa dos historias");
+        Eq("El elixir duplicador", conMas.Segmentos[0], "primera historia");
+        Eq("Gimnastiescuela a la fuerza", conMas.Segmentos[1], "segunda historia");
+
+        var conGuion = SignalExtractor.Extract(F("1311 El Brazalete - Escapada A Una Isla Desierta [Boing HD].mkv"));
+        Eq(2, conGuion.Segmentos.Count, "« - » también separa");
+        Eq("El Brazalete", conGuion.Segmentos[0], "sin arrastrar el guion");
+        Eq(false, conGuion.TituloNombre?.Contains("Boing") ?? false, "la etiqueta de la fuente se cae");
+        Eq(false, conGuion.Segmentos[1].Contains("["), "y no se cuela en la última historia");
+
+        // Un guion SIN espacios alrededor es parte del título, no un separador
+        var guionPegado = SignalExtractor.Extract(F("Doraemon (2005) - S2005E12 - El súper-guante.mkv"));
+        Eq("El súper-guante", guionPegado.TituloNombre, "«súper-guante» no se parte");
+        Eq(0, guionPegado.Segmentos.Count, "y no inventa segmentos");
+    }
+
+    // ─────────────── Cuando dos ficheros reclaman el mismo episodio ───────────────
+
+    /// <summary>
+    /// Que dos ficheros apunten al mismo episodio no siempre es una pelea. Si uno lo clava
+    /// por título y el otro solo lo rozaba, marcar a los DOS para revisión manual convierte
+    /// un caso obvio en trabajo. Solo se baja al ganador cuando el rival era comparable.
+    /// </summary>
+    private static void PeleaPorElMismoEpisodio()
+    {
+        Seccion("Dos ficheros, un episodio");
+
+        var cat = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0",
+          "serie": "Doraemon (2005)",
+          "episodios": [
+            { "num": 100, "titulos": { "es": ["El pistolero Nobita"] } },
+            { "num": 200, "titulos": { "es": ["La cuerda encantada"] } }
+          ]
+        }
+        """);
+
+        // Uno lo clava por título; el otro solo lleva el número y ningún título que ayude.
+        var claro = ReindexEngine.Resolve(new[]
+        {
+            SignalExtractor.Extract(F("Doraemon (2005) - S2005E100 - El pistolero Nobita.mkv")),
+            SignalExtractor.Extract(F("Doraemon (2005) S2005E100.mkv")),
+        }, cat);
+        var porTitulo = claro.First(r => r.Archivo.NombreArchivo.Contains("pistolero"));
+        Eq(100, porTitulo.Episodio?.Num, "el que trae el título se queda el episodio");
+        Eq(ReindexConfianza.Alta, porTitulo.Confianza,
+            "y NO se le baja la confianza: el rival no era rival");
+
+        // Aquí sí hay pelea: los dos traen el mismo título, uno de los dos sobra.
+        var pelea = ReindexEngine.Resolve(new[]
+        {
+            SignalExtractor.Extract(F("Doraemon (2005) - S2005E100 - El pistolero Nobita.mkv")),
+            SignalExtractor.Extract(F("Doraemon (2005) - S2005E100 - El pistolero Nobita (copia).mkv")),
+        }, cat);
+        Eq(1, pelea.Count(r => r.Confianza == ReindexConfianza.Alta ? false : true) >= 1 ? 1 : 0,
+            "con dos títulos idénticos alguien tiene que mirarlo");
+    }
+
+    // ─────────────── Recortes: partir un vídeo en tramos ───────────────
+
+    /// <summary>
+    /// El modelo es UNO: una lista de tramos. Se arranca con el vídeo entero y cada corte
+    /// parte en dos el tramo donde cae. Así «divídelo en dos episodios» y «quítale este
+    /// trozo» son la misma herramienta, sin dos modos que mantener.
+    /// </summary>
+    private static void PartirEnTramos()
+    {
+        Seccion("Recortes · partir en tramos");
+
+        var entero = Tramos.Entero(600);
+        Eq(1, entero.Count, "se arranca con un tramo: el vídeo entero");
+        Eq(0.0, entero[0].Inicio, "empieza en cero");
+        Eq(600.0, entero[0].Fin, "y acaba en la duración");
+
+        var dos = Tramos.Partir(entero, 250);
+        Eq(2, dos.Count, "un corte deja dos tramos");
+        Eq(250.0, dos[0].Fin, "el primero acaba en el corte");
+        Eq(250.0, dos[1].Inicio, "y el segundo empieza ahí mismo, sin hueco");
+        Eq(600.0, dos[1].Fin, "el segundo llega hasta el final");
+
+        var tres = Tramos.Partir(dos, 400);
+        Eq(3, tres.Count, "cortar en el segundo tramo lo parte a él");
+        EqLista(new[] { 0.0, 250.0, 400.0 }, tres.Select(t => t.Inicio), "los inicios encadenan");
+
+        // Cortes que no valen: en los bordes o fuera. Sin esto saldría un tramo de duración
+        // cero, que ffmpeg acepta y produce un fichero vacío.
+        Eq(2, Tramos.Partir(dos, 250).Count, "cortar justo en una junta no hace nada");
+        Eq(2, Tramos.Partir(dos, 0).Count, "cortar en el inicio no hace nada");
+        Eq(2, Tramos.Partir(dos, 600).Count, "cortar en el final no hace nada");
+        Eq(2, Tramos.Partir(dos, 999).Count, "cortar fuera del vídeo no hace nada");
+
+        // Quitar un trozo = borrar su tramo. Los demás NO se recolocan: cada uno guarda su
+        // sitio en el vídeo original, que es de donde se va a extraer.
+        var sinElMedio = Tramos.Quitar(tres, 1);
+        Eq(2, sinElMedio.Count, "quitar un tramo lo descarta");
+        EqLista(new[] { 0.0, 400.0 }, sinElMedio.Select(t => t.Inicio),
+            "los que quedan conservan su posición en el original");
+    }
+
+    /// <summary>
+    /// Un fichero con dos historias suele decirlo en el nombre. Si los tramos coinciden con
+    /// las historias, se nombran solos: es justo el caso de partir un capítulo doble.
+    /// </summary>
+    private static void NombresDeLosTramos()
+    {
+        Seccion("Recortes · nombres sugeridos");
+
+        var dos = Tramos.Nombrar("1287 El diligente amuleto multiusos ┃ Los regalos de la manivela del tiempo", 2);
+        Eq("1287 El diligente amuleto multiusos", dos[0], "la primera historia da nombre al primer tramo");
+        Eq("Los regalos de la manivela del tiempo", dos[1], "y la segunda al segundo");
+
+        EqLista(new[] { "A", "B" }, Tramos.Nombrar("A + B", 2), "el separador «+» también vale");
+        EqLista(new[] { "A", "B" }, Tramos.Nombrar("A | B", 2), "y la barra vertical");
+
+        // Si no cuadran, no se inventa: numerar es honesto, repartir mal no.
+        EqLista(new[] { "capitulo - 1", "capitulo - 2", "capitulo - 3" }, Tramos.Nombrar("capitulo", 3),
+            "sin historias en el nombre, se numera");
+        EqLista(new[] { "A ┃ B - 1", "A ┃ B - 2", "A ┃ B - 3" }, Tramos.Nombrar("A ┃ B", 3),
+            "dos historias y tres tramos: no cuadra, se numera");
+        EqLista(new[] { "A ┃ B" }, Tramos.Nombrar("A ┃ B", 1),
+            "un solo tramo conserva el nombre entero, sin sufijo");
+    }
+
+    /// <summary>
+    /// Cómo se le dice a ffmpeg «solo este tramo». El «-ss» va ANTES del «-i» porque así
+    /// salta por índice en vez de decodificar desde el principio: en un vídeo de 20 minutos
+    /// es la diferencia entre empezar al instante o tras un rato.
+    /// </summary>
+    private static void ArgsDelTramo()
+    {
+        Seccion("Recortes · argumentos del tramo");
+
+        var (antes, despues) = Tramos.ArgsFfmpeg(null, null);
+        Eq(0, antes.Length + despues.Length, "sin tramo no se añade nada (el vídeo entero)");
+
+        var (a1, d1) = Tramos.ArgsFfmpeg(90, 600);
+        EqLista(new[] { "-ss", "90" }, a1, "el salto va antes del fichero de entrada");
+        EqLista(new[] { "-t", "600" }, d1, "y la duración después");
+
+        // El punto decimal SIEMPRE con punto: en configuración española «10,5» se escribiría
+        // con coma y ffmpeg lo leería como otra cosa. Es un fallo que no daría la cara en
+        // una máquina en inglés.
+        var (a2, d2) = Tramos.ArgsFfmpeg(10.5, 30.25);
+        EqLista(new[] { "-ss", "10.5" }, a2, "decimal con punto, no con coma");
+        EqLista(new[] { "-t", "30.25" }, d2, "también en la duración");
+
+        var (a3, _) = Tramos.ArgsFfmpeg(0, 100);
+        Eq(0, a3.Length, "empezar en cero no necesita salto");
+    }
+
     // ─────────────── Ficheros que están solo en la nube ───────────────
 
     /// <summary>
@@ -1363,6 +1534,24 @@ public static class Program
     {
         if (condicion) { _ok++; Console.WriteLine($"  ✓ {descripcion}"); }
         else { _fallos++; Console.WriteLine($"  ✗ {descripcion}"); }
+    }
+
+    /// <summary>
+    /// Igualdad de secuencias. Hace falta aparte porque el comparador por defecto compara
+    /// los arrays por REFERENCIA, y ahí todo assert sobre una lista fallaría siempre.
+    /// </summary>
+    private static void EqLista<T>(IEnumerable<T> esperado, IEnumerable<T> real, string descripcion)
+    {
+        var a = esperado.ToList();
+        var b = real.ToList();
+        if (a.SequenceEqual(b)) { _ok++; Console.WriteLine($"  ✓ {descripcion}"); }
+        else
+        {
+            _fallos++;
+            Console.WriteLine($"  ✗ {descripcion}");
+            Console.WriteLine($"      esperado: [{string.Join(" · ", a)}]");
+            Console.WriteLine($"      real:     [{string.Join(" · ", b)}]");
+        }
     }
 
     private static void Eq<T>(T esperado, T real, string descripcion)

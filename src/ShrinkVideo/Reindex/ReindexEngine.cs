@@ -495,10 +495,18 @@ public static class ReindexEngine
         {
             if (grupo.Count() < 2) continue;
 
-            var ganador = grupo.OrderByDescending(r => r.Confianza == ReindexConfianza.Alta)
-                               .ThenByDescending(r => r.Score)
-                               .ThenBy(r => r.Archivo.NombreArchivo, StringComparer.OrdinalIgnoreCase)
-                               .First();
+            var ordenados = grupo.OrderByDescending(r => r.Confianza == ReindexConfianza.Alta)
+                                 .ThenByDescending(r => r.Score)
+                                 .ThenBy(r => r.Archivo.NombreArchivo, StringComparer.OrdinalIgnoreCase)
+                                 .ToList();
+            var ganador = ordenados[0];
+
+            // ¿Era pelea de verdad? Solo si el rival llegaba con la misma solvencia. Que un
+            // fichero identificado por su título al 100 % coincida con otro que solo traía
+            // un número dudoso no es una ambigüedad: es un número dudoso. Marcarlos a los
+            // dos convertía casos obvios en trabajo manual — que es justo lo que sobra.
+            // Se mira ANTES de tocar a los perdedores, que en el bucle pierden su confianza.
+            bool peleaDeVerdad = ordenados[1].Confianza == ReindexConfianza.Alta;
 
             // Qué dice el catálogo que ES ese número. Sin esto el mensaje nombraba el
             // episodio en disputa pero no su título, y no había manera de juzgar quién de
@@ -517,7 +525,7 @@ public static class ReindexEngine
             }
 
             // El ganador tampoco se aplica a ciegas: hubo pelea, que se vea.
-            if (ganador.Confianza == ReindexConfianza.Alta)
+            if (peleaDeVerdad && ganador.Confianza == ReindexConfianza.Alta)
             {
                 ganador.Confianza = ReindexConfianza.Revisar;
                 ganador.Motivo += $" · otro fichero reclamaba este mismo episodio";

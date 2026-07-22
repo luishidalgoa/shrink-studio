@@ -92,8 +92,14 @@ public static partial class SignalExtractor
     [GeneratedRegex(@"^(?:season|temporada|t|s)?\s*_?-?\s*(\d{1,4})\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex RxCarpetaTemporada();
 
-    /// <summary>Separadores de multi-segmento del nombre.</summary>
-    private static readonly char[] SeparadoresSegmento = { '┃', '|' };
+    /// <summary>
+    /// Separadores de multi-segmento del nombre. Cada web reparte las dos historias de un
+    /// capítulo a su manera: «A ┃ B», «A | B», «A + B» o «A - B».
+    ///
+    /// El guion EXIGE espacios a los lados a propósito: sin ellos, «El súper-guante» se
+    /// partiría en dos historias inventadas.
+    /// </summary>
+    private static readonly Regex RxSeparadorHistorias = new(@"\s*[┃|+]\s*|\s+[-–—]\s+");
 
     /// <summary>
     /// Extrae las señales de un nombre de fichero. No toca el disco: <paramref name="tituloMeta"/>
@@ -153,7 +159,7 @@ public static partial class SignalExtractor
             if (mSE.Success)
             {
                 indice = int.Parse(mSE.Groups[2].Value);
-                resto = resto.Remove(mSE.Index, mSE.Length);
+                resto = TrasElMarcador(resto, mSE.Index, mSE.Length);
             }
             else
             {
@@ -161,7 +167,7 @@ public static partial class SignalExtractor
                 if (mE.Success)
                 {
                     indice = int.Parse(mE.Groups[1].Value);
-                    resto = resto.Remove(mE.Index, mE.Length);
+                    resto = TrasElMarcador(resto, mE.Index, mE.Length);
                 }
                 else
                 {
@@ -180,7 +186,7 @@ public static partial class SignalExtractor
 
         // 5. lo que queda es el título; los trozos si venía multi-segmento
         var titulo = LimpiarTitulo(resto);
-        var segmentos = titulo.Split(SeparadoresSegmento, StringSplitOptions.RemoveEmptyEntries)
+        var segmentos = RxSeparadorHistorias.Split(titulo)
                               .Select(LimpiarTitulo)
                               .Where(s => s.Length > 0)
                               .ToList();
@@ -225,8 +231,26 @@ public static partial class SignalExtractor
     }
 
     /// <summary>Quita separadores sobrantes de los bordes y espacios repetidos.</summary>
+    /// <summary>
+    /// El título es lo que va DESPUÉS del marcador de episodio: delante está el nombre de
+    /// la serie («Doraemon (2005) - S17E485 - Título»). Quitando solo el marcador quedaba
+    /// «Doraemon (2005) - - Título», y ese guion suelto se confundía con el que separa las
+    /// dos historias de un capítulo.
+    ///
+    /// Si detrás no hay nada (el marcador iba al final: «Título S01E02»), se conserva lo de
+    /// delante — que entonces sí era el título.
+    /// </summary>
+    private static string TrasElMarcador(string resto, int indice, int largo)
+    {
+        var despues = LimpiarTitulo(resto[(indice + largo)..]);
+        return despues.Length > 0 ? despues : resto.Remove(indice, largo);
+    }
+
     private static string LimpiarTitulo(string s)
     {
+        // Las etiquetas de la fuente («[Boing HD]», «[1080p]») no son parte del título y
+        // hundían el parecido: comparadas contra el catálogo restaban puntos por nada.
+        s = Regex.Replace(s, @"\[[^\]]*\]", " ");
         s = s.Trim().Trim('-', '–', '_', '.', ' ', '\t');
         return Regex.Replace(s, @"\s{2,}", " ").Trim();
     }

@@ -29,6 +29,19 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Cambiado
+
+- **Muchas menos decisiones a mano: de 1 a 17 renombrados automáticos sobre la misma
+  biblioteca, y de 40 a 17 pendientes.** Tres cosas que obligaban a mirar y no lo merecían:
+  las etiquetas de la fuente pegadas al nombre («[Boing HD]») restaban parecido; los
+  separadores de historias «A + B» y «A - B» no se reconocían —solo «┃» y «|»—, así que el
+  título entero se comparaba contra medio episodio y salía un 58 %; y el nombre de la serie
+  se quedaba delante del título («Doraemon (2005) - - El elixir…»), donde su guion se
+  confundía con el que separa historias.
+- **Que dos ficheros apunten al mismo episodio ya no manda a los dos a revisión.** Solo se
+  pide mirarlo cuando el rival llegaba con la misma solvencia. Que uno lo clave por título
+  y el otro solo trajera un número dudoso no es una ambigüedad: es un número dudoso.
+
 ## [0.13.0] - 2026-07-22
 
 ### Añadido
