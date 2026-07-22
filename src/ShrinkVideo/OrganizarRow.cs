@@ -80,28 +80,17 @@ public sealed class OrganizarRow : INotifyPropertyChanged
 
     private bool _apartada;
     /// <summary>
-    /// Apartada para revisar otro día. No cambia lo que la app propone: solo la señala para
-    /// poder volver a ella sin buscarla entre cientos. Sobrevive al cierre de la app.
+    /// Está en la cola. No cambia lo que la app propone: solo la señala, para poder volver
+    /// a ella desde la cola sin buscarla entre cientos. Sobrevive al cierre de la app.
     /// </summary>
     public bool Apartada
     {
         get => _apartada;
-        set { _apartada = value; N(); N(nameof(VerApartada)); N(nameof(ApartadaTooltip)); }
-    }
-
-    private string _notaApartada = "";
-    public string NotaApartada
-    {
-        get => _notaApartada;
-        set { _notaApartada = value; N(); N(nameof(ApartadaTooltip)); }
+        set { _apartada = value; N(); N(nameof(VerApartada)); }
     }
 
     public System.Windows.Visibility VerApartada =>
         Apartada ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-
-    public string ApartadaTooltip => NotaApartada.Length > 0
-        ? $"Apartado para revisar: {NotaApartada}"
-        : "Apartado para revisar luego";
 
     /// <summary>Nombre final que se escribirá, o null si esta fila no se toca.</summary>
     public string? NombreNuevo { get; private set; }
