@@ -31,6 +31,15 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **Renombrar y volver a simular ya no puede cambiar de episodio.** Si el título de un
+  episodio del catálogo llevaba un número entre corchetes —los hay: «Cuido de mamá
+  (LA)[30]»— ese número acababa dentro del nombre propuesto, y al releerlo ganaba al
+  «S2005E536» que la propia app había escrito: la segunda pasada creía que era el episodio
+  30. Ahora el marcador explícito manda sobre cualquier número suelto. Los ficheros que
+  usan la convención de corchetes («[499b] Título») siguen funcionando igual.
+
+### Corregido
+
 - **Recortes no exportaba nada.** El motor comprueba que nadie tenga el fichero cogido
   (para no pillar una descarga a medias) y quien lo tenia cogido era el propio reproductor
   de la pagina: se saltaba el video y no salia ni un fichero. Ahora se suelta antes de
