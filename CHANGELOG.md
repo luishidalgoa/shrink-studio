@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-07-23
+
 ### Cambiado
 
 - **La cola es ahora una cola de verdad, no un filtro.** Estaba mal planteada: añadir pedía

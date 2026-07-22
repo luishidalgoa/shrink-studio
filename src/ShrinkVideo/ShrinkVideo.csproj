@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
     <!-- Versión: única fuente para el ejecutable, el instalador y el auto-update -->
-    <Version>0.14.1</Version>
+    <Version>0.14.2</Version>
     <Product>ShrinkStudio</Product>
     <!-- FileDescription del exe: es el nombre que muestra el submenú «Abrir con» -->
     <AssemblyTitle>ShrinkStudio</AssemblyTitle>
