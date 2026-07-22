@@ -121,10 +121,10 @@ public partial class MainWindow : Window
         tabRecortes.Checked += (_, _) => CambiarPagina(Pagina.Recortes);
         pageOrganizar.Log += AppendLog;
         pageRecortes.Log += AppendLog;
-        pageOrganizar.AbrirEnRecortes += ruta =>
+        pageOrganizar.AbrirEnRecortes += (ruta, partirPorLaMitad) =>
         {
             tabRecortes.IsChecked = true;
-            pageRecortes.Cargar(ruta);
+            pageRecortes.Cargar(ruta, partirPorLaMitad);
         };
         pillFondo.MouseLeftButtonUp += (_, _) => tabComprimir.IsChecked = true;
 

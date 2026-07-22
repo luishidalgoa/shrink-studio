@@ -1065,6 +1065,8 @@ public static class Program
             "un fichero que abarca dos episodios NUNCA se aplica solo");
         Eq(true, (dos.Motivo ?? "").Contains("662") && (dos.Motivo ?? "").Contains("615"),
             "y el motivo nombra los dos episodios que hay dentro");
+        Eq(true, dos.TraeDosEpisodios,
+            "queda MARCADO, no solo redactado: la interfaz ofrece partirlo mirando la marca");
 
         // El remake: la misma historia está en el 2 y en el 364, pero el 364 cubre las DOS
         // historias del fichero. Eso no es ambigüedad, es lo normal.
@@ -1074,6 +1076,7 @@ public static class Program
         }, cat)[0];
         Eq(364, remake.Episodio?.Num, "el remake se identifica igual");
         Eq(ReindexConfianza.Alta, remake.Confianza, "y sigue siendo automático: no hay nada que decidir");
+        Eq(false, remake.TraeDosEpisodios, "y NO se le ofrece partirlo: no hay nada que partir");
     }
 
     // ─────────────── La app tiene que saber leer lo que ella misma escribe ───────────────

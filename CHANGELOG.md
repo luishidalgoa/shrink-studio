@@ -31,13 +31,18 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **«Partirlo en dos» cuando un fichero trae dos episodios.** Ese caso no se arregla
+  eligiendo número —le pongas el que le pongas, pierdes el otro—: hay que partir el vídeo.
+  Ahora el resolutor lo ofrece con un botón destacado que lo lleva a Recortes con un corte
+  ya puesto por la mitad, listo para arrastrarlo al sitio exacto.
 - **Previsualización en la barra del reproductor.** Pasando el ratón por la barra sale el
   fotograma de ese punto con su tiempo, como en Recortes. Si el vídeo todavía está solo en
   la nube no se saca ningún fotograma —eso lo descargaría entero—; en cuanto termina de
   bajar, las previas salen solas.
-- **El vídeo arranca solo en cuanto está listo.** Antes, con un fichero que se estaba
-  descargando, la orden de reproducir llegaba cuando aún no había nada que reproducir y se
-  quedaba en nada: acababa cargado pero parado.
+- **El vídeo arranca solo de verdad.** Se abre con doble clic, y el «soltar» de ese segundo
+  clic aterrizaba ya dentro del reproductor recién abierto: lo pausaba al nacer y se quedaba
+  en la animación de carga hasta que dabas al play. Ahora solo cuenta como clic el que
+  EMPIEZA dentro de la ventana.
 - **Una animación mientras el vídeo carga.** El rectángulo negro no decía nada, y con
   «Archivos a petición» la espera puede ser larga de verdad porque el fichero se está
   descargando entero. Ahora laten cuatro círculos en cascada —cada uno con su onda

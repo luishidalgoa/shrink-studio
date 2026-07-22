@@ -49,7 +49,7 @@ public partial class OrganizarView : UserControl
     /// «Llévate este fichero a Recortes». Lo pide la fila y lo resuelve la ventana: esta
     /// página no sabe que existe una pestaña, y así sigue sin saberlo.
     /// </summary>
-    public event Action<string>? AbrirEnRecortes;
+    public event Action<string, bool>? AbrirEnRecortes;
 
     private readonly PasosVisual _pasos;
 
@@ -138,7 +138,7 @@ public partial class OrganizarView : UserControl
         miRecortar.Click += (_, _) =>
         {
             if (tabla.SelectedItem is OrganizarRow f && File.Exists(f.RutaActual))
-                AbrirEnRecortes?.Invoke(f.RutaActual);
+                AbrirEnRecortes?.Invoke(f.RutaActual, false);
         };
         miUbicacion.Click += (_, _) => AbrirUbicacion(tabla.SelectedItem as OrganizarRow);
 
@@ -1251,6 +1251,17 @@ public partial class OrganizarView : UserControl
             }
         }
         catch (Exception ex) { Escribir($"No se pudo abrir la ubicación: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// «Partirlo en dos»: lo lleva a Recortes con un corte ya puesto por la mitad. No se
+    /// sabe dónde acaba la primera historia —eso lo decide quien mira—, pero llegar con la
+    /// junta puesta y arrastrarla es otra cosa que llegar a una pista en blanco.
+    /// </summary>
+    private void OnPartirEnDos(object remitente, RoutedEventArgs e)
+    {
+        if (tabla.SelectedItem is not OrganizarRow fila || !File.Exists(fila.RutaActual)) return;
+        AbrirEnRecortes?.Invoke(fila.RutaActual, true);
     }
 
     private void AbrirMemoria()

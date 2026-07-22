@@ -76,6 +76,13 @@ public sealed class ReindexResolution
     public bool EsDuplicado { get; set; }
 
     /// <summary>
+    /// El fichero contiene DOS episodios del catálogo. Es una marca y no una comparación de
+    /// textos, por lo mismo que <see cref="EsDuplicado"/>: depender de cómo está redactado
+    /// el motivo se rompe en cuanto se reescribe el mensaje.
+    /// </summary>
+    public bool TraeDosEpisodios { get; set; }
+
+    /// <summary>
     /// ¿Se puede aplicar sin más intervención? «Verdes + confirmados»: los especiales entran
     /// solo cuando alguien los ha confirmado, porque nacen en Revisar y únicamente una
     /// decisión humana (o un override guardado) los sube a Alta.
@@ -523,6 +530,7 @@ public static class ReindexEngine
                 if (otro == null || otro.Num == r.Episodio.Num || score < TitleMatch.UmbralSegmento) continue;
 
                 r.Confianza = ReindexConfianza.Revisar;
+                r.TraeDosEpisodios = true;
                 r.Motivo = $"Este fichero trae dos episodios del catálogo: el {r.Episodio.Num} y el " +
                            $"{otro.Num} («{trozo}»). Ponerle el número de uno perdería el otro";
                 break;

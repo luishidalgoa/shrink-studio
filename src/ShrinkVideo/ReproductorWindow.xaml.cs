@@ -30,6 +30,7 @@ public partial class ReproductorWindow : Window
     private bool _desdeReloj;                   // el reloj mueve la barra: eso no es buscar
     private bool _visible = true;
     private bool _mudo;
+    private bool _pulsadoAqui;   // ¿el clic empezó dentro de esta ventana?
     private readonly bool _eraMarcador;   // ¿estaba solo en la nube antes de abrirlo?
     private readonly CirculosCargando _cargando = new();
 
@@ -83,8 +84,20 @@ public partial class ReproductorWindow : Window
         btnMudo.Click += (_, _) => AlternarMudo();
         btnSistema.Click += (_, _) => { AbrirEnSistema(); Close(); };
 
-        lienzo.MouseLeftButtonUp += (_, e) => { if (e.ClickCount == 1) Alternar(); };
-        lienzo.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) AlternarPantalla(); };
+        // Solo se alterna si el clic EMPEZÓ aquí dentro. La ventana se abre con un doble
+        // clic en la tabla, y el «soltar» de ese segundo clic aterrizaba ya en el
+        // reproductor recién abierto: se pausaba solo y parecía que no arrancaba nunca.
+        lienzo.MouseLeftButtonDown += (_, e) =>
+        {
+            _pulsadoAqui = true;
+            if (e.ClickCount == 2) AlternarPantalla();
+        };
+        lienzo.MouseLeftButtonUp += (_, e) =>
+        {
+            bool nuestro = _pulsadoAqui;
+            _pulsadoAqui = false;
+            if (nuestro && e.ClickCount == 1) Alternar();
+        };
 
         PreviewKeyDown += AlPulsarTecla;
         raiz.MouseMove += AlMoverRaton;
