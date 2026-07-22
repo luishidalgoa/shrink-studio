@@ -54,7 +54,8 @@
           <StackPanel Grid.Row="1" Margin="14,8,14,12">
             <!-- La regla de tramos va PEGADA encima de la barra: es la misma línea de
                  tiempo, y separarlas obligaría a traducir mentalmente de una a otra. -->
-            <Canvas x:Name="regla" Height="10" Margin="0,0,0,1" ClipToBounds="True"/>
+            <Canvas x:Name="regla" Height="10" Margin="0,0,0,1" ClipToBounds="True"
+                    ToolTip="Los tramos que se exportarán, cada uno un fichero. Se dibujan sobre la misma línea de tiempo que la barra de abajo."/>
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
@@ -190,9 +191,14 @@
             <TextBlock x:Name="lblEstDet" FontSize="11" Foreground="{StaticResource Neutral500}"
                        Margin="10,0,0,0" VerticalAlignment="Center" Text="Elige un vídeo para estimar el tamaño"/>
           </StackPanel>
+          <TextBlock x:Name="lblDestino" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                     Margin="0,26,0,0" FontSize="10.5" Foreground="{StaticResource Neutral600}"
+                     TextTrimming="CharacterEllipsis" MaxWidth="620" Text=""/>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <TextBlock x:Name="lblProgreso" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="11.5"
                        Foreground="{StaticResource Neutral400}" Text=""/>
+            <Button x:Name="btnDestino" Style="{StaticResource BtnSecondary}" Padding="10,6" Margin="0,0,8,0"
+                    Content="Guardar en…" ToolTip="Por defecto, junto al vídeo original"/>
             <Button x:Name="btnExportar" Style="{StaticResource BtnPrimary}" Padding="16,7"
                     Content="Exportar" IsEnabled="False"/>
           </StackPanel>
