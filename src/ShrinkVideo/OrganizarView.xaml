@@ -423,7 +423,7 @@
 
             <!-- Marcar qué se aplica. Solo tiene casilla lo que ESTÁ listo: poner una en
                  los conflictos insinuaría que marcándolos se aplican, y es al revés. -->
-            <DataGridTemplateColumn Width="34">
+            <DataGridTemplateColumn Width="44">
               <DataGridTemplateColumn.Header>
                 <CheckBox x:Name="chkTodos" IsChecked="True" Checked="OnMarcarTodos" Unchecked="OnMarcarTodos"
                           ToolTip="Marcar o desmarcar todos los listos para aplicar"/>

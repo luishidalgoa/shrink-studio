@@ -39,6 +39,11 @@ es un acuerdo de buena voluntad: está verificado.
   verde que se dibuja y da un pequeño salto al terminar, con el haz de luz recorriendo el
   borde del panel mientras trabaja.
 
+### Corregido
+
+- **La casilla de aplicar salía recortada por la columna de al lado.** Su columna medía lo
+  justo sin contar el relleno interno de la celda.
+
 ## [0.10.0] - 2026-07-22
 
 ### Añadido
