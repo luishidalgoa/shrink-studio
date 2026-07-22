@@ -81,6 +81,29 @@
                          TextAlignment="Right" FontFamily="{StaticResource FontMono}" FontSize="11"
                          Foreground="#D6D9E8" Text="0:00"/>
               <Slider x:Name="barra" Grid.Column="1" Style="{StaticResource BarraVideo}" VerticalAlignment="Center"/>
+
+              <!-- La previa va en la MISMA columna que el deslizador y con altura cero: así
+                   su origen de coordenadas es exactamente el que devuelve GetPosition(barra)
+                   y el globo cae justo bajo el cursor. Con un Popup había que traducir entre
+                   dos sistemas de coordenadas, y ahí es donde se torcía. -->
+              <Canvas x:Name="capaPrevia" Grid.Column="1" Height="0" VerticalAlignment="Top"
+                      IsHitTestVisible="False">
+                <Border x:Name="globoPrevia" Visibility="Collapsed" Background="#F00A0B14"
+                        CornerRadius="6" Padding="3" BorderBrush="{StaticResource Accent700}"
+                        BorderThickness="1">
+                  <Grid>
+                    <Image x:Name="imgPrevia" Width="192" Height="108" Stretch="UniformToFill"/>
+                    <Border Background="#B0000000" CornerRadius="3" Padding="5,1"
+                            HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="5">
+                      <TextBlock x:Name="lblPrevia" FontFamily="{StaticResource FontMono}"
+                                 FontSize="11" Foreground="White" Text="0:00"/>
+                    </Border>
+                    <TextBlock x:Name="lblPreviaCargando" Text="…" FontSize="16"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{StaticResource Neutral500}"/>
+                  </Grid>
+                </Border>
+              </Canvas>
               <TextBlock x:Name="lblDur" Grid.Column="2" VerticalAlignment="Center" Margin="11,0,0,0" MinWidth="46"
                          FontFamily="{StaticResource FontMono}" FontSize="11"
                          Foreground="#B9BECF" Text="0:00"/>
@@ -90,23 +113,6 @@
                  lisa es adivinar. El fotograma se saca bajo demanda de donde está el cursor,
                  que es justo donde hace falta — una tira fija enseña doce sitios que no son
                  el que te importa. -->
-            <Popup x:Name="popPrevia" AllowsTransparency="True" Placement="Relative"
-                   PlacementTarget="{Binding ElementName=barra}" IsHitTestVisible="False">
-              <Border Background="#F00A0B14" CornerRadius="6" Padding="3" Margin="0,0,0,10"
-                      BorderBrush="{StaticResource Accent700}" BorderThickness="1">
-                <Grid>
-                  <Image x:Name="imgPrevia" Width="192" Height="108" Stretch="UniformToFill"/>
-                  <Border Background="#B0000000" CornerRadius="3" Padding="5,1"
-                          HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="5">
-                    <TextBlock x:Name="lblPrevia" FontFamily="{StaticResource FontMono}"
-                               FontSize="11" Foreground="White" Text="0:00"/>
-                  </Border>
-                  <TextBlock x:Name="lblPreviaCargando" Text="…" FontSize="16"
-                             HorizontalAlignment="Center" VerticalAlignment="Center"
-                             Foreground="{StaticResource Neutral500}"/>
-                </Grid>
-              </Border>
-            </Popup>
 
             <Grid Margin="0,8,0,0">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
