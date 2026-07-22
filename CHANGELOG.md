@@ -32,9 +32,15 @@ es un acuerdo de buena voluntad: está verificado.
 ### Añadido
 
 - **Reproductor integrado en modo focus.** El doble clic sobre una fila ya no abre el
-  reproductor de Windows: abre una ventana oscura dentro de la app con el vídeo, pausa
-  (espacio), barra de posición para saltar, volumen y Esc para cerrar. Si el códec no está
-  soportado, lo dice y ofrece el reproductor del sistema con un botón.
+  reproductor de Windows: abre una ventana oscura dentro de la app. Los controles flotan
+  sobre la imagen y se apartan solos a los 2,6 s de no usarlos (vuelven al mover el ratón;
+  en pausa se quedan). Barra de posición con punto, salto de ±10 s, volumen, silencio y
+  pantalla completa. Atajos: espacio pausa, flechas saltan (con Mayús, 30 s), F pantalla
+  completa, M silencio, Esc sale. Doble clic sobre la imagen también expande. Si el códec
+  no está soportado, lo dice y ofrece el reproductor del sistema con un botón.
+- **Aviso cuando el vídeo está solo en la nube.** Con «Archivos a petición» de OneDrive el
+  fichero se descarga mientras se reproduce y la imagen va a tirones. El reproductor lo
+  detecta y lo dice, en lugar de parecer que está roto.
 - **Los dudosos se identifican también por su `.nfo` y por los metadatos del vídeo.** Un
   fichero sin título en el nombre («S2018E01.mkv») suele llevarlo en su `.nfo` de Kodi o en
   la etiqueta del contenedor. Tras la primera pasada, la app lee esas dos fuentes SOLO de
