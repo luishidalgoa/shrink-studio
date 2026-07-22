@@ -82,12 +82,12 @@ public sealed class LibraryTemplate
                 "temp" => temporada,
                 // «<num:000>» rellena hasta esas cifras. Nunca recorta: un número más largo
                 // que el relleno es el número de verdad, y perder un dígito renombraría mal.
-                "num" => param is { Length: > 0 }
+                // Con sub-segmento, la letra va PEGADA al número (E413b): sin ella, la
+                // historia suelta se pisaría con el episodio completo o con su otra mitad.
+                "num" => (param is { Length: > 0 }
                     ? episodio.Num.ToString().PadLeft(param.Length, '0')
-                    : episodio.Num.ToString(),
-                "título" or "titulo" => param != null
-                    ? string.Join(param, episodio.TitulosSalida)
-                    : episodio.TituloCompleto,
+                    : episodio.Num.ToString()) + archivo.SubSegmento,
+                "título" or "titulo" => TituloPara(episodio, archivo, param),
                 // Los sub-segmentos («[438a]») necesitan distinguirse o se pisarían al renombrar
                 "seg" => archivo.SubSegmento ?? "",
                 _ => m.Value,
@@ -98,6 +98,25 @@ public sealed class LibraryTemplate
         if (nombre.Length == 0) return null;
 
         return nombre + archivo.Extension;
+    }
+
+    /// <summary>
+    /// El título que corresponde: si el fichero es SOLO una historia (segmento «a», «b»…),
+    /// el de ESA historia — «E413b - ¡En busca de una sonrisa!», no el episodio entero.
+    /// Con una letra que no casa con ninguna historia no se inventa nada: título completo.
+    /// </summary>
+    private static string TituloPara(CatalogEpisode episodio, FileSignals archivo, string? separador)
+    {
+        var seg = archivo.SubSegmento;
+        if (!string.IsNullOrEmpty(seg) && seg.Length == 1)
+        {
+            int i = char.ToLowerInvariant(seg[0]) - 'a';
+            if (i >= 0 && i < episodio.TitulosSalida.Count)
+                return episodio.TitulosSalida[i];
+        }
+        return separador != null
+            ? string.Join(separador, episodio.TitulosSalida)
+            : episodio.TituloCompleto;
     }
 
     /// <summary>

@@ -105,8 +105,9 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     /// </summary>
     public void Recalcular()
     {
+        var archivo = SegElegido != null ? Res.Archivo.ConSegmento(SegElegido) : Res.Archivo;
         NombreNuevo = Res.Episodio != null && Res.Estado != ReindexEstado.Error
-            ? Plantilla.Render(Catalogo, Res.Episodio, Res.Archivo)
+            ? Plantilla.Render(Catalogo, Res.Episodio, archivo)
             : null;
         RefrescarTodo();
     }
@@ -355,17 +356,27 @@ public sealed class OrganizarRow : INotifyPropertyChanged
         !Aplicado && !SinCambios && Res.AplicableEnBloque && NombreNuevo != null;
 
     /// <summary>
-    /// Fija a mano el episodio de esta fila (el usuario eligió en el resolutor). Deja de ser
-    /// una duda: hay una persona detrás.
+    /// El «es solo la historia X» decidido a mano. Vive en la fila y no en las señales
+    /// porque las señales son inmutables: la decisión crea una variante al renderizar.
     /// </summary>
-    public void ElegirEpisodio(CatalogEpisode ep)
+    public string? SegElegido { get; private set; }
+
+    /// <summary>
+    /// Fija a mano el episodio de esta fila (el usuario eligió en el resolutor). Deja de ser
+    /// una duda: hay una persona detrás. Con <paramref name="seg"/>, el fichero es SOLO esa
+    /// historia del episodio: E413b, con el título de esa historia.
+    /// </summary>
+    public void ElegirEpisodio(CatalogEpisode ep, string? seg = null)
     {
+        SegElegido = seg;
         Res.Episodio = ep;
         Res.Hint = ReindexHint.Override;
         Res.Score = 1.0;
         Res.Confianza = ReindexConfianza.Alta;
         Res.Estado = ep.Especial ? ReindexEstado.Especial : ReindexEstado.Corregido;
-        Res.Motivo = $"Lo elegiste tú: episodio {ep.Num}";
+        Res.Motivo = seg == null
+            ? $"Lo elegiste tú: episodio {ep.Num}"
+            : $"Lo elegiste tú: la historia «{seg}» del episodio {ep.Num}";
         Res.Alternativas = Array.Empty<ReindexCandidato>();
         Recalcular();
     }
