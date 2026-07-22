@@ -485,6 +485,47 @@ public static class ReindexEngine
     /// Gana el de mayor score; los demás pasan a conflicto. Sin esto, aplicar el lote
     /// machacaría un fichero con otro.
     /// </summary>
+    /// <summary>
+    /// Hay ficheros que emparejan dos historias que el catálogo cuenta como episodios
+    /// DISTINTOS. Ponerles el número de uno pierde al otro: el fichero sigue conteniéndolo,
+    /// pero ya no hay nada que lo diga, y quien lo mire dentro de un año no lo sabrá. Eso lo
+    /// decide una persona.
+    ///
+    /// El listón es «el episodio elegido no cubre esta historia, y otro sí». No basta con
+    /// que la historia aparezca en otro episodio: en Doraemon la misma historia está en el
+    /// remake viejo y en el moderno, y eso es lo normal, no una ambigüedad.
+    /// </summary>
+    private static void MarcarLosQueTraenDosEpisodios(List<ReindexResolution> resoluciones,
+        ReindexCatalog cat, IndiceTitulos indice)
+    {
+        foreach (var r in resoluciones)
+        {
+            if (r.Confianza != ReindexConfianza.Alta || r.Episodio == null) continue;
+            // Si ya se decidió que el fichero es UNA historia, no hay nada que perder.
+            if (r.Archivo.SubSegmento != null) continue;
+            if (r.Archivo.Segmentos.Count < 2) continue;
+
+            foreach (var trozo in r.Archivo.Segmentos)
+            {
+                var bolsa = TitleBag.From(trozo);
+                if (bolsa.Text.Length < 4) continue;
+
+                // ¿La cubre el episodio elegido? Entonces no hay problema.
+                if (r.Episodio.TitulosNorm.Any(n => TitleMatch.Sim(bolsa.Text, n) >= TitleMatch.UmbralSegmento))
+                    continue;
+
+                // No la cubre: ¿de quién es, entonces?
+                var (otro, score) = indice.MejorPorTitulo(new[] { bolsa }, cat.Episodios);
+                if (otro == null || otro.Num == r.Episodio.Num || score < TitleMatch.UmbralSegmento) continue;
+
+                r.Confianza = ReindexConfianza.Revisar;
+                r.Motivo = $"Este fichero trae dos episodios del catálogo: el {r.Episodio.Num} y el " +
+                           $"{otro.Num} («{trozo}»). Ponerle el número de uno perdería el otro";
+                break;
+            }
+        }
+    }
+
     private static void Deduplicar(List<ReindexResolution> resoluciones)
     {
         var porDestino = resoluciones
