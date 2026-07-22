@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-22
+
 ### Cambiado
 
 - **El panel de ficheros es ahora el centro de la identificación, con progreso animado.**
