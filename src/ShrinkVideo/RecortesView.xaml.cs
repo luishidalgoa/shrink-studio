@@ -155,14 +155,8 @@ public partial class RecortesView : UserControl
         _esperaPrevia = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(90) };
         _esperaPrevia.Tick += async (_, _) => { _esperaPrevia.Stop(); await SacarPreviaAsync(); };
 
-        // El destino se fija por código, no por binding: dentro de un Popup el ElementName
-        // no siempre resuelve, y cuando falla WPF se coloca respecto al panel padre — que
-        // empieza a la izquierda del deslizador, así que el globo salía desplazado.
-        popPrevia.PlacementTarget = barra;
-
         barra.MouseMove += AlPasarPorLaBarra;
-        barra.MouseEnter += (_, _) => { if (_fuente != null) popPrevia.IsOpen = true; };
-        barra.MouseLeave += (_, _) => popPrevia.IsOpen = false;
+        barra.MouseLeave += (_, _) => globoPrevia.Visibility = Visibility.Collapsed;
 
         SizeChanged += (_, _) => PintarRegla();
         // Al salir de la página no se deja nada en memoria ni en disco temporal.
@@ -255,22 +249,19 @@ public partial class RecortesView : UserControl
     /// </summary>
     private void AlPasarPorLaBarra(object remitente, MouseEventArgs e)
     {
-        if (_fuente == null || _duracion <= 0) { popPrevia.IsOpen = false; return; }
+        if (_fuente == null || _duracion <= 0) { globoPrevia.Visibility = Visibility.Collapsed; return; }
 
         double x = Math.Clamp(e.GetPosition(barra).X, 0, barra.ActualWidth);
         double seg = x / Math.Max(1, barra.ActualWidth) * _duracion;
 
-        popPrevia.IsOpen = true;
+        globoPrevia.Visibility = Visibility.Visible;
 
-        // Centrado con el ancho REAL del globo, no con uno supuesto: el borde y el relleno
-        // suman, y a ojo se queda corto. Y se mantiene dentro de la barra, que un globo
-        // medio salido de la ventana no se lee.
-        double ancho = popPrevia.Child is FrameworkElement globo && globo.ActualWidth > 0
-            ? globo.ActualWidth : 200;
-        double alto = popPrevia.Child is FrameworkElement g2 && g2.ActualHeight > 0
-            ? g2.ActualHeight : 132;
-        popPrevia.HorizontalOffset = Math.Clamp(x - ancho / 2, 0, Math.Max(0, barra.ActualWidth - ancho));
-        popPrevia.VerticalOffset = -alto;
+        // Centrado con el ancho REAL, y sujeto a los bordes de la barra: un globo medio
+        // salido de la ventana no se lee.
+        double ancho = globoPrevia.ActualWidth > 0 ? globoPrevia.ActualWidth : 200;
+        double alto = globoPrevia.ActualHeight > 0 ? globoPrevia.ActualHeight : 132;
+        Canvas.SetLeft(globoPrevia, Math.Clamp(x - ancho / 2, 0, Math.Max(0, barra.ActualWidth - ancho)));
+        Canvas.SetTop(globoPrevia, -alto - 8);
         lblPrevia.Text = TramoFila.Reloj(seg);
 
         int hueco = (int)(seg / HuecoPrevia) * HuecoPrevia;
@@ -336,7 +327,7 @@ public partial class RecortesView : UserControl
     /// <summary>Suelta los fotogramas y borra lo que quedara en disco. Nada se acumula.</summary>
     private void LiberarMiniaturas()
     {
-        popPrevia.IsOpen = false;
+        globoPrevia.Visibility = Visibility.Collapsed;
         imgPrevia.Source = null;
         _previas.Clear();
         _previaPedida = -1;
