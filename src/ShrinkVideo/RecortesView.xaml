@@ -71,11 +71,6 @@
           <StackPanel Grid.Row="1" Margin="14,8,14,12">
             <!-- La regla de tramos va PEGADA encima de la barra: es la misma línea de
                  tiempo, y separarlas obligaría a traducir mentalmente de una a otra. -->
-            <!-- Tira de fotogramas: encontrar el punto de corte mirando la barra sola es
-                 adivinar. Se generan al cargar y se sueltan al descargar — nada se queda
-                 cacheado entre vídeos. -->
-            <Canvas x:Name="tira" Height="44" Margin="0,0,0,3" ClipToBounds="True"
-                    Background="#12FFFFFF"/>
             <Canvas x:Name="regla" Height="10" Margin="0,0,0,1" ClipToBounds="True"
                     ToolTip="Los tramos que se exportarán, cada uno un fichero. Se dibujan sobre la misma línea de tiempo que la barra de abajo."/>
             <Grid>
@@ -90,6 +85,28 @@
                          FontFamily="{StaticResource FontMono}" FontSize="11"
                          Foreground="#B9BECF" Text="0:00"/>
             </Grid>
+
+            <!-- Vista previa del punto al que apuntas: encontrar el corte mirando una barra
+                 lisa es adivinar. El fotograma se saca bajo demanda de donde está el cursor,
+                 que es justo donde hace falta — una tira fija enseña doce sitios que no son
+                 el que te importa. -->
+            <Popup x:Name="popPrevia" AllowsTransparency="True" Placement="Relative"
+                   PlacementTarget="{Binding ElementName=barra}" IsHitTestVisible="False">
+              <Border Background="#F00A0B14" CornerRadius="6" Padding="3" Margin="0,0,0,10"
+                      BorderBrush="{StaticResource Accent700}" BorderThickness="1">
+                <Grid>
+                  <Image x:Name="imgPrevia" Width="192" Height="108" Stretch="UniformToFill"/>
+                  <Border Background="#B0000000" CornerRadius="3" Padding="5,1"
+                          HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="5">
+                    <TextBlock x:Name="lblPrevia" FontFamily="{StaticResource FontMono}"
+                               FontSize="11" Foreground="White" Text="0:00"/>
+                  </Border>
+                  <TextBlock x:Name="lblPreviaCargando" Text="…" FontSize="16"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{StaticResource Neutral500}"/>
+                </Grid>
+              </Border>
+            </Popup>
 
             <Grid Margin="0,8,0,0">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">

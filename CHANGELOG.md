@@ -31,10 +31,11 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Anadido
 
-- **Tira de fotogramas en la linea de tiempo de Recortes.** Encontrar el punto de corte
-  mirando una barra lisa era adivinar. Se generan al cargar el video y se sueltan al
-  descargarlo o al salir de la pagina: ni un fichero temporal ni un mapa de bits se quedan
-  acumulados.
+- **Vista previa del fotograma al recorrer la barra en Recortes.** Encontrar el punto de
+  corte mirando una barra lisa era adivinar: ahora, al pasar o arrastrar por la linea de
+  tiempo, sale un globo con el fotograma de ese punto y su minuto. Se sacan bajo demanda de
+  donde esta el cursor y se sueltan enteros al cambiar de video o salir de la pagina: ni un
+  fichero temporal ni un mapa de bits se quedan acumulados.
 - **La pagina avisa mientras prepara el video.** Analizar y sacar los fotogramas lleva unos
   segundos: durante ese rato los controles estan deshabilitados y se ve que se esta
   haciendo y cuanto queda, en vez de parecer que la app se ha colgado.

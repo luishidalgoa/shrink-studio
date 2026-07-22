@@ -31,6 +31,7 @@ public static class Program
         PrefijoDeSerie();
         BibliotecaPorTemporadas();
         CatalogosReales();
+        LeerLoQueEscribe();
         MarcadorManda();
         SepararHistorias();
         PeleaPorElMismoEpisodio();
@@ -1020,6 +1021,64 @@ public static class Program
 
         Eq(0, SidecarPlanner.Planear(de, de, enCarpeta).Count,
             "si el vídeo no cambia de nombre, no hay nada que mover");
+    }
+
+    // ─────────────── La app tiene que saber leer lo que ella misma escribe ───────────────
+
+    /// <summary>
+    /// Cuando un fichero es SOLO una historia de un episodio, la app escribe la letra pegada
+    /// al número: «S2017E487b». Pero luego no sabía leerlo: el regex del marcador exigía que
+    /// tras los dígitos viniera algo que no fuese letra, así que «S2017E487b» no casaba con
+    /// NADA y el fichero se quedaba sin número ni segmento. Se reidentificaba solo por el
+    /// título, casaba con el episodio entero y proponía deshacer la decisión del usuario.
+    ///
+    /// Que un programa no sepa releer su propia salida es la peor clase de fallo de datos:
+    /// cada pasada deshace la anterior.
+    /// </summary>
+    private static void LeerLoQueEscribe()
+    {
+        Seccion("Leer su propia salida");
+
+        var conLetra = SignalExtractor.Extract(F(
+            "Doraemon (2005) - S2017E487b - La niña de los zapatos rojos.mkv"));
+        Eq(487, conLetra.Indice, "«S2017E487b» es el episodio 487");
+        Eq("b", conLetra.SubSegmento, "y la letra dice qué historia es");
+        Eq("La niña de los zapatos rojos", conLetra.TituloNombre, "el título queda limpio");
+
+        var sinLetra = SignalExtractor.Extract(F("Doraemon (2005) - S2017E487 - El traje nuevo.mkv"));
+        Eq(487, sinLetra.Indice, "sin letra sigue siendo el 487");
+        Eq(null, sinLetra.SubSegmento, "y no se inventa segmento");
+
+        // La forma corta también: «E413b»
+        var corta = SignalExtractor.Extract(F("Doraemon E413b - En busca de una sonrisa.mkv"));
+        Eq(413, corta.Indice, "«E413b» también");
+        Eq("b", corta.SubSegmento, "con su letra");
+
+        // Y lo que NO debe partirse: una letra pegada que es parte de otra palabra
+        var falsa = SignalExtractor.Extract(F("Doraemon - S01E02best of.mkv"));
+        Eq(null, falsa.SubSegmento, "«E02best» no es un segmento");
+
+        // Ida y vuelta completa: lo que escribe la plantilla se relee igual.
+        var cat = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0",
+          "serie": "Doraemon (2005)",
+          "episodios": [
+            { "num": 487, "temporada": 2017,
+              "titulos": { "es": ["El traje nuevo del emperador", "La niña de los zapatos rojos"] } }
+          ]
+        }
+        """);
+        var plantilla = new LibraryTemplate(LibraryTemplate.PatronPorDefecto);
+        var nombre = plantilla.Render(cat, cat.PorNum(487)!, conLetra)!;
+        var releido = SignalExtractor.Extract(F(nombre));
+        Eq(487, releido.Indice, "el nombre que escribe la app se relee con su número");
+        Eq("b", releido.SubSegmento, "y con su letra: la decisión no se pierde");
+
+        // Y el motor, con esa señal, se queda en la historia b — no propone el episodio entero
+        var r = ReindexEngine.Resolve(new[] { conLetra }, cat)[0];
+        Eq(487, r.Episodio?.Num, "sigue siendo el 487");
+        Eq("b", r.Archivo.SubSegmento, "y sigue siendo solo su historia");
     }
 
     // ─────────────── Un marcador explícito manda sobre un número suelto ───────────────
