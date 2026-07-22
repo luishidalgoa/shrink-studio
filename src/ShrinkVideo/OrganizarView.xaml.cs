@@ -45,7 +45,13 @@ public partial class OrganizarView : UserControl
     /// <summary>Se avisa al anfitrión para que lo escriba en el registro compartido.</summary>
     public event Action<string>? Log;
 
-    private readonly EtapaVisual[] _etapas;
+    /// <summary>
+    /// «Llévate este fichero a Recortes». Lo pide la fila y lo resuelve la ventana: esta
+    /// página no sabe que existe una pestaña, y así sigue sin saberlo.
+    /// </summary>
+    public event Action<string>? AbrirEnRecortes;
+
+    private readonly PasosVisual _pasos;
 
     public OrganizarView()
     {
@@ -125,9 +131,15 @@ public partial class OrganizarView : UserControl
             if (r == null) { e.Handled = true; return; }
             tabla.SelectedItem = r;
             miReproducir.IsEnabled = File.Exists(r.RutaActual);
+            miRecortar.IsEnabled = miReproducir.IsEnabled;
             miUbicacion.IsEnabled = miReproducir.IsEnabled;
         };
         miReproducir.Click += (_, _) => ReproducirFila(tabla.SelectedItem as OrganizarRow);
+        miRecortar.Click += (_, _) =>
+        {
+            if (tabla.SelectedItem is OrganizarRow f && File.Exists(f.RutaActual))
+                AbrirEnRecortes?.Invoke(f.RutaActual);
+        };
         miUbicacion.Click += (_, _) => AbrirUbicacion(tabla.SelectedItem as OrganizarRow);
 
         tabla.PreviewKeyDown += OnTablaKeyDown;
@@ -148,13 +160,11 @@ public partial class OrganizarView : UserControl
 
         // Las tres etapas de la identificación, en el panel de ficheros. Son las fases
         // REALES del trabajo, no decorado: cada una se enciende cuando su fase corre.
-        _etapas = new[]
-        {
-            new EtapaVisual("Leer los nombres de los ficheros"),
-            new EtapaVisual("Identificarlos contra el catálogo"),
-            new EtapaVisual("Preparar la revisión"),
-        };
-        foreach (var e in _etapas) panelEtapas.Children.Add(e.Raiz);
+        _pasos = new PasosVisual(
+            "Leyendo los nombres de los ficheros",
+            "Identificándolos contra el catálogo",
+            "Preparando la revisión");
+        panelEtapas.Children.Add(_pasos.Raiz);
 
         Loaded += (_, _) => { if (!_cargando) Recargar(); };
     }
@@ -502,7 +512,7 @@ public partial class OrganizarView : UserControl
         {
             panelReposo.Visibility = Visibility.Collapsed;
             panelEtapas.Visibility = Visibility.Visible;
-            foreach (var e in _etapas) e.Pendiente();
+            _pasos.Reiniciar();
             EncenderHaz();
         }
 
@@ -513,7 +523,7 @@ public partial class OrganizarView : UserControl
         try
         {
             // ── Etapa 1: leer las señales de los nombres ──
-            if (animar) _etapas[0].EnCurso();
+            if (animar) _pasos.EnCurso(0);
             var señales = await ConTiempoDeVerse(Task.Run(() =>
                 // Nota: el título del metadato del contenedor (titulo_meta) todavía no se lee.
                 // Exigiría un ffprobe por fichero y «Simular» dejaría de ser inmediato en
@@ -521,10 +531,10 @@ public partial class OrganizarView : UserControl
                 ficheros
                     .Select(f => SignalExtractor.Extract(f, new DirectoryInfo(Path.GetDirectoryName(f)!).Name))
                     .ToList()), animar);
-            if (animar) _etapas[0].Hecha(señales.Count == 1 ? "1 nombre" : $"{señales.Count} nombres");
+            if (animar) _pasos.Hecha(0, señales.Count == 1 ? "1 nombre leído" : $"{señales.Count} nombres leídos");
 
             // ── Etapa 2: el motor, fuera del hilo de interfaz ──
-            if (animar) _etapas[1].EnCurso();
+            if (animar) _pasos.EnCurso(1);
             var resoluciones = await ConTiempoDeVerse(
                 Task.Run(() => ReindexEngine.Resolve(señales, catalogo, decisiones)), animar);
 
@@ -595,12 +605,12 @@ public partial class OrganizarView : UserControl
                 }
             }
 
-            if (animar) _etapas[1].Hecha($"contra «{catalogo.Serie}»");
+            if (animar) _pasos.Hecha(1, $"contra «{catalogo.Serie}»");
 
             // ── Etapa 3: montar la tabla ──
             // El respiro de antes deja al arco pintarse: montar filas bloquea el hilo de
             // interfaz y sin él esta etapa pasaría de pendiente a hecha sin verse en curso.
-            if (animar) { _etapas[2].EnCurso(); await Task.Delay(220); }
+            if (animar) { _pasos.EnCurso(2); await Task.Delay(220); }
 
             var raiz = txtCarpeta.Text?.Trim() ?? "";
             _filas.Clear();

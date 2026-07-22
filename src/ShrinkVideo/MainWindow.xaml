@@ -158,6 +158,18 @@
                   <TextBlock x:Name="lblTabOrganizar" Text="Organizar" VerticalAlignment="Center"/>
                 </StackPanel>
               </RadioButton>
+              <RadioButton x:Name="tabRecortes" Style="{StaticResource PageTab}" GroupName="pagina"
+                           ToolTip="Recortes: parte un vídeo en varios o quítale un trozo">
+                <StackPanel Orientation="Horizontal">
+                  <Viewbox Width="13" Height="13" Margin="0,0,7,0">
+                    <!-- unas tijeras: dos aspas y los dos ojos -->
+                    <Path Data="M4 3l8 9M12 3l-8 9M3.6 12.8a1.6 1.6 0 1 0 0.1 0M11.9 12.8a1.6 1.6 0 1 0 0.1 0"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                          StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeLineJoin="Round"/>
+                  </Viewbox>
+                  <TextBlock x:Name="lblTabRecortes" Text="Recortes" VerticalAlignment="Center"/>
+                </StackPanel>
+              </RadioButton>
             </StackPanel>
           </Border>
 
@@ -595,6 +607,7 @@
            visibilidad: cada oficio tiene su propia lista y su propio ciclo de vida, pero
            comparten ventana, barra de título y registro. -->
       <local:OrganizarView x:Name="pageOrganizar" Grid.Row="2" Grid.RowSpan="5" Visibility="Collapsed"/>
+      <local:RecortesView x:Name="pageRecortes" Grid.Row="2" Grid.RowSpan="5" Visibility="Collapsed"/>
 
       <!-- ══ Registro ══ -->
       <StackPanel Grid.Row="7" Margin="16,0,16,10">

@@ -116,9 +116,16 @@ public partial class MainWindow : Window
         SizeChanged += (_, _) => AjustarAAncho();
 
         // conmutador de páginas «Comprimir | Organizar»
-        tabComprimir.Checked += (_, _) => CambiarPagina(organizar: false);
-        tabOrganizar.Checked += (_, _) => CambiarPagina(organizar: true);
+        tabComprimir.Checked += (_, _) => CambiarPagina(Pagina.Comprimir);
+        tabOrganizar.Checked += (_, _) => CambiarPagina(Pagina.Organizar);
+        tabRecortes.Checked += (_, _) => CambiarPagina(Pagina.Recortes);
         pageOrganizar.Log += AppendLog;
+        pageRecortes.Log += AppendLog;
+        pageOrganizar.AbrirEnRecortes += ruta =>
+        {
+            tabRecortes.IsChecked = true;
+            pageRecortes.Cargar(ruta);
+        };
         pillFondo.MouseLeftButtonUp += (_, _) => tabComprimir.IsChecked = true;
 
         tabDetalle.MouseLeftButtonUp += (_, _) => ShowSideTab("detalle");
@@ -1130,18 +1137,21 @@ public partial class MainWindow : Window
     /// título y registro, pero cada una tiene su lista y su ciclo de vida: cambiar de página
     /// NO detiene lo que estuviera corriendo en la otra.
     /// </summary>
-    private void CambiarPagina(bool organizar)
+    private enum Pagina { Comprimir, Organizar, Recortes }
+
+    private void CambiarPagina(Pagina pagina)
     {
-        var comprimir = organizar ? Visibility.Collapsed : Visibility.Visible;
+        var comprimir = pagina == Pagina.Comprimir ? Visibility.Visible : Visibility.Collapsed;
         rowOrigen.Visibility = comprimir;
         rowOpciones.Visibility = comprimir;
         rowTabla.Visibility = comprimir;
         rowAcciones.Visibility = comprimir;
         // La barra de progreso solo reaparece si de verdad hay algo comprimiendo
-        progRow.Visibility = organizar ? Visibility.Collapsed
-                                       : (_running ? Visibility.Visible : Visibility.Collapsed);
+        progRow.Visibility = pagina == Pagina.Comprimir && _running
+            ? Visibility.Visible : Visibility.Collapsed;
 
-        pageOrganizar.Visibility = organizar ? Visibility.Visible : Visibility.Collapsed;
+        pageOrganizar.Visibility = pagina == Pagina.Organizar ? Visibility.Visible : Visibility.Collapsed;
+        pageRecortes.Visibility = pagina == Pagina.Recortes ? Visibility.Visible : Visibility.Collapsed;
         ActualizarPildoraFondo();
     }
 
