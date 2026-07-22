@@ -1,4 +1,6 @@
 using System.IO;
+using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -30,6 +32,14 @@ public partial class ReproductorWindow : Window
     private bool _mudo;
     private readonly bool _eraMarcador;   // ¿estaba solo en la nube antes de abrirlo?
     private readonly CirculosCargando _cargando = new();
+
+    // ── la previa de la barra ── mismo patrón que Recortes: hueco de 5 s, caché y rebote
+    private const int HuecoPrevia = 5;
+    private readonly Dictionary<int, BitmapImage> _previas = new();
+    private readonly DispatcherTimer _esperaPrevia;
+    private int _previaPedida = -1;
+    private bool _sacandoPrevia;
+    private string? _tempPrevias;
     private double _volumenPrevio = 0.8;
     private Point _ultimoRaton;
     private int _tics;
@@ -113,12 +123,22 @@ public partial class ReproductorWindow : Window
         video.MediaOpened += (_, _) =>
         {
             _abierto = true;
+            // Con un fichero que se está descargando, el Play() del arranque llega cuando
+            // todavía no hay nada que reproducir y se queda en nada. Se repite aquí, que es
+            // cuando el vídeo ya está de verdad: si no, acababa cargado pero parado.
+            if (!_pausado) { video.Play(); glifoPlay.Data = GlifoPausa; }
             if (video.NaturalDuration.HasTimeSpan)
             {
                 barra.Maximum = video.NaturalDuration.TimeSpan.TotalSeconds;
                 lblDur.Text = Fmt(video.NaturalDuration.TimeSpan);
             }
         };
+        barra.MouseMove += AlPasarPorLaBarra;
+        barra.MouseLeave += (_, _) => globoPrevia.Visibility = Visibility.Collapsed;
+
+        _esperaPrevia = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(90) };
+        _esperaPrevia.Tick += async (_, _) => { _esperaPrevia.Stop(); await SacarPreviaAsync(); };
+
         video.MediaEnded += (_, _) => { _pausado = true; glifoPlay.Data = GlifoPlay; Mostrar(); };
         video.MediaFailed += (_, e) =>
         {
@@ -171,7 +191,9 @@ public partial class ReproductorWindow : Window
             _reloj.Stop();
             _apagon.Stop();
             _cargando.Parar();
+            _esperaPrevia.Stop();
             video.Close();
+            BorrarPrevias();
 
             // Si estaba solo en la nube, se devuelve a la nube: verlo para identificarlo no
             // es motivo para quedarse 250 MB en el disco. Va después de Close() porque
@@ -299,6 +321,107 @@ public partial class ReproductorWindow : Window
     }
 
     // ─────────────────────────── varios ───────────────────────────
+
+    // ─────────────────────────── la previa de la barra ───────────────────────────
+
+    /// <summary>
+    /// El fotograma de por dónde va el ratón, en un globo sobre la barra. La posición sale
+    /// del ratón y no del valor del control: así funciona igual pasando por encima que
+    /// arrastrando el punto.
+    /// </summary>
+    private void AlPasarPorLaBarra(object remitente, MouseEventArgs e)
+    {
+        if (!_abierto || barra.Maximum <= 0) { globoPrevia.Visibility = Visibility.Collapsed; return; }
+
+        double x = Math.Clamp(e.GetPosition(barra).X, 0, barra.ActualWidth);
+        double seg = x / Math.Max(1, barra.ActualWidth) * barra.Maximum;
+
+        globoPrevia.Visibility = Visibility.Visible;
+        // Centrado con el ancho REAL y sujeto a los bordes: un globo medio salido de la
+        // ventana no se lee.
+        double ancho = globoPrevia.ActualWidth > 0 ? globoPrevia.ActualWidth : 200;
+        double alto = globoPrevia.ActualHeight > 0 ? globoPrevia.ActualHeight : 122;
+        Canvas.SetLeft(globoPrevia, Math.Clamp(x - ancho / 2, 0, Math.Max(0, barra.ActualWidth - ancho)));
+        Canvas.SetTop(globoPrevia, -alto - 10);
+        lblPrevia.Text = Fmt(TimeSpan.FromSeconds(seg));
+
+        int hueco = (int)(seg / HuecoPrevia) * HuecoPrevia;
+        if (_previas.TryGetValue(hueco, out var ya))
+        {
+            imgPrevia.Source = ya;
+            lblPreviaCargando.Visibility = Visibility.Collapsed;
+            return;
+        }
+        _previaPedida = hueco;
+        lblPreviaCargando.Visibility = imgPrevia.Source == null ? Visibility.Visible : Visibility.Collapsed;
+        _esperaPrevia.Stop();
+        _esperaPrevia.Start();
+    }
+
+    /// <summary>
+    /// Saca UN fotograma, el último que se pidió. Los de en medio se descartan a propósito:
+    /// recorriendo la barra se piden decenas por segundo, y sacarlos todos dejaría la previa
+    /// siempre por detrás del ratón.
+    /// </summary>
+    private async Task SacarPreviaAsync()
+    {
+        if (_sacandoPrevia || _previaPedida < 0) return;
+
+        // Un fichero que aún está solo en la nube no se abre para sacarle un fotograma: eso
+        // lo descargaría entero. Cuando termine de bajar, las previas salen solas.
+        if (Reindex.Nube.EsMarcador(_ruta)) { lblPreviaCargando.Text = "en la nube"; return; }
+
+        int hueco = _previaPedida;
+        _sacandoPrevia = true;
+        try
+        {
+            var jpg = Path.Combine(CarpetaDePrevias(), $"{hueco}.jpg");
+            if (await Engine.MakeThumbnailAsync(_ruta, jpg, hueco))
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;   // se lee entera; el fichero queda libre
+                bmp.DecodePixelWidth = 240;
+                bmp.UriSource = new Uri(jpg);
+                bmp.EndInit();
+                bmp.Freeze();
+                _previas[hueco] = bmp;
+                try { File.Delete(jpg); } catch { }
+
+                if (globoPrevia.Visibility == Visibility.Visible && _previaPedida == hueco)
+                {
+                    imgPrevia.Source = bmp;
+                    lblPreviaCargando.Visibility = Visibility.Collapsed;
+                }
+            }
+        }
+        catch { /* sin ffmpeg o fichero ilegible: la previa simplemente no sale */ }
+        finally
+        {
+            _sacandoPrevia = false;
+            // Mientras se sacaba esa, el ratón puede haberse ido a otro sitio.
+            if (_previaPedida != hueco) { _esperaPrevia.Stop(); _esperaPrevia.Start(); }
+        }
+    }
+
+    private string CarpetaDePrevias()
+    {
+        if (_tempPrevias != null) return _tempPrevias;
+        _tempPrevias = Path.Combine(Path.GetTempPath(),
+            $"shrinkstudio-repro-{Environment.ProcessId}-{Environment.TickCount}");
+        Directory.CreateDirectory(_tempPrevias);
+        return _tempPrevias;
+    }
+
+    /// <summary>Al cerrar: fuera los fotogramas de memoria y su carpeta del temporal.</summary>
+    private void BorrarPrevias()
+    {
+        _previas.Clear();
+        imgPrevia.Source = null;
+        if (_tempPrevias == null) return;
+        try { Directory.Delete(_tempPrevias, recursive: true); } catch { }
+        _tempPrevias = null;
+    }
 
     private void AbrirEnSistema()
     {

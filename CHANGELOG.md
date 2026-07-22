@@ -31,6 +31,13 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Previsualización en la barra del reproductor.** Pasando el ratón por la barra sale el
+  fotograma de ese punto con su tiempo, como en Recortes. Si el vídeo todavía está solo en
+  la nube no se saca ningún fotograma —eso lo descargaría entero—; en cuanto termina de
+  bajar, las previas salen solas.
+- **El vídeo arranca solo en cuanto está listo.** Antes, con un fichero que se estaba
+  descargando, la orden de reproducir llegaba cuando aún no había nada que reproducir y se
+  quedaba en nada: acababa cargado pero parado.
 - **Una animación mientras el vídeo carga.** El rectángulo negro no decía nada, y con
   «Archivos a petición» la espera puede ser larga de verdad porque el fichero se está
   descargando entero. Ahora laten cuatro círculos en cascada —cada uno con su onda
