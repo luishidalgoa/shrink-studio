@@ -161,6 +161,8 @@ public static class ReindexEngine
         // que la app identificó con confianza no hay nada que elegir, y ofrecer candidatos
         // peores solo mete ruido e invita a un clic equivocado. Se hace al final, después de
         // la deduplicación, porque esa puede degradar una fila que hasta entonces iba verde.
+        MarcarLosQueTraenDosEpisodios(resoluciones, catalogo, indice);
+
         foreach (var r in resoluciones)
             if (r.Confianza == ReindexConfianza.Alta)
                 r.Alternativas = Array.Empty<ReindexCandidato>();

@@ -31,6 +31,7 @@ public static class Program
         PrefijoDeSerie();
         BibliotecaPorTemporadas();
         CatalogosReales();
+        FicheroDeDosEpisodios();
         LeerLoQueEscribe();
         MarcadorManda();
         SepararHistorias();
@@ -1021,6 +1022,57 @@ public static class Program
 
         Eq(0, SidecarPlanner.Planear(de, de, enCarpeta).Count,
             "si el vídeo no cambia de nombre, no hay nada que mover");
+    }
+
+    // ─────────────── Un fichero con historias de dos episodios ───────────────
+
+    /// <summary>
+    /// Hay ficheros que emparejan dos historias que el catálogo cuenta como episodios
+    /// DISTINTOS. Ahí no existe respuesta correcta: renombrarlo con el número de uno pierde
+    /// al otro, en silencio y para siempre. Eso lo decide una persona, no el programa.
+    ///
+    /// Lo delicado es no confundirlo con un remake: en Doraemon la misma historia aparece en
+    /// un episodio viejo y en uno moderno, y eso NO es un fichero de dos episodios. La
+    /// diferencia es si el episodio elegido cubre esa historia o no.
+    /// </summary>
+    private static void FicheroDeDosEpisodios()
+    {
+        Seccion("Un fichero, dos episodios");
+
+        var cat = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0",
+          "serie": "Doraemon (2005)",
+          "episodios": [
+            { "num": 615, "temporada": 2020, "titulos": { "es": ["El robot pruebarreacciones"] } },
+            { "num": 662, "temporada": 2021, "titulos": { "es": ["A por la marca perfecta", "El escaparate para recoger"] } },
+            { "num": 364, "temporada": 2014, "titulos": { "es": ["El gorro de la suerte", "El cazamariposas"] } },
+            { "num": 2,   "temporada": 2005, "titulos": { "es": ["El gorro de la suerte"] } }
+          ]
+        }
+        """);
+
+        // Lo peligroso de verdad: el número y la PRIMERA historia concuerdan, así que el
+        // motor lo da por seguro... y la segunda historia es de otro episodio. Ese es el
+        // fichero que se renombraría solo, perdiendo la mitad de lo que contiene.
+        var dos = ReindexEngine.Resolve(new[] {
+            SignalExtractor.Extract(
+                F("Doraemon (2005) - S2020E615 - El robot pruebarreacciones + A por la marca perfecta.mkv"),
+                "Season 2020"),
+        }, cat)[0];
+        Eq(true, dos.Confianza != ReindexConfianza.Alta,
+            "un fichero que abarca dos episodios NUNCA se aplica solo");
+        Eq(true, (dos.Motivo ?? "").Contains("662") && (dos.Motivo ?? "").Contains("615"),
+            "y el motivo nombra los dos episodios que hay dentro");
+
+        // El remake: la misma historia está en el 2 y en el 364, pero el 364 cubre las DOS
+        // historias del fichero. Eso no es ambigüedad, es lo normal.
+        var remake = ReindexEngine.Resolve(new[] {
+            SignalExtractor.Extract(F("Doraemon (2005) - S2014E364 - El gorro de la suerte + El cazamariposas.mkv"),
+                                    "Season 2014"),
+        }, cat)[0];
+        Eq(364, remake.Episodio?.Num, "el remake se identifica igual");
+        Eq(ReindexConfianza.Alta, remake.Confianza, "y sigue siendo automático: no hay nada que decidir");
     }
 
     // ─────────────── La app tiene que saber leer lo que ella misma escribe ───────────────
