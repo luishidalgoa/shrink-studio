@@ -32,6 +32,8 @@ public static class Program
         BibliotecaPorTemporadas();
         CatalogosReales();
         SegmentoRecordado();
+        OrdinalDeTemporada();
+        Sidecars();
 
         Console.WriteLine($"\n── {_ok} pasan · {_fallos} fallan ──");
         return _fallos == 0 ? 0 : 1;
@@ -932,6 +934,84 @@ public static class Program
             var r = Uno(cat, F("[1] Shin-chan se va de compras.mkv"));
             Eq(1, r.Episodio?.Num, "identifica el episodio 1 de Shin-chan por título");
         }
+    }
+
+    // ──────────── Índice relativo a la temporada («S2018E01» = 1.º de 2018) ────────────
+
+    /// <summary>
+    /// El caso real: ficheros «S2018E01.mkv» sin título, numerados del 1 en adelante DENTRO
+    /// de cada temporada. Leído como número global, el 1 es el estreno de 2005 — contradice
+    /// a su propia carpeta y encima se pelea con el fichero del episodio 1 de verdad.
+    /// </summary>
+    private static void OrdinalDeTemporada()
+    {
+        Seccion("Índice relativo a la temporada");
+
+        var cat = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0",
+          "serie": "Doraemon (2005)",
+          "episodios": [
+            { "num": 1,   "temporada": 2005, "titulos": { "es": ["Pesca de andar por casa"] } },
+            { "num": 2,   "temporada": 2005, "titulos": { "es": ["Con calma y con prisa"] } },
+            { "num": 640, "temporada": 2018, "titulos": { "es": ["Primero de 2018"] } },
+            { "num": 641, "temporada": 2018, "titulos": { "es": ["Segundo de 2018"] } },
+            { "num": 643, "temporada": 2018, "titulos": { "es": ["Tercero de 2018"] } }
+          ]
+        }
+        """);
+
+        // «E01» en la carpeta de 2018: el episodio global 1 es de 2005 → se relee como
+        // el PRIMERO de la temporada 2018
+        var r = Uno(cat, F("Doraemon (2005) S2018E01.mkv", "Season 2018"));
+        Eq(640, r.Episodio?.Num, "el 1 de la carpeta 2018 es el primero DE 2018, no el estreno de 2005");
+        Eq(ReindexConfianza.Revisar, r.Confianza, "sin título ni fecha que lo confirme, se revisa");
+        Assert(r.Motivo.Contains("temporada"), "el motivo explica la relectura");
+        Assert(r.Alternativas.Any(a => a.Episodio.Num == 1),
+            "la lectura global (el estreno de 2005) se ofrece como alternativa");
+
+        var r3 = Uno(cat, F("Doraemon (2005) S2018E03.mkv", "Season 2018"));
+        Eq(643, r3.Episodio?.Num, "el 3.º de 2018 aunque la numeración global salte (640, 641, 643)");
+
+        // Con más ordinal que episodios tiene la temporada, no se inventa nada
+        var r9 = Uno(cat, F("Doraemon (2005) S2018E09.mkv", "Season 2018"));
+        Assert(r9.Episodio?.Num != 643, "un 9.º que no existe no cae en el último por las bravas");
+
+        // Y si el número global YA es de esa temporada, no se toca
+        var rOk = Uno(cat, F("Doraemon (2005) S2018E640.mkv", "Season 2018"));
+        Eq(640, rOk.Episodio?.Num, "un número global que cuadra con su carpeta se queda como está");
+    }
+
+    // ─────────────── Los ficheros compañeros (.nfo, .srt) viajan con el vídeo ───────────────
+
+    private static void Sidecars()
+    {
+        Seccion("Ficheros compañeros (.nfo, .srt…)");
+
+        // Renombrar el vídeo y dejar su .nfo con el nombre viejo lo convierte en huérfano:
+        // el reproductor de biblioteca deja de asociarlos. Los compañeros viajan juntos.
+        var de = F("Doraemon S2005E020 - Animo.mkv");
+        var a = F("Doraemon (2005) - S2005E20 - Animo.mkv");
+        var enCarpeta = new[]
+        {
+            F("Doraemon S2005E020 - Animo.mkv"),
+            F("Doraemon S2005E020 - Animo.nfo"),
+            F("Doraemon S2005E020 - Animo.es.srt"),
+            F("otra cosa.nfo"),
+            F("Doraemon S2005E021 - Otro.nfo"),
+        };
+
+        var plan = SidecarPlanner.Planear(de, a, enCarpeta);
+        Eq(2, plan.Count, "encuentra sus dos compañeros y solo los suyos");
+        Assert(plan.Any(p => p.De.EndsWith("Animo.nfo") &&
+                             p.A.EndsWith("Doraemon (2005) - S2005E20 - Animo.nfo")),
+            "el .nfo se renombra igual que el vídeo");
+        Assert(plan.Any(p => p.De.EndsWith("Animo.es.srt") &&
+                             p.A.EndsWith("Doraemon (2005) - S2005E20 - Animo.es.srt")),
+            "un subtítulo con idioma («.es.srt») conserva su sufijo completo");
+
+        Eq(0, SidecarPlanner.Planear(de, de, enCarpeta).Count,
+            "si el vídeo no cambia de nombre, no hay nada que mover");
     }
 
     // ─────────────── La decisión «es solo una historia» se recuerda ───────────────
