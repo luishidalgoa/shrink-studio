@@ -622,8 +622,12 @@ public partial class OrganizarView : UserControl
             int listos = _filas.Count(f => f.ListoParaAplicar);
             if (animar)
             {
-                _etapas[2].Hecha($"{listos} listos para aplicar");
-                await Task.Delay(700);   // que el último check y su salto lleguen a verse
+                _pasos.Hecha(2);
+                // La fusión final: los tres pasos se funden en un solo check con destello.
+                // Merece verse entera antes de saltar a la tabla — es la recompensa.
+                _pasos.Terminado("Identificación lista",
+                    listos == 1 ? "1 listo para aplicar" : $"{listos} listos para aplicar");
+                await Task.Delay(1100);
             }
 
             MostrarRevision();

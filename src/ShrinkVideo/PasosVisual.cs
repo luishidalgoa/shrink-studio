@@ -244,13 +244,14 @@ public sealed class PasosVisual
         private readonly Path _check;
         private readonly RotateTransform _giro = new();
         private readonly ScaleTransform _escala = new(1, 1);
+        private readonly TranslateTransform _mueve = new();
 
         public Paso(int numero)
         {
             Raiz = new Grid
             {
                 Width = Diametro, Height = Diametro,
-                RenderTransform = _escala,
+                RenderTransform = new TransformGroup { Children = { _escala, _mueve } },
                 RenderTransformOrigin = new Point(0.5, 0.5),
             };
 
