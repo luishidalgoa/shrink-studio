@@ -121,9 +121,24 @@
         </Border>
       </Grid>
 
-      <TextBlock Grid.Row="3" Margin="16,0,16,12" FontSize="11.5" TextWrapping="Wrap"
+      <TextBlock x:Name="lblPie" Grid.Row="3" Margin="16,0,16,12" FontSize="11.5" TextWrapping="Wrap"
                  Foreground="{StaticResource Neutral500}"
                  Text="Solo lectura: es la referencia contra la que se identifica. Para cambiar un fichero de episodio, usa su fila en la tabla."/>
+
+      <!-- Pregunta de historia (solo en modo elegir, con episodios multi-historia) -->
+      <Border x:Name="overlayHistoria" Grid.RowSpan="4" Background="#CC161826" Visibility="Collapsed">
+        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
+                CornerRadius="8" MaxWidth="500" VerticalAlignment="Center" HorizontalAlignment="Center"
+                Padding="18,16" Margin="24">
+          <StackPanel>
+            <TextBlock x:Name="lblHistoriaTitulo" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
+            <TextBlock Margin="0,6,0,12" FontSize="12" Foreground="{StaticResource Neutral500}"
+                       TextWrapping="Wrap" LineHeight="18"
+                       Text="Si el fichero trae el episodio entero, elige «Completo». Si es solo una de sus historias, di cuál: la letra irá pegada al número (E413b) y el título será el de esa historia."/>
+            <StackPanel x:Name="panelHistorias"/>
+          </StackPanel>
+        </Border>
+      </Border>
     </Grid>
   </Border>
 </Window>

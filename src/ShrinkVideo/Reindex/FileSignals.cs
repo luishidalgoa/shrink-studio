@@ -42,6 +42,19 @@ public sealed class FileSignals
     /// <summary>Si el fichero no se pudo leer o el nombre no da nada, el motivo.</summary>
     public string? Error { get; init; }
 
+    /// <summary>
+    /// Una copia con otro sub-segmento. Existe porque decidir «este fichero es solo la
+    /// historia b» ocurre DESPUÉS de extraer las señales, y las señales son inmutables a
+    /// propósito: la decisión crea una variante, no reescribe la evidencia.
+    /// </summary>
+    public FileSignals ConSegmento(string? seg) => new()
+    {
+        Path = Path, NombreArchivo = NombreArchivo, Extension = Extension, Carpeta = Carpeta,
+        Fecha = Fecha, Indice = Indice, SubSegmento = seg, Especial = Especial,
+        IndiceEspecial = IndiceEspecial, Temporada = Temporada, TituloNombre = TituloNombre,
+        TituloMeta = TituloMeta, Segmentos = Segmentos, Fingerprint = Fingerprint, Error = Error,
+    };
+
     /// <summary>¿Hay algo con lo que identificar? Si no, es ERROR de entrada.</summary>
     public bool TieneSeñales => Indice.HasValue || Fecha.HasValue
                                 || !string.IsNullOrWhiteSpace(TituloNombre)

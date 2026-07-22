@@ -31,6 +31,7 @@ public static class Program
         PrefijoDeSerie();
         BibliotecaPorTemporadas();
         CatalogosReales();
+        SegmentoRecordado();
 
         Console.WriteLine($"\n── {_ok} pasan · {_fallos} fallan ──");
         return _fallos == 0 ? 0 : 1;
@@ -698,6 +699,30 @@ public static class Program
                 .Render(catSeg, catSeg.PorNum(12)!, f),
             "reproduce exactamente la convención de una biblioteca ya ordenada");
 
+        // ── Ficheros que son SOLO UNA HISTORIA de una transmisión ──
+        //
+        // El caso real: «S2015E423 - b] ¡En busca de una sonrisa!» es la segunda historia de
+        // la transmisión 413, no el episodio entero. El estándar: la letra va pegada al
+        // número (E413b) para no pisarse con el episodio completo ni con la otra mitad, y
+        // el título es SOLO el de esa historia.
+        var fB = SignalExtractor.Extract(F("Las galletas magicas.mkv")).ConSegmento("b");
+        Eq("Serie de prueba - S2005E12b - Nieve en agosto.mkv",
+            plantilla.Render(catSeg, catSeg.PorNum(12)!, fB),
+            "la historia b lleva la letra en el número y solo su título");
+        Eq("Serie de prueba - S2005E12a - El cometa.mkv",
+            plantilla.Render(catSeg, catSeg.PorNum(12)!, fB.ConSegmento("a")),
+            "y la a, la primera historia");
+        Eq("Serie de prueba S2005E012b - Nieve en agosto.mkv",
+            new LibraryTemplate("<serie> S<temp>E<num:000> - <título: ┃ >")
+                .Render(catSeg, catSeg.PorNum(12)!, fB),
+            "el relleno con ceros conserva la letra detrás");
+        // Con una letra que va más allá de las historias que hay, no se inventa nada
+        Eq("Serie de prueba - S2005E12z - El cometa ┃ Nieve en agosto.mkv",
+            new LibraryTemplate("<serie> - S<temp>E<num> - <título: ┃ >")
+                .Render(catSeg, catSeg.PorNum(12)!, fB.ConSegmento("z")),
+            "una letra sin historia correspondiente deja el título completo");
+        Eq(null, fB.ConSegmento(null).SubSegmento, "quitar el segmento también funciona");
+
         // Patrón a medida
         Eq("S2005E12.mkv", new LibraryTemplate("S<temp>E<num>").Render(cat, ep, f), "acepta un patrón propio");
         Eq("Serie de prueba - S2005E12 - Las galletas mágicas.mkv",
@@ -907,6 +932,29 @@ public static class Program
             var r = Uno(cat, F("[1] Shin-chan se va de compras.mkv"));
             Eq(1, r.Episodio?.Num, "identifica el episodio 1 de Shin-chan por título");
         }
+    }
+
+    // ─────────────── La decisión «es solo una historia» se recuerda ───────────────
+
+    private static void SegmentoRecordado()
+    {
+        Seccion("Segmento elegido a mano y recordado");
+
+        var cat = ReindexCatalog.Parse(CatalogoDePrueba);
+        var ruta = F("algo raro 423.mkv");
+        var señal = SignalExtractor.Extract(ruta);
+
+        // El usuario decidió: este fichero es la historia «b» del episodio 12
+        var overrides = new Dictionary<string, ReindexOverride>
+        {
+            [señal.Fingerprint] = new() { Num = 12, Seg = "b", Serie = "Serie de prueba" },
+        };
+
+        var r = ReindexEngine.Resolve(new[] { señal }, cat, overrides)[0];
+        Eq(12, r.Episodio?.Num, "la decisión manda (P0)");
+        Eq("b", r.Archivo.SubSegmento, "y trae el segmento pegado al fichero");
+        Eq(ReindexEstado.Corregido, r.Estado, "renombrar a E12b es corregir");
+        Eq(ReindexConfianza.Alta, r.Confianza, "una decisión humana no se duda");
     }
 
     // ─────────────────────────── Lista ISO 639-1 ───────────────────────────

@@ -100,6 +100,9 @@ public sealed class ReindexOverride
     /// <summary>«usuario» o «auto-confirmado».</summary>
     [System.Text.Json.Serialization.JsonPropertyName("origen")]
     public string Origen { get; init; } = "usuario";
+    /// <summary>Si el fichero es SOLO una historia del episodio: su letra («a», «b»…).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("seg")]
+    public string? Seg { get; init; }
     [System.Text.Json.Serialization.JsonPropertyName("fecha_decision")]
     public string FechaDecision { get; init; } = "";
     [System.Text.Json.Serialization.JsonPropertyName("nombre_original")]
@@ -182,6 +185,13 @@ public static class ReindexEngine
             var epOv = cat.PorNum(ov.Num);
             if (epOv != null)
             {
+                // La decisión puede incluir «es solo la historia b»: el segmento viaja con
+                // el fichero para que la plantilla lo escriba (E12b, solo su título).
+                if (!string.IsNullOrEmpty(ov.Seg))
+                {
+                    f = f.ConSegmento(ov.Seg);
+                    r = new ReindexResolution { Archivo = f };
+                }
                 r.Episodio = epOv;
                 r.Hint = ReindexHint.Override;
                 r.Score = 1.0;

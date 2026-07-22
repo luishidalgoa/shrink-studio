@@ -29,6 +29,15 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **Un fichero puede ser SOLO una historia de un episodio, y ya hay forma estándar de
+  decirlo.** En el resolutor, «Elegir otro episodio…» abre por fin el explorador (buscando ya
+  el título del fichero); al elegir un episodio con varias historias, la app pregunta si el
+  fichero es el episodio completo o solo una de ellas. Si es solo una, la letra va pegada al
+  número —`E413b`, para no pisarse con el episodio completo ni con la otra mitad— y el título
+  es el de esa historia, no el del episodio entero. La decisión se recuerda para ese fichero.
+
 ## [0.11.0] - 2026-07-22
 
 ### Cambiado

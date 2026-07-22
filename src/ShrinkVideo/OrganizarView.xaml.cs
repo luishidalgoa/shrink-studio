@@ -797,11 +797,25 @@ public partial class OrganizarView : UserControl
         Escribir($"«{fila.Original}» → episodio {ep.Num} (elegido a mano).");
     }
 
+    /// <summary>
+    /// Abre el explorador en modo elegir, arrancando con el título del fichero ya buscado:
+    /// lo normal es que el episodio correcto esté a un golpe de vista.
+    /// </summary>
     private void OnElegirAMano(object sender, RoutedEventArgs e)
     {
         if (tabla.SelectedItem is not OrganizarRow fila || _catalogoCargado == null) return;
-        Aviso($"Elegir un episodio cualquiera del catálogo para «{fila.Original}» todavía no está montado. " +
-              "Por ahora puedes escoger entre los candidatos propuestos.");
+
+        var win = new CatalogoWindow(_catalogoCargado, fila.Res.Archivo.TituloNombre, modoElegir: true)
+        { Owner = Window.GetWindow(this) };
+
+        if (win.ShowDialog() != true || win.Elegido is not { } ep) return;
+
+        fila.ElegirEpisodio(ep, win.SegElegido);
+        RecordarDecision(fila, ep, win.SegElegido);
+        ActualizarContadores();
+        Escribir(win.SegElegido == null
+            ? $"«{fila.Original}» → episodio {ep.Num} (elegido en el explorador)."
+            : $"«{fila.Original}» → historia «{win.SegElegido}» del episodio {ep.Num}.");
     }
 
     private void OnDejarComoEsta(object sender, RoutedEventArgs e)
@@ -816,11 +830,12 @@ public partial class OrganizarView : UserControl
         ActualizarContadores();
     }
 
-    private void RecordarDecision(OrganizarRow fila, CatalogEpisode ep)
+    private void RecordarDecision(OrganizarRow fila, CatalogEpisode ep, string? seg = null)
     {
         _decisiones[fila.Res.Archivo.Fingerprint] = new ReindexOverride
         {
             Num = ep.Num,
+            Seg = seg,
             Temporada = ep.Temporada,
             Serie = _catalogoCargado?.Serie ?? "",
             Origen = "usuario",

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using ShrinkVideo.Reindex;
 
 namespace ShrinkVideo;
@@ -38,11 +39,24 @@ public sealed class EpisodioVista
 public partial class CatalogoWindow : Window
 {
     private readonly ReindexCatalog _cat;
+    private readonly bool _modoElegir;
 
-    public CatalogoWindow(ReindexCatalog cat, string? consultaInicial = null)
+    /// <summary>En modo elegir: el episodio escogido y, si es solo una historia, su letra.</summary>
+    public CatalogEpisode? Elegido { get; private set; }
+    public string? SegElegido { get; private set; }
+
+    public CatalogoWindow(ReindexCatalog cat, string? consultaInicial = null, bool modoElegir = false)
     {
         InitializeComponent();
         _cat = cat;
+        _modoElegir = modoElegir;
+
+        if (modoElegir)
+        {
+            lblPie.Text = "Doble clic para elegir el episodio de este fichero. Si el episodio " +
+                          "tiene varias historias, podrás decir si el fichero es solo una de ellas.";
+            lista.MouseDoubleClick += (_, _) => ElegirSeleccionado();
+        }
 
         lblTitulo.Text = $"Explorar el catálogo — {cat.Serie}";
         txtBuscar.TextChanged += (_, _) => Refrescar();
@@ -175,6 +189,57 @@ public partial class CatalogoWindow : Window
         }
 
         return parrafo;
+    }
+
+    // ── modo elegir ──
+
+    private void ElegirSeleccionado()
+    {
+        if (lista.SelectedItem is not EpisodioVista v) return;
+
+        // Con una sola historia no hay nada que preguntar; con varias, sí: el fichero puede
+        // ser el episodio entero o solo uno de sus trozos.
+        if (v.Ep.TitulosSalida.Count <= 1) { Terminar(v.Ep, null); return; }
+
+        lblHistoriaTitulo.Text = $"El episodio {v.Ep.Num} tiene {v.Ep.TitulosSalida.Count} historias. ¿Qué trae este fichero?";
+        panelHistorias.Children.Clear();
+
+        Button Boton(string texto, Action accion)
+        {
+            var b = new Button
+            {
+                Content = texto,
+                Style = (Style)FindResource("BtnSecondary"),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 6),
+                Padding = new Thickness(10, 6, 10, 6),
+                FontSize = 12.5,
+            };
+            b.Click += (_, _) => accion();
+            return b;
+        }
+
+        panelHistorias.Children.Add(Boton("El episodio completo", () => Terminar(v.Ep, null)));
+        for (int i = 0; i < v.Ep.TitulosSalida.Count && i < 6; i++)
+        {
+            char letra = (char)('a' + i);
+            var titulo = v.Ep.TitulosSalida[i];
+            panelHistorias.Children.Add(Boton($"Solo «{titulo}»  →  E{v.Ep.Num}{letra}",
+                () => Terminar(v.Ep, letra.ToString())));
+        }
+        var cancelar = Boton("Cancelar", () => overlayHistoria.Visibility = Visibility.Collapsed);
+        cancelar.Style = (Style)FindResource("BtnGhostMuted");
+        panelHistorias.Children.Add(cancelar);
+
+        overlayHistoria.Visibility = Visibility.Visible;
+    }
+
+    private void Terminar(CatalogEpisode ep, string? seg)
+    {
+        Elegido = ep;
+        SegElegido = seg;
+        DialogResult = true;
     }
 
     private void Refrescar()
