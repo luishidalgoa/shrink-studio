@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Rectangle = System.Windows.Shapes.Rectangle;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -23,6 +24,13 @@ public sealed class TramoFila : INotifyPropertyChanged
     {
         get => _nombre;
         set { _nombre = value; PropertyChanged?.Invoke(this, new(nameof(Nombre))); }
+    }
+    private bool _enCurso;
+    /// <summary>Se está exportando ahora mismo: la tarjeta lo enseña.</summary>
+    public bool EnCurso
+    {
+        get => _enCurso;
+        set { _enCurso = value; PropertyChanged?.Invoke(this, new(nameof(EnCurso))); }
     }
     public double Duracion => Fin - Inicio;
     public string Rango => $"{Reloj(Inicio)} – {Reloj(Fin)}  ({Reloj(Duracion)})";
@@ -58,6 +66,8 @@ public partial class RecortesView : UserControl
     private string _tramoActual = "";
     private string? _destino;      // null = junto al vídeo original
     private bool _exportando;
+    private string? _tempMiniaturas;
+    private readonly List<Image> _miniaturas = new();
 
     /// <summary>Se avisa al anfitrión para que lo escriba en el registro compartido.</summary>
     public event Action<string>? Log;
@@ -135,7 +145,9 @@ public partial class RecortesView : UserControl
         };
         _reloj.Start();
 
-        SizeChanged += (_, _) => PintarRegla();
+        SizeChanged += (_, _) => { PintarRegla(); PintarTira(); };
+        // Al salir de la página no se deja nada en memoria ni en disco temporal.
+        Unloaded += (_, _) => LiberarMiniaturas();
     }
 
     // ─────────────────────────── cargar ───────────────────────────
@@ -167,6 +179,7 @@ public partial class RecortesView : UserControl
         video.Pause();          // primer fotograma a la vista, sin arrancar la reproducción
         _pausado = true;
 
+        Ocupado(true, "Analizando el vídeo…");
         var info = await _engine.ProbeAsync(ruta);
         _fuente.Width = info.Width; _fuente.Height = info.Height; _fuente.Fps = info.Fps;
         _fuente.DurationSec = info.DurationSec;
@@ -186,9 +199,107 @@ public partial class RecortesView : UserControl
         lblVideoDet.Text = $"{info.Codec.ToUpperInvariant()} · {info.Width}×{info.Height} · " +
                            $"{Humano(fi.Length)}";
         lblDuracionTotal.Text = TramoFila.Reloj(_duracion);
-        btnCortar.IsEnabled = true;
         MostrarDestino();
+
+        await GenerarMiniaturasAsync(ruta);
+
+        Ocupado(false);
+        btnCortar.IsEnabled = true;
         RefrescarEstimacion();
+    }
+
+    /// <summary>
+    /// Deshabilita la página mientras se prepara el material. Trabajar con el vídeo a medio
+    /// cargar no lleva a ningún sitio bueno, y sin aviso parece que la app se ha colgado.
+    /// </summary>
+    private void Ocupado(bool si, string que = "")
+    {
+        capaCarga.Visibility = si ? Visibility.Visible : Visibility.Collapsed;
+        lblCarga.Text = que;
+        lblCargaDet.Text = "";
+        barCarga.Value = 0;
+        barCarga.IsIndeterminate = si;
+        btnElegir.IsEnabled = !si;
+        btnCortar.IsEnabled = !si && _fuente != null;
+        btnExportar.IsEnabled = false;      // lo recalcula RefrescarEstimacion al terminar
+        listaTramos.IsEnabled = !si;
+        barra.IsEnabled = !si;
+        foreach (var b in new[] { btnPlay, btnAtras, btnAdelante }) b.IsEnabled = !si;
+    }
+
+    /// <summary>
+    /// La tira de fotogramas del fondo de la línea de tiempo. Cada imagen se carga ENTERA en
+    /// memoria y su fichero temporal se borra al momento (BitmapCacheOption.OnLoad con el
+    /// flujo ya cerrado): así no queda ni un jpg suelto ni el fichero bloqueado. Al cargar
+    /// otro vídeo, o al soltar este, se sueltan también los mapas de bits.
+    /// </summary>
+    private async Task GenerarMiniaturasAsync(string ruta)
+    {
+        LiberarMiniaturas();
+        if (_duracion <= 0) return;
+
+        const int cuantas = 12;
+        _tempMiniaturas = Path.Combine(Path.GetTempPath(), "shrinkstudio-tira-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_tempMiniaturas);
+
+        barCarga.IsIndeterminate = false;
+        lblCarga.Text = "Sacando fotogramas para la línea de tiempo…";
+
+        for (int i = 0; i < cuantas; i++)
+        {
+            int seg = (int)(_duracion * (i + 0.5) / cuantas);
+            var jpg = Path.Combine(_tempMiniaturas, $"{i:00}.jpg");
+            lblCargaDet.Text = $"{i + 1} de {cuantas}";
+            barCarga.Value = (i + 1) / (double)cuantas;
+
+            if (!await Engine.MakeThumbnailAsync(ruta, jpg, seg)) continue;
+            try
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;   // se lee entera y se suelta el fichero
+                bmp.DecodePixelWidth = 160;                   // no hace falta más para 44 px de alto
+                bmp.UriSource = new Uri(jpg);
+                bmp.EndInit();
+                bmp.Freeze();
+                _miniaturas.Add(new Image { Source = bmp, Stretch = Stretch.UniformToFill });
+            }
+            catch { /* un fotograma que no sale no rompe la tira */ }
+            finally { try { File.Delete(jpg); } catch { } }
+        }
+
+        try { Directory.Delete(_tempMiniaturas, true); } catch { }
+        _tempMiniaturas = null;
+        PintarTira();
+    }
+
+    /// <summary>Suelta las imágenes y borra lo que quedara en disco. Nada se acumula.</summary>
+    private void LiberarMiniaturas()
+    {
+        tira.Children.Clear();
+        foreach (var i in _miniaturas) i.Source = null;
+        _miniaturas.Clear();
+        if (_tempMiniaturas != null)
+        {
+            try { Directory.Delete(_tempMiniaturas, true); } catch { }
+            _tempMiniaturas = null;
+        }
+    }
+
+    private void PintarTira()
+    {
+        tira.Children.Clear();
+        if (_miniaturas.Count == 0 || tira.ActualWidth <= 0) return;
+        double ancho = tira.ActualWidth / _miniaturas.Count;
+        for (int i = 0; i < _miniaturas.Count; i++)
+        {
+            var img = _miniaturas[i];
+            img.Width = ancho + 0.5;      // medio píxel de solape: si no, se ven costuras
+            img.Height = tira.ActualHeight;
+            Canvas.SetLeft(img, i * ancho);
+            Canvas.SetTop(img, 0);
+            tira.Children.Add(img);
+        }
     }
 
     // ─────────────────────────── tramos ───────────────────────────
@@ -230,6 +341,12 @@ public partial class RecortesView : UserControl
                 Nombre = string.IsNullOrWhiteSpace(previo) ? sugeridos[i] : previo,
             });
         }
+        btnExportar.Content = _tramos.Count switch
+        {
+            0 => "Exportar",
+            1 => "Exportar 1 tramo",
+            _ => $"Exportar {_tramos.Count} tramos",
+        };
         lblAyudaTramos.Text = _tramos.Count == 1
             ? "Un solo tramo: se exportará el vídeo entero. Corta para partirlo."
             : $"{_tramos.Count} tramos = {_tramos.Count} ficheros.";
@@ -364,6 +481,7 @@ public partial class RecortesView : UserControl
                 n++;
                 _tramoActual = $"Tramo {n} de {_tramos.Count} · {t.Nombre}";
                 lblProgreso.Text = _tramoActual;
+                foreach (var f in _tramos) f.EnCurso = ReferenceEquals(f, t);
                 var opt = Opciones();
                 opt.Output = destino;
                 opt.Desde = t.Inicio;
@@ -403,6 +521,7 @@ public partial class RecortesView : UserControl
             _cancelar = null;
             _exportando = false;
             _tramoActual = "";
+            foreach (var f in _tramos) f.EnCurso = false;
             video.Source = fuente;      // vuelve la previsualización
             video.Play();
             video.Pause();

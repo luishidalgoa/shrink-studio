@@ -29,6 +29,19 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Anadido
+
+- **Tira de fotogramas en la linea de tiempo de Recortes.** Encontrar el punto de corte
+  mirando una barra lisa era adivinar. Se generan al cargar el video y se sueltan al
+  descargarlo o al salir de la pagina: ni un fichero temporal ni un mapa de bits se quedan
+  acumulados.
+- **La pagina avisa mientras prepara el video.** Analizar y sacar los fotogramas lleva unos
+  segundos: durante ese rato los controles estan deshabilitados y se ve que se esta
+  haciendo y cuanto queda, en vez de parecer que la app se ha colgado.
+- **Mas feedback al exportar:** el boton dice cuantos tramos va a sacar («Exportar 2
+  tramos») y el tramo que se esta procesando se resalta en la lista con la marca
+  EXPORTANDO.
+
 ### Corregido
 
 - **Renombrar y volver a simular ya no puede cambiar de episodio.** Si el título de un

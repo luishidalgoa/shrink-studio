@@ -2,6 +2,10 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="B2V"/>
+  </UserControl.Resources>
+
   <Grid Margin="0,8,0,0">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>   <!-- origen -->
@@ -49,11 +53,29 @@
             <TextBlock x:Name="lblSinVideo" Text="Elige un vídeo para empezar a cortarlo"
                        HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12.5"
                        Foreground="{StaticResource Neutral600}"/>
+
+            <!-- Mientras se prepara el vídeo, la página entera está deshabilitada: dejar
+                 tocar los controles con el material a medio cargar solo produce estados
+                 raros. Aquí se dice qué está pasando y cuánto queda. -->
+            <Border x:Name="capaCarga" Visibility="Collapsed" Background="#CC08090F">
+              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="300">
+                <TextBlock x:Name="lblCarga" Text="Preparando el vídeo…" FontSize="12.5"
+                           HorizontalAlignment="Center" Foreground="{StaticResource Neutral300}"/>
+                <ProgressBar x:Name="barCarga" Height="4" Margin="0,10,0,0" Minimum="0" Maximum="1"/>
+                <TextBlock x:Name="lblCargaDet" Margin="0,7,0,0" FontSize="11" HorizontalAlignment="Center"
+                           Foreground="{StaticResource Neutral600}" Text=""/>
+              </StackPanel>
+            </Border>
           </Grid>
 
           <StackPanel Grid.Row="1" Margin="14,8,14,12">
             <!-- La regla de tramos va PEGADA encima de la barra: es la misma línea de
                  tiempo, y separarlas obligaría a traducir mentalmente de una a otra. -->
+            <!-- Tira de fotogramas: encontrar el punto de corte mirando la barra sola es
+                 adivinar. Se generan al cargar y se sueltan al descargar — nada se queda
+                 cacheado entre vídeos. -->
+            <Canvas x:Name="tira" Height="44" Margin="0,0,0,3" ClipToBounds="True"
+                    Background="#12FFFFFF"/>
             <Canvas x:Name="regla" Height="10" Margin="0,0,0,1" ClipToBounds="True"
                     ToolTip="Los tramos que se exportarán, cada uno un fichero. Se dibujan sobre la misma línea de tiempo que la barra de abajo."/>
             <Grid>
@@ -117,8 +139,21 @@
             </ItemsControl.Template>
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Border Background="{StaticResource Field}" CornerRadius="6" Padding="9,7" Margin="0,0,0,6"
-                        BorderBrush="{StaticResource Divider}" BorderThickness="1">
+                <Border CornerRadius="6" Padding="9,7" Margin="0,0,0,6" BorderThickness="1">
+                  <Border.Style>
+                    <Style TargetType="Border">
+                      <Setter Property="Background" Value="{StaticResource Field}"/>
+                      <Setter Property="BorderBrush" Value="{StaticResource Divider}"/>
+                      <!-- El tramo que se está exportando se ve sin buscarlo: la barra de
+                           abajo dice cuál va, pero la vista de tramos es donde se mira. -->
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding EnCurso}" Value="True">
+                          <Setter Property="Background" Value="{StaticResource Accent900}"/>
+                          <Setter Property="BorderBrush" Value="{StaticResource Accent}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Border.Style>
                   <StackPanel>
                     <Grid>
                       <Grid.ColumnDefinitions>
@@ -131,6 +166,10 @@
                       <TextBlock Grid.Column="1" Margin="7,0,0,0" VerticalAlignment="Center"
                                  FontFamily="{StaticResource FontMono}" FontSize="10.5"
                                  Foreground="{StaticResource Neutral400}" Text="{Binding Rango}"/>
+                      <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                 Margin="0,0,4,0" FontSize="10" FontWeight="SemiBold"
+                                 Foreground="{StaticResource Accent200}" Text="EXPORTANDO"
+                                 Visibility="{Binding EnCurso, Converter={StaticResource B2V}}"/>
                       <Button Grid.Column="2" Tag="{Binding}" Click="OnQuitarTramo"
                               Style="{StaticResource BtnIcono}" Width="24" Height="24"
                               ToolTip="Quitar este tramo (no se exportará)">
