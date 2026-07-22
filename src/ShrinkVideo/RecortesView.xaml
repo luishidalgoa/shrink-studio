@@ -162,9 +162,16 @@
                          FontFamily="{StaticResource FontMono}" FontSize="11"
                          Foreground="#D6D9E8" Text="0:00"/>
 
-              <Grid x:Name="pista" Grid.Row="1" Grid.Column="1" Height="54" ClipToBounds="True"
-                    Background="Transparent" Cursor="Hand"
-                    ToolTip="Pincha para moverte por el vídeo. Arrastra los tiradores de las juntas para afinar dónde corta.">
+              <!-- La pista vive dentro de un visor que se desplaza: al ampliar, la pista se
+                   hace MÁS ANCHA que la ventana y el visor deja recorrerla. Todo el cálculo
+                   de la línea de tiempo ya estaba normalizado por el ancho de la pista, así
+                   que ampliar no cambia ni una cuenta: solo cambia ese ancho. -->
+              <ScrollViewer x:Name="visorPista" Grid.Row="1" Grid.Column="1"
+                            HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                            PanningMode="HorizontalOnly">
+                <Grid x:Name="pista" Height="54" ClipToBounds="True"
+                      Background="Transparent" Cursor="Hand"
+                      ToolTip="Pincha para moverte por el vídeo. Arrastra los tiradores de las juntas para afinar dónde corta.&#10;Ctrl + rueda (o Ctrl + y Ctrl −) para ampliar la línea de tiempo.">
                 <Border Background="#0E1018" BorderBrush="{StaticResource Divider}" BorderThickness="1"/>
                 <Canvas x:Name="capaFotogramas" IsHitTestVisible="False"/>
                 <Canvas x:Name="capaBloques"/>
@@ -176,7 +183,8 @@
                           BorderBrush="#70000000" BorderThickness="1,0"
                           Height="{Binding ActualHeight, ElementName=pista}"/>
                 </Canvas>
-              </Grid>
+                </Grid>
+              </ScrollViewer>
 
               <Canvas x:Name="capaPrevia" Grid.Row="0" Grid.Column="1" Height="0"
                       VerticalAlignment="Top" IsHitTestVisible="False">
@@ -197,9 +205,15 @@
                 </Border>
               </Canvas>
 
-              <TextBlock x:Name="lblDur" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center"
-                         Margin="11,0,0,0" MinWidth="46" FontFamily="{StaticResource FontMono}"
-                         FontSize="11" Foreground="#B9BECF" Text="0:00"/>
+              <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock x:Name="lblDur" Margin="11,0,0,0" MinWidth="46"
+                           FontFamily="{StaticResource FontMono}" FontSize="11"
+                           Foreground="#B9BECF" Text="0:00"/>
+                <!-- Solo aparece si hay aumento: a 1× no hay nada que decir. -->
+                <TextBlock x:Name="lblZoom" Margin="8,0,0,0" FontFamily="{StaticResource FontMono}"
+                           FontSize="11" Foreground="{StaticResource Accent400}" Text=""
+                           ToolTip="Aumento de la línea de tiempo · Ctrl+0 para verla entera"/>
+              </StackPanel>
             </Grid>
 
             <!-- Los fotogramas del fondo sitúan a ojo; el globo que sigue al cursor da el
