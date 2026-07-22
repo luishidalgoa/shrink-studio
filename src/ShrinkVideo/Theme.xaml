@@ -202,7 +202,15 @@
             <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
               <!-- Halo de foco: aquí el neón no es adorno, señala dónde va a escribir
-                   el teclado, que es justo lo que un borde fino de 1 px cuenta mal. -->
+                   el teclado, que es justo lo que un borde fino de 1 px cuenta mal.
+
+                   El BitmapCache evita que el desenfoque se recalcule mientras el haz
+                   del borde (su hermano de al lado) gira e invalida la zona a 60 fps:
+                   con el resultado cacheado, esa invalidación es componer una textura.
+                   El texto no vive aquí dentro, así que la cache no le roba nitidez. -->
+              <Border.CacheMode>
+                <BitmapCache/>
+              </Border.CacheMode>
               <Border.Effect>
                 <DropShadowEffect ShadowDepth="0" BlurRadius="14" Color="{StaticResource c.glow}" Opacity="0"
                                   RenderingBias="Performance"/>
@@ -218,7 +226,9 @@
               <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/>
               <Trigger.EnterActions>
                 <BeginStoryboard Name="sbFoco">
-                  <Storyboard>
+                  <!-- 30 fps bastan: el haz es un degradado blando; a 60 solo
+                       duplicaba el coste de repintar mientras escribes. -->
+                  <Storyboard Timeline.DesiredFrameRate="30">
                     <DoubleAnimation Storyboard.TargetName="b"
                                      Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
                                      To="0.45" Duration="0:0:0.15"/>
@@ -292,6 +302,11 @@
             </Border>
             <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+              <!-- Cacheado por lo mismo que en el TextBox de arriba: que el giro del haz
+                   no obligue a recalcular este desenfoque en cada fotograma. -->
+              <Border.CacheMode>
+                <BitmapCache/>
+              </Border.CacheMode>
               <Border.Effect>
                 <DropShadowEffect ShadowDepth="0" BlurRadius="14" Color="{StaticResource c.glow}" Opacity="0"
                                   RenderingBias="Performance"/>
@@ -320,7 +335,9 @@
               <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/>
               <Trigger.EnterActions>
                 <BeginStoryboard Name="sbFocoCampo">
-                  <Storyboard>
+                  <!-- 30 fps bastan: el haz es un degradado blando; a 60 solo
+                       duplicaba el coste de repintar mientras escribes. -->
+                  <Storyboard Timeline.DesiredFrameRate="30">
                     <DoubleAnimation Storyboard.TargetName="b"
                                      Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
                                      To="0.45" Duration="0:0:0.15"/>
@@ -790,24 +807,20 @@
                   </LinearGradientBrush>
                 </Border.Background>
                 <!-- La barra de progreso deja un rastro de luz sobre el canal: el
-                     avance se lee de reojo, sin tener que mirar el número. Late muy
-                     despacio (2,6 s) para que sugiera actividad sin distraer de la
-                     tarea que se está haciendo mientras. -->
+                     avance se lee de reojo, sin tener que mirar el número.
+
+                     El brillo LATÍA (animaba el radio del desenfoque, para siempre,
+                     desde Loaded). Medido: un blur que cambia se recalcula en cada
+                     fotograma — 0,4 % de CPU por barra; una cola de 30 ficheros se
+                     comía el 7 % de la máquina PARADA, y con cientos encolados la app
+                     entera se arrastraba. El pulso está de más aquí: una barra quieta
+                     (en cola al 0 %, terminada al 100 %) no debe sugerir actividad —
+                     la actividad ya la cuenta el propio avance. El brillo se queda,
+                     fijo. -->
                 <Border.Effect>
-                  <DropShadowEffect ShadowDepth="0" BlurRadius="12" Color="{StaticResource c.glow}" Opacity="0.5"
+                  <DropShadowEffect ShadowDepth="0" BlurRadius="13" Color="{StaticResource c.glow}" Opacity="0.5"
                                     RenderingBias="Performance"/>
                 </Border.Effect>
-                <Border.Triggers>
-                  <EventTrigger RoutedEvent="Loaded">
-                    <BeginStoryboard>
-                      <Storyboard>
-                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.BlurRadius)"
-                                         From="9" To="17" Duration="0:0:2.6" AutoReverse="True"
-                                         RepeatBehavior="Forever"/>
-                      </Storyboard>
-                    </BeginStoryboard>
-                  </EventTrigger>
-                </Border.Triggers>
               </Border>
             </Grid>
           </Border>
