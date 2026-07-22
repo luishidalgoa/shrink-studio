@@ -141,6 +141,11 @@
       </WrapPanel>
 
       <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+        <!-- Buscar dentro de la tabla (Ctrl+K). Filtra por el nombre original Y por la
+             propuesta, con la misma normalización del identificador: sin tildes y a medias. -->
+        <local:CampoTexto x:Name="txtBuscarTabla" Width="200" Margin="0,0,8,0"
+                          Icono="M6.5 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z M9.8 9.8 L13.5 13.5"
+                          ToolTip="Buscar en la tabla (Ctrl+K): por nombre original o por propuesta. Esc lo limpia."/>
         <Button x:Name="btnAceptarVerdes" Style="{StaticResource BtnSecondary}" Content="Aceptar verdes"
                 Padding="10,5" FontSize="12"
                 ToolTip="Da por buenas todas las filas identificadas con confianza"/>
