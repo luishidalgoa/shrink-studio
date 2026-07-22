@@ -29,6 +29,12 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Buscar el nombre viejo de un fichero ya renombrado ya no lo encuentra.** Tras aplicar,
+  la fila solo responde a su nombre nuevo — que es el que existe en disco. Encontrarla por
+  el viejo hacía dudar de si el renombrado había ocurrido de verdad.
+
 ### Añadido
 
 - **Doble clic sobre una fila abre el vídeo en tu reproductor.** Ante la duda de qué
