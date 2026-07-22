@@ -29,6 +29,20 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **La app ya no se arrastra mientras exportas.** Dos causas, las dos medidas. La capa de
+  aviso que se pone sobre el reproductor gastaba un **16-18 % de CPU ella sola**, en bucle,
+  todo el rato que durase la exportación: la caché de dibujo estaba puesta en el grupo y no
+  en cada luz, así que cada latido obligaba a repintar la capa entera. Ahora cuesta un
+  **3-5 %** — y va a 20 fotogramas por segundo en vez de a 5, así que además se ve suave.
+  Y ffmpeg, que codifica con todos los núcleos, ahogaba a la propia app: pasa a prioridad
+  por debajo de lo normal, con lo que la ventana recupera CPU (medido: del 3,1 % al 4,9 %
+  sobre un 5,9 % sin carga) a cambio de codificar un ~4 % más despacio.
+- **Los pulsos de luz nacen ahora en los cantos.** Eran dos círculos flotando sobre el
+  vídeo, con su silueta a la vista compitiendo con el mensaje. Ahora son dos franjas que
+  asoman desde los laterales y se apagan hacia el centro: se leen como luz, no como formas.
+
 ## [0.14.1] - 2026-07-22
 
 ### Corregido

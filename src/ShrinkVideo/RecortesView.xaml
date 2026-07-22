@@ -130,28 +130,44 @@
                  para que se lea como «trabajando» y no como «colgado». -->
             <Border x:Name="capaExportando" Visibility="Collapsed" Background="#B21B1E2A">
               <Grid ClipToBounds="True">
-                <!-- Los pulsos. A 5 fps y con BitmapCache: la lección de la auditoría —
-                     esto va sobre un vídeo y no puede robarle sitio al trabajo. -->
+                <!-- La luz NACE EN LOS CANTOS y se apaga hacia el centro. Antes eran dos
+                     elipses flotando: una figura con borde propio, que se ve como una
+                     figura y compite con el mensaje. Una banda anclada al borde no tiene
+                     silueta que mirar — se lee como luz, no como forma.
+
+                     Cada banda lleva SU PROPIA caché. Con la caché en el padre, animar la
+                     opacidad de un hijo obliga a rehacer el mapa de bits del grupo entero;
+                     con una por elemento, el compositor solo mezcla un mapa ya pintado. Eso
+                     es lo que permite subir de 5 a 20 fps sin pagarlo: a 5 el latido se veía
+                     a saltos, que era la mitad de la sensación de «sin pulir». -->
                 <Grid x:Name="pulsos">
-                  <Grid.CacheMode><BitmapCache/></Grid.CacheMode>
-                  <Ellipse x:Name="pulso1" Width="420" Height="260" Opacity="0"
-                           HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-60,-40,0,0">
-                    <Ellipse.Fill>
-                      <RadialGradientBrush>
-                        <GradientStop Color="#33FFFFFF" Offset="0"/>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="1.1*"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Rectangle x:Name="pulso1" Grid.Column="0" Opacity="0">
+                    <Rectangle.CacheMode><BitmapCache/></Rectangle.CacheMode>
+                    <Rectangle.RenderTransform><TranslateTransform x:Name="asomaIzq" X="-26"/></Rectangle.RenderTransform>
+                    <Rectangle.Fill>
+                      <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                        <GradientStop Color="#3DFFFFFF" Offset="0"/>
+                        <GradientStop Color="#14FFFFFF" Offset="0.45"/>
                         <GradientStop Color="#00FFFFFF" Offset="1"/>
-                      </RadialGradientBrush>
-                    </Ellipse.Fill>
-                  </Ellipse>
-                  <Ellipse x:Name="pulso2" Width="520" Height="300" Opacity="0"
-                           HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-80,-50">
-                    <Ellipse.Fill>
-                      <RadialGradientBrush>
-                        <GradientStop Color="#2ECFC7FF" Offset="0"/>
+                      </LinearGradientBrush>
+                    </Rectangle.Fill>
+                  </Rectangle>
+                  <Rectangle x:Name="pulso2" Grid.Column="2" Opacity="0">
+                    <Rectangle.CacheMode><BitmapCache/></Rectangle.CacheMode>
+                    <Rectangle.RenderTransform><TranslateTransform x:Name="asomaDer" X="26"/></Rectangle.RenderTransform>
+                    <Rectangle.Fill>
+                      <LinearGradientBrush StartPoint="1,0.5" EndPoint="0,0.5">
+                        <GradientStop Color="#38CFC7FF" Offset="0"/>
+                        <GradientStop Color="#12CFC7FF" Offset="0.45"/>
                         <GradientStop Color="#00CFC7FF" Offset="1"/>
-                      </RadialGradientBrush>
-                    </Ellipse.Fill>
-                  </Ellipse>
+                      </LinearGradientBrush>
+                    </Rectangle.Fill>
+                  </Rectangle>
                 </Grid>
 
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">

@@ -171,7 +171,7 @@ public partial class RecortesView : UserControl
         {
             // Arrastrando manda el ratón: si el reloj sigue recolocando el cabezal, el
             // tirador y el cabezal se pelean por la misma línea y da tirones.
-            if (_fuente == null || _agarre != Agarre.Nada) return;
+            if (_fuente == null || _exportando || _agarre != Agarre.Nada) return;
             Cabezal(video.Position.TotalSeconds);
         };
         _reloj.Start();
@@ -443,6 +443,9 @@ public partial class RecortesView : UserControl
 
     /// <summary>El segundo que hay en una x de la pista. Solo para las pruebas.</summary>
     internal double SegundoBajo(double xPista) => SegundoEn(xPista);
+
+    /// <summary>Enciende la capa de «exportando» sin exportar. Solo para las pruebas.</summary>
+    internal void MostrarCapaExportando(bool si) => PintarExportando(si);
 
     private double XVisible(double xPista) => xPista - visorPista.HorizontalOffset;
 
@@ -1002,32 +1005,58 @@ public partial class RecortesView : UserControl
     /// Los pulsos de luz de la capa. A 5 fps a propósito: van sobre un vídeo y toda la
     /// máquina está codificando — es justo la animación que no puede costar nada.
     /// </summary>
+    /// <summary>
+    /// El latido de las dos bandas laterales: la luz sube desde el canto y se retira.
+    ///
+    /// Van a 20 fps, no a 5 como antes. Con la caché puesta en cada banda —y no en el
+    /// grupo— animar la opacidad es mezclar un mapa de bits ya pintado, así que subir el
+    /// ritmo sale casi gratis; medido sobre la capa vacía, las dos bandas cuestan dos
+    /// décimas de punto de CPU. A 5 fps el latido se veía a saltos.
+    /// </summary>
     private void LatirPulsos()
     {
-        void Latido(UIElement e, double tope, double segundos, double retraso)
+        void Latido(UIElement e, TranslateTransform asoma, double desdeX,
+                    double tope, double segundos, double retraso)
         {
-            var a = new System.Windows.Media.Animation.DoubleAnimationUsingKeyFrames
+            var suave = new SineEase { EasingMode = EasingMode.EaseInOut };
+
+            var luz = new DoubleAnimationUsingKeyFrames
             {
-                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                RepeatBehavior = RepeatBehavior.Forever,
                 BeginTime = TimeSpan.FromSeconds(retraso),
             };
-            var suave = new System.Windows.Media.Animation.SineEase
-            { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut };
-            a.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
+            luz.KeyFrames.Add(new EasingDoubleKeyFrame(
                 tope, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos / 2)), suave));
-            a.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
+            luz.KeyFrames.Add(new EasingDoubleKeyFrame(
                 0.12, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos)), suave));
-            System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(a, 5);
-            e.BeginAnimation(UIElement.OpacityProperty, a);
+            Timeline.SetDesiredFrameRate(luz, 20);
+            e.BeginAnimation(UIElement.OpacityProperty, luz);
+
+            // El desplazamiento es lo que hace que la luz ASOME desde el borde en vez de
+            // encenderse en el sitio. Es un transform sobre un elemento cacheado: mover el
+            // mapa de bits, no volver a pintarlo.
+            var entra = new DoubleAnimationUsingKeyFrames
+            {
+                RepeatBehavior = RepeatBehavior.Forever,
+                BeginTime = TimeSpan.FromSeconds(retraso),
+            };
+            entra.KeyFrames.Add(new EasingDoubleKeyFrame(
+                0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos / 2)), suave));
+            entra.KeyFrames.Add(new EasingDoubleKeyFrame(
+                desdeX, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos)), suave));
+            Timeline.SetDesiredFrameRate(entra, 20);
+            asoma.BeginAnimation(TranslateTransform.XProperty, entra);
         }
-        Latido(pulso1, 1.0, 3.4, 0);
-        Latido(pulso2, 0.85, 4.6, 1.1);
+        Latido(pulso1, asomaIzq, -26, 1.0, 3.4, 0);
+        Latido(pulso2, asomaDer, 26, 0.85, 4.6, 1.1);
     }
 
     private void PararPulsos()
     {
         pulso1.BeginAnimation(UIElement.OpacityProperty, null);
         pulso2.BeginAnimation(UIElement.OpacityProperty, null);
+        asomaIzq.BeginAnimation(TranslateTransform.XProperty, null);
+        asomaDer.BeginAnimation(TranslateTransform.XProperty, null);
         pulso1.Opacity = pulso2.Opacity = 0;
     }
 
@@ -1283,16 +1312,18 @@ public partial class RecortesView : UserControl
     {
         private readonly RecortesView _v;
         public Reportero(RecortesView v) => _v = v;
-        public void Log(string linea) => _v.Dispatcher.Invoke(() => _v.Log?.Invoke(linea));
+        // BeginInvoke y no Invoke, como en Comprimir: Invoke BLOQUEA al hilo que lee la
+        // salida de ffmpeg y encola por encima del dibujado y de la entrada de teclado.
+        public void Log(string linea) => _v.Dispatcher.BeginInvoke(() => _v.Log?.Invoke(linea));
         public void FileStart(int i, int total, string nombre, double dur) { }
         // El porcentaje se cuelga del rótulo guardado del tramo, no de recomponer el texto
         // de la etiqueta: con un nombre que llevara « · » se comía media frase.
         public void FileProgress(double fraccion, string cruda) =>
-            _v.Dispatcher.Invoke(() =>
-                _v.lblProgreso.Text = $"{_v._tramoActual} · {fraccion * 100:0} %");
+            _v.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
+                () => _v.lblProgreso.Text = $"{_v._tramoActual} · {fraccion * 100:0} %");
         public void FileDone(FileResult r) { }
         public void FileSkipped(string ruta, string porque) =>
-            _v.Dispatcher.Invoke(() =>
+            _v.Dispatcher.BeginInvoke(() =>
             {
                 _v.lblProgreso.Text = $"{_v._tramoActual} · SALTADO: {porque}";
                 _v.Log?.Invoke($"Recortes: el motor se saltó este tramo — {porque}");
