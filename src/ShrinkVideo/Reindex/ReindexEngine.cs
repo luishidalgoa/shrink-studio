@@ -215,7 +215,11 @@ public static class ReindexEngine
         // La temporada que declara el fichero (por su nombre o por su carpeta) entra en el
         // desempate: sin ella, un episodio de 2014 competia de tu a tu con el de 2005 que el
         // propio fichero estaba diciendo.
-        var (mejorTituloEp, mejorTituloP) = indice.MejorPorTitulo(titulosArchivo, cat.Episodios, f.Temporada);
+        // El barrido del catálogo se hace UNA vez y se reutiliza: elegir al mejor y sacar
+        // las alternativas son el mismo cálculo, y hacerlo dos veces costaba la mitad del
+        // tiempo de una simulación entera.
+        var puntuados = indice.Puntuados(titulosArchivo, cat.Episodios, f.Temporada);
+        var (mejorTituloEp, mejorTituloP) = IndiceTitulos.MejorDe(puntuados);
         double mejorTituloScore = mejorTituloP.Sim;
 
         // ── Regla 3: metadato y nombre apuntan a episodios distintos → nunca elegir en silencio ──
@@ -247,7 +251,7 @@ public static class ReindexEngine
             r.Confianza = ReindexConfianza.Alta;
             r.Estado = f.Indice == mejorTituloEp.Num ? ReindexEstado.Limpio : ReindexEstado.Corregido;
             r.Motivo = $"El título coincide al {Pct(mejorTituloScore)}";
-            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp, mejorTituloScore, f.Temporada);
+            r.Alternativas = OtrosCandidatos(puntuados, mejorTituloEp, mejorTituloScore);
 
             // Otra cara del remake: DOS episodios distintos encajan igual de bien y ganó el
             // primero por orden de lista. Por título no hay manera de separarlos, así que no
@@ -353,7 +357,7 @@ public static class ReindexEngine
             r.Confianza = ReindexConfianza.Revisar;
             r.Estado = ReindexEstado.Corregido;
             r.Motivo = $"Se parece al {Pct(mejorTituloScore)}, por debajo de lo fiable";
-            r.Alternativas = OtrosCandidatos(indice, titulosArchivo, cat.Episodios, mejorTituloEp, mejorTituloScore, f.Temporada);
+            r.Alternativas = OtrosCandidatos(puntuados, mejorTituloEp, mejorTituloScore);
             return r;
         }
 
@@ -432,7 +436,7 @@ public static class ReindexEngine
             r.Score = score;
             r.Hint = score >= TitleMatch.UmbralTitulo ? ReindexHint.Titulo : ReindexHint.TituloDebil;
             r.Motivo = $"Especial: el título encaja al {Pct(score)} — confírmalo";
-            r.Alternativas = OtrosCandidatos(indice, titulos, cat.Especiales, ep, score);
+            r.Alternativas = OtrosCandidatos(indice.Puntuados(titulos, cat.Especiales, null), ep, score);
         }
         else if (f.IndiceEspecial.HasValue)
         {
@@ -623,11 +627,11 @@ public static class ReindexEngine
     /// su puntuación: una «alternativa» que va treinta puntos por detrás no es una opción,
     /// es ruido.
     /// </summary>
-    private static IReadOnlyList<ReindexCandidato> OtrosCandidatos(IndiceTitulos indice,
-        IReadOnlyList<TitleBag> titulos, IReadOnlyList<CatalogEpisode> candidatos, CatalogEpisode elegido,
-        double scoreElegido, int? temporadaArchivo = null)
+    private static IReadOnlyList<ReindexCandidato> OtrosCandidatos(
+        List<(CatalogEpisode ep, IndiceTitulos.Puntuacion p)> puntuados, CatalogEpisode elegido,
+        double scoreElegido)
     {
-        return indice.Ranking(titulos, candidatos, excluir: elegido, cuantos: 2, temporadaArchivo)
+        return IndiceTitulos.RankingDe(puntuados, excluir: elegido, cuantos: 2)
             .Where(x => x.score >= scoreElegido - MargenAlternativa)
             .Select(x => new ReindexCandidato
             {
@@ -704,14 +708,41 @@ internal sealed class IndiceTitulos
 
     internal (CatalogEpisode? ep, Puntuacion p) MejorPorTitulo(IReadOnlyList<TitleBag> titulos,
         IReadOnlyList<CatalogEpisode> candidatos, int? temporadaArchivo)
+        => MejorDe(Puntuados(titulos, candidatos, temporadaArchivo));
+
+    /// <summary>
+    /// UN solo barrido del catálogo, con la puntuación de cada episodio que da algo.
+    ///
+    /// Existe porque las dos preguntas que se le hacen al catálogo —«¿cuál es el mejor?» y
+    /// «¿cuáles son los siguientes, para ofrecerlos?»— son el MISMO cálculo, y se estaban
+    /// haciendo por separado: dos recorridos completos comparando textos, uno detrás de
+    /// otro. Medido sobre una biblioteca de 546 ficheros, esa duplicación era la mitad de
+    /// los 20 segundos que tardaba una simulación.
+    /// </summary>
+    internal List<(CatalogEpisode ep, Puntuacion p)> Puntuados(IReadOnlyList<TitleBag> titulos,
+        IReadOnlyList<CatalogEpisode> candidatos, int? temporadaArchivo)
     {
-        CatalogEpisode? mejor = null;
-        var mejorP = Puntuacion.Cero;
+        var lista = new List<(CatalogEpisode ep, Puntuacion p)>();
         foreach (var ep in candidatos)
         {
             var p = Puntuar(titulos, ep, temporadaArchivo);
-            if (p.Sim > 0 && (mejor == null || p.MejorQue(in mejorP))) { mejorP = p; mejor = ep; }
+            if (p.Sim > 0) lista.Add((ep, p));
         }
+        return lista;
+    }
+
+    /// <summary>
+    /// El ganador del barrido. Recorre en el orden del catálogo y solo cambia de líder si el
+    /// nuevo es ESTRICTAMENTE mejor: ante un empate manda el primero, que es como se elegía
+    /// antes de unificar los dos recorridos. Ordenar y coger el primero no serviría — el
+    /// orden de .NET no es estable y los empates saldrían por otro sitio.
+    /// </summary>
+    internal static (CatalogEpisode? ep, Puntuacion p) MejorDe(List<(CatalogEpisode ep, Puntuacion p)> puntuados)
+    {
+        CatalogEpisode? mejor = null;
+        var mejorP = Puntuacion.Cero;
+        foreach (var (ep, p) in puntuados)
+            if (mejor == null || p.MejorQue(in mejorP)) { mejorP = p; mejor = ep; }
         return (mejor, mejorP);
     }
 
@@ -751,16 +782,17 @@ internal sealed class IndiceTitulos
     public List<(CatalogEpisode ep, double score)> Ranking(IReadOnlyList<TitleBag> titulos,
         IReadOnlyList<CatalogEpisode> candidatos, CatalogEpisode? excluir, int cuantos,
         int? temporadaArchivo = null)
+        => RankingDe(Puntuados(titulos, candidatos, temporadaArchivo), excluir, cuantos);
+
+    /// <summary>
+    /// Los siguientes mejores de un barrido ya hecho. Se ordenan con el MISMO criterio con el
+    /// que se eligió al ganador: si no, la primera alternativa podría no ser la segunda mejor
+    /// y el usuario elegiría a ciegas.
+    /// </summary>
+    internal static List<(CatalogEpisode ep, double score)> RankingDe(
+        List<(CatalogEpisode ep, Puntuacion p)> puntuados, CatalogEpisode? excluir, int cuantos)
     {
-        // Se ordenan con el MISMO criterio con el que se eligió al ganador: si no, la primera
-        // alternativa podría no ser la segunda mejor y el usuario elegiría a ciegas.
-        var lista = new List<(CatalogEpisode ep, Puntuacion p)>();
-        foreach (var ep in candidatos)
-        {
-            if (ReferenceEquals(ep, excluir)) continue;
-            var p = Puntuar(titulos, ep, temporadaArchivo);
-            if (p.Sim > 0) lista.Add((ep, p));
-        }
+        var lista = puntuados.Where(x => !ReferenceEquals(x.ep, excluir)).ToList();
         lista.Sort((a, b) => a.p.MejorQue(in b.p) ? -1 : b.p.MejorQue(in a.p) ? 1 : 0);
         return lista.Take(cuantos).Select(x => (x.ep, x.p.Sim)).ToList();
     }

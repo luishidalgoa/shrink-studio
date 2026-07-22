@@ -31,6 +31,10 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **Simular tarda la mitad.** Sobre 546 ficheros: de ~50 s a ~28 s. El motor preguntaba al
+  catálogo dos veces lo mismo — un recorrido completo comparando títulos para elegir el
+  mejor episodio y otro idéntico para sacar las alternativas que se te ofrecen. Ahora es un
+  solo recorrido del que salen las dos cosas. Ni un fichero de los 546 cambia de respuesta.
 - **La app ya no gasta media máquina parada, y todo va más suelto.** Con la app en reposo
   absoluto se consumía un 6-8 % de CPU (y de batería) en repintar decoraciones: la luz
   ambiental redibujaba TODA la interfaz 60 veces por segundo para un latido de 9 segundos,
