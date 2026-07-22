@@ -18,7 +18,7 @@
     <PublishTrimmed>true</PublishTrimmed>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
 
-    <Version>0.14.0</Version>
+    <Version>0.14.1</Version>
     <Product>ShrinkStudio CLI</Product>
     <Company>luishidalgoa</Company>
     <Authors>luishidalgoa</Authors>
@@ -37,6 +37,11 @@
     <Compile Include="..\ShrinkVideo\RenameRule.cs"    Link="RenameRule.cs" />
     <Compile Include="..\ShrinkVideo\VideoRow.cs"      Link="VideoRow.cs" />
     <Compile Include="..\ShrinkVideo\Native.cs"        Link="Native.cs" />
+    <!-- La carpeta ENTERA, no los dos ficheros que hoy hacen falta: el motor ya tira de
+         Reindex.LibraryTemplate y Reindex.Tramos, y una lista a mano vuelve a romper la
+         CLI la próxima vez que alguien use otro. Es código multiplataforma a propósito —
+         los tests lo compilan igual para Linux. -->
+    <Compile Include="..\ShrinkVideo\Reindex\*.cs" LinkBase="Reindex" />
   </ItemGroup>
 
 </Project>
