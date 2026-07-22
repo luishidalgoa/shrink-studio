@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-22
+
 ### Añadido
 
 - **Cola de revisión en Organizar.** Con el botón derecho sobre un fichero puedes apartarlo
@@ -75,26 +77,6 @@ es un acuerdo de buena voluntad: está verificado.
   retira cuando el vídeo AVANZA de verdad, no cuando dice estar abierto: con un fichero
   descargándose eso ocurre mucho antes que el primer fotograma.
 
-### Corregido
-
-- **Lo ya renombrado deja de contar como «corregido».** Tras aplicar, esas filas seguían
-  sumando en el chip de corregidos y saliendo al filtrar por él, como si quedara trabajo
-  pendiente que ya no existe. Ahora cuentan como limpias —están bien en el disco— y, si
-  tenías el filtro de corregidos puesto, salen de la vista solas.
-- **Simular tarda la mitad.** Sobre 546 ficheros: de ~50 s a ~28 s. El motor preguntaba al
-  catálogo dos veces lo mismo — un recorrido completo comparando títulos para elegir el
-  mejor episodio y otro idéntico para sacar las alternativas que se te ofrecen. Ahora es un
-  solo recorrido del que salen las dos cosas. Ni un fichero de los 546 cambia de respuesta.
-- **La app ya no gasta media máquina parada, y todo va más suelto.** Con la app en reposo
-  absoluto se consumía un 6-8 % de CPU (y de batería) en repintar decoraciones: la luz
-  ambiental redibujaba TODA la interfaz 60 veces por segundo para un latido de 9 segundos,
-  el brillo de cada barra de progreso recalculaba su desenfoque en cada fotograma (con una
-  cola larga, la app entera se arrastraba: escribir iba a tirones y arrastrar ventanas a
-  golpes), y el halo del campo con foco se recalculaba mientras el haz giraba. Medido pieza
-  a pieza y arreglado sin quitar nada: los mismos brillos y latidos, pero componiendo
-  texturas ya pintadas en vez de repintar. En reposo: de 6-8 % a ~1 %.
-
-### Anadido
 
 - **Vista previa del fotograma al recorrer la barra en Recortes.** Encontrar el punto de
   corte mirando una barra lisa era adivinar: ahora, al pasar o arrastrar por la linea de
@@ -120,7 +102,6 @@ es un acuerdo de buena voluntad: está verificado.
   pegada al cabezal, justo por donde va a partir. Y cada bloque lleva su ✕ para quitarlo,
   que asoma al pasar por encima.
 
-### Añadido
 
 - **Un fichero que contiene dos episodios ya no se renombra solo.** Hay ficheros que
   emparejan dos historias que el catálogo cuenta como episodios distintos: ponerles el
@@ -129,35 +110,6 @@ es un acuerdo de buena voluntad: está verificado.
   viejo y en uno moderno es lo normal—: solo salta si el episodio elegido no cubre lo que
   el fichero trae.
 
-### Corregido
-
-- **La app ya sabe releer los ficheros que ella misma marcó como una sola historia.** Al
-  decidir «esto es solo la historia b», escribe la letra pegada al número («S2017E487b»)
-  — pero no sabía volver a leerla: el fichero se quedaba sin número ni segmento, se
-  reidentificaba solo por el título, casaba con el episodio entero y proponía deshacer tu
-  decisión. Cada pasada deshacía la anterior.
-- **Renombrar y volver a simular ya no puede cambiar de episodio.** Si el título de un
-  episodio del catálogo llevaba un número entre corchetes —los hay: «Cuido de mamá
-  (LA)[30]»— ese número acababa dentro del nombre propuesto, y al releerlo ganaba al
-  «S2005E536» que la propia app había escrito: la segunda pasada creía que era el episodio
-  30. Ahora el marcador explícito manda sobre cualquier número suelto. Los ficheros que
-  usan la convención de corchetes («[499b] Título») siguen funcionando igual.
-
-### Corregido
-
-- **En Recortes ya se puede escribir el nombre de un tramo entero.** Los atajos de la
-  página se comían las teclas antes de que llegaran al cuadro de texto: en el nombre de un
-  tramo no se podía poner un espacio, ni escribir una «c», ni mover el cursor con las
-  flechas. Ahora, mientras estás escribiendo, las teclas son letras y no atajos.
-- **Recortes no exportaba nada.** El motor comprueba que nadie tenga el fichero cogido
-  (para no pillar una descarga a medias) y quien lo tenia cogido era el propio reproductor
-  de la pagina: se saltaba el video y no salia ni un fichero. Ahora se suelta antes de
-  codificar y vuelve al terminar.
-- **Recortes decia «2 ficheros creados» sin haber creado ninguno.** Daba por bueno que la
-  llamada al motor volviera. Ahora se comprueba el fichero en disco y, si falta, se dice
-  cuantos no salieron y con que nombre.
-
-### Anadido
 
 - **Progreso de verdad al exportar:** que tramo va, de cuantos, con su nombre y el
   porcentaje; y si el motor se salta uno, se ve el motivo en la propia barra.
@@ -165,7 +117,6 @@ es un acuerdo de buena voluntad: está verificado.
 - Exportar ya no se puede lanzar dos veces a la vez: cada clic arrancaba otra tanda entera
   sobre los mismos ficheros.
 
-### Añadido
 
 - **Recortes: una tercera sección para partir un vídeo o quitarle un trozo.** Sirve para el
   caso de «este fichero son dos capítulos»: cargas el vídeo, lo llevas por donde separan,
@@ -189,6 +140,51 @@ es un acuerdo de buena voluntad: está verificado.
 - **Que dos ficheros apunten al mismo episodio ya no manda a los dos a revisión.** Solo se
   pide mirarlo cuando el rival llegaba con la misma solvencia. Que uno lo clave por título
   y el otro solo trajera un número dudoso no es una ambigüedad: es un número dudoso.
+
+### Corregido
+
+- **Lo ya renombrado deja de contar como «corregido».** Tras aplicar, esas filas seguían
+  sumando en el chip de corregidos y saliendo al filtrar por él, como si quedara trabajo
+  pendiente que ya no existe. Ahora cuentan como limpias —están bien en el disco— y, si
+  tenías el filtro de corregidos puesto, salen de la vista solas.
+- **Simular tarda la mitad.** Sobre 546 ficheros: de ~50 s a ~28 s. El motor preguntaba al
+  catálogo dos veces lo mismo — un recorrido completo comparando títulos para elegir el
+  mejor episodio y otro idéntico para sacar las alternativas que se te ofrecen. Ahora es un
+  solo recorrido del que salen las dos cosas. Ni un fichero de los 546 cambia de respuesta.
+- **La app ya no gasta media máquina parada, y todo va más suelto.** Con la app en reposo
+  absoluto se consumía un 6-8 % de CPU (y de batería) en repintar decoraciones: la luz
+  ambiental redibujaba TODA la interfaz 60 veces por segundo para un latido de 9 segundos,
+  el brillo de cada barra de progreso recalculaba su desenfoque en cada fotograma (con una
+  cola larga, la app entera se arrastraba: escribir iba a tirones y arrastrar ventanas a
+  golpes), y el halo del campo con foco se recalculaba mientras el haz giraba. Medido pieza
+  a pieza y arreglado sin quitar nada: los mismos brillos y latidos, pero componiendo
+  texturas ya pintadas en vez de repintar. En reposo: de 6-8 % a ~1 %.
+
+
+- **La app ya sabe releer los ficheros que ella misma marcó como una sola historia.** Al
+  decidir «esto es solo la historia b», escribe la letra pegada al número («S2017E487b»)
+  — pero no sabía volver a leerla: el fichero se quedaba sin número ni segmento, se
+  reidentificaba solo por el título, casaba con el episodio entero y proponía deshacer tu
+  decisión. Cada pasada deshacía la anterior.
+- **Renombrar y volver a simular ya no puede cambiar de episodio.** Si el título de un
+  episodio del catálogo llevaba un número entre corchetes —los hay: «Cuido de mamá
+  (LA)[30]»— ese número acababa dentro del nombre propuesto, y al releerlo ganaba al
+  «S2005E536» que la propia app había escrito: la segunda pasada creía que era el episodio
+  30. Ahora el marcador explícito manda sobre cualquier número suelto. Los ficheros que
+  usan la convención de corchetes («[499b] Título») siguen funcionando igual.
+
+
+- **En Recortes ya se puede escribir el nombre de un tramo entero.** Los atajos de la
+  página se comían las teclas antes de que llegaran al cuadro de texto: en el nombre de un
+  tramo no se podía poner un espacio, ni escribir una «c», ni mover el cursor con las
+  flechas. Ahora, mientras estás escribiendo, las teclas son letras y no atajos.
+- **Recortes no exportaba nada.** El motor comprueba que nadie tenga el fichero cogido
+  (para no pillar una descarga a medias) y quien lo tenia cogido era el propio reproductor
+  de la pagina: se saltaba el video y no salia ni un fichero. Ahora se suelta antes de
+  codificar y vuelve al terminar.
+- **Recortes decia «2 ficheros creados» sin haber creado ninguno.** Daba por bueno que la
+  llamada al motor volviera. Ahora se comprueba el fichero en disco y, si falta, se dice
+  cuantos no salieron y con que nombre.
 
 ## [0.13.0] - 2026-07-22
 
