@@ -139,7 +139,7 @@ public sealed class PasosVisual
 
     public void Reiniciar()
     {
-        foreach (var p in _pasos) p.Pendiente();
+        foreach (var p in _pasos) { p.Soltar(); p.Pendiente(); }
         foreach (var c in _conectores) c.Apagar();
         _fila.Children[0].BeginAnimation(UIElement.OpacityProperty, null);
         _fila.Children[0].Opacity = 1;
@@ -179,6 +179,12 @@ public sealed class PasosVisual
     public void Terminado(string titulo, string? detalle = null)
     {
         Rotular(titulo, detalle ?? "");
+
+        // Los de los lados caminan hacia el del medio: la distancia es exactamente lo que
+        // los separa, el círculo más el conector.
+        double separacion = Diametro + LargoConector;
+        double medio = (_pasos.Length - 1) / 2.0;
+        for (int i = 0; i < _pasos.Length; i++) _pasos[i].Recoger((medio - i) * separacion);
 
         var suave = new QuadraticEase { EasingMode = EasingMode.EaseOut };
         _fila.Children[0].BeginAnimation(UIElement.OpacityProperty,
@@ -335,6 +341,24 @@ public sealed class PasosVisual
 
         /// <summary>El de destino acusa la llegada con un abultamiento.</summary>
         public void Abultar() => Deformar(1.13, 1.13, 110, 190);
+
+        /// <summary>
+        /// Se recoge hacia el centro mientras se apaga: sin ese desplazamiento la fusión
+        /// final se lee como un corte entre dos imágenes, no como tres cosas volviéndose una.
+        /// </summary>
+        public void Recoger(double dx)
+        {
+            if (dx == 0) return;
+            _mueve.BeginAnimation(TranslateTransform.XProperty,
+                new DoubleAnimation(0, dx, TimeSpan.FromMilliseconds(260))
+                { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } });
+        }
+
+        public void Soltar()
+        {
+            _mueve.BeginAnimation(TranslateTransform.XProperty, null);
+            _mueve.X = 0;
+        }
 
         private void Deformar(double x, double y, double ida, double vuelta)
         {
