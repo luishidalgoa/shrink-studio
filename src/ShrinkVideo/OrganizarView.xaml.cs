@@ -1130,13 +1130,29 @@ public partial class OrganizarView : UserControl
             ? $"Lote deshecho: {devueltos} ficheros devueltos a su nombre anterior."
             : $"Lote deshecho: {devueltos} devueltos · {fallidos} no se pudieron.");
 
+        var lote = _ultimoLote;
         ReindexStore.OlvidarLote(_ultimoLote);
         _ultimoLote = null;
         bannerAplicado.Visibility = Visibility.Collapsed;
         RefrescarUltimoLote();
 
-        // Los nombres del disco han cambiado: lo que hubiera en la tabla ya no vale
-        RevisarCarpeta();
+        // Deshacer NO te saca del contexto. Si la tabla está a la vista, las filas del lote
+        // vuelven de «Hecho» a su estado anterior EN EL SITIO — con su casilla y su
+        // propuesta intactas, listas para re-aplicar si era eso lo que se quería.
+        if (vistaRevision.Visibility == Visibility.Visible && _filas.Count > 0)
+        {
+            var deshechos = new HashSet<string>(
+                lote.Movimientos.Select(m => m.De), StringComparer.OrdinalIgnoreCase);
+            foreach (var f in _filas)
+                if (f.Aplicado && deshechos.Contains(f.Res.Archivo.Path))
+                    f.Aplicado = false;
+            ActualizarContadores();
+
+            // La lista de disco vuelve a los nombres de antes; se refresca sin tocar la vista
+            try { _ficheros = LibraryScan.Escanear(txtCarpeta.Text?.Trim() ?? "", Engine.VideoExtensions); }
+            catch { /* si la carpeta no se puede releer, la próxima simulación lo dirá */ }
+        }
+        else RevisarCarpeta();   // desde la pantalla de inicio, solo refrescar el recuento
     }
 
     private void AbrirMemoria()

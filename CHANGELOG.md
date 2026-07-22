@@ -43,6 +43,9 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **«Deshacer este lote» ya no te saca de la tabla.** Deshace en el sitio: las filas del
+  lote vuelven de «Hecho» a su estado anterior —con su casilla y su propuesta intactas,
+  listas para re-aplicar si era eso lo que querías— y sigues exactamente donde estabas.
 - **El texto de los campos se veía ligeramente borroso.** El halo de foco (el efecto de
   sombra) envolvía al propio texto y lo rasterizaba sin ClearType. El halo sigue; el texto
   ya vive fuera de él.
