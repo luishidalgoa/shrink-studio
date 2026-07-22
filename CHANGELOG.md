@@ -31,12 +31,12 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
-- **Un péndulo de Newton mientras el vídeo carga.** El rectángulo negro no decía nada, y
-  con «Archivos a petición» la espera puede ser larga de verdad porque el fichero se está
-  descargando entero. Ahora se ve un péndulo con su cadencia —y el texto dice si está
-  bajando de la nube o solo abriéndose—. Se retira cuando el vídeo AVANZA de verdad, no
-  cuando dice estar abierto: con un fichero descargándose eso ocurre mucho antes que el
-  primer fotograma.
+- **Una animación mientras el vídeo carga.** El rectángulo negro no decía nada, y con
+  «Archivos a petición» la espera puede ser larga de verdad porque el fichero se está
+  descargando entero. Ahora laten cuatro círculos en cascada —cada uno con su onda
+  expansiva— y el texto dice si el vídeo está bajando de la nube o solo abriéndose. Se
+  retira cuando el vídeo AVANZA de verdad, no cuando dice estar abierto: con un fichero
+  descargándose eso ocurre mucho antes que el primer fotograma.
 
 ### Corregido
 

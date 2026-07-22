@@ -17,7 +17,7 @@
          Va por debajo de las capas de control, así que estas reciben los suyos primero. -->
     <Rectangle x:Name="lienzo" Fill="Transparent"/>
 
-    <!-- La espera: el péndulo se monta en código (ver PenduloCargando) y se cuelga aquí,
+    <!-- La espera: los círculos se montan en código (ver CirculosCargando) y se cuelgan aquí,
          encima del vídeo y por debajo de los controles. -->
     <Grid x:Name="huecoCargando"/>
 
