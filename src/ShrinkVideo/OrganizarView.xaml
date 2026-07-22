@@ -595,6 +595,13 @@
                   <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                     <CheckBox x:Name="chkRecordar" Content="Recordar esta decisión para este fichero"
                               Foreground="{StaticResource Neutral400}" FontSize="12" VerticalAlignment="Center"/>
+                    <!-- Un fichero con dos episodios dentro no se arregla eligiendo número:
+                         hay que partirlo. Por eso este botón va el PRIMERO y destacado
+                         cuando toca — es la única salida real, no una alternativa más. -->
+                    <Button Content="Partirlo en dos…" Style="{StaticResource BtnPrimary}" FontSize="12"
+                            Padding="12,4" Margin="16,0,0,0" Click="OnPartirEnDos"
+                            Visibility="{Binding VerRecortar}"
+                            ToolTip="Lo abre en Recortes con un corte ya puesto, listo para ajustarlo"/>
                     <Button Content="Elegir otro episodio…" Style="{StaticResource BtnGhost}" FontSize="12"
                             Margin="16,0,0,0" Click="OnElegirAMano"/>
                     <Button Content="Dejarlo como está" Style="{StaticResource BtnGhost}" FontSize="12"

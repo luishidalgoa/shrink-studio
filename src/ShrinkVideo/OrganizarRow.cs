@@ -130,6 +130,7 @@ public sealed class OrganizarRow : INotifyPropertyChanged
             // La casilla de aplicar se enseña según esto: al resolver un conflicto la fila
             // pasa a estar lista y su casilla tiene que aparecer en ese momento.
             nameof(ListoParaAplicar), nameof(EstadoTooltip),
+            nameof(RecomiendaRecortar), nameof(VerRecortar),
         }) N(p);
     }
 
@@ -369,6 +370,13 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     /// identificación y es lo que explica POR QUÉ se renombró.
     /// </summary>
     public ReindexEstado EstadoVisible => Aplicado ? ReindexEstado.Limpio : Res.Estado;
+
+    /// <summary>
+    /// Un fichero con dos episodios dentro no se arregla eligiendo número: hay que partirlo.
+    /// Es lo único que resuelve el caso, así que se ofrece donde se está decidiendo.
+    /// </summary>
+    public bool RecomiendaRecortar => !Aplicado && Res.TraeDosEpisodios;
+    public Visibility VerRecortar => RecomiendaRecortar ? Visibility.Visible : Visibility.Collapsed;
 
     // Ni pendiente ni por despachar: no hay nada que hacerle.
     public bool EsDuda => !Aplicado && !SinCambios && Res.EsDuda;

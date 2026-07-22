@@ -78,6 +78,7 @@ public partial class RecortesView : UserControl
     private string? _destino;      // null = junto al vídeo original
     private bool _exportando;
     private string? _tempMiniaturas;
+    private bool _partirAlSaberDuracion;
     // Fotogramas ya sacados, por segundo redondeado al hueco. Es la unica cache que hay y
     // se vacia entera al cambiar de video o al salir de la pagina.
     private readonly Dictionary<int, BitmapImage> _previas = new();
@@ -212,7 +213,17 @@ public partial class RecortesView : UserControl
         bool otroVideo = Math.Abs(_duracion - segundos) > 0.01;
         _duracion = segundos;
         lblDur.Text = TramoFila.Reloj(_duracion);
-        if (otroVideo || _tramos.Count == 0) Rehacer(Tramos.Entero(_duracion));
+        if (otroVideo || _tramos.Count == 0)
+        {
+            var inicial = Tramos.Entero(_duracion);
+            // La junta solo se puede poner cuando ya se sabe cuánto dura el vídeo.
+            if (_partirAlSaberDuracion)
+            {
+                _partirAlSaberDuracion = false;
+                inicial = Tramos.Partir(inicial, _duracion / 2);
+            }
+            Rehacer(inicial);
+        }
         else PintarPista();
         Cabezal(video.Position.TotalSeconds);
         TenderFotogramas();
@@ -231,9 +242,15 @@ public partial class RecortesView : UserControl
     }
 
     /// <summary>Carga un vídeo. Público porque Organizar abre aquí el fichero de una fila.</summary>
-    public async void Cargar(string ruta)
+    /// <summary>
+    /// Carga un vídeo. Con <paramref name="partirPorLaMitad"/> llega ya con una junta puesta
+    /// en el centro: es el caso de «este fichero trae dos episodios», donde lo único que
+    /// falta es arrastrarla al sitio exacto.
+    /// </summary>
+    public async void Cargar(string ruta, bool partirPorLaMitad = false)
     {
         if (!File.Exists(ruta)) return;
+        _partirAlSaberDuracion = partirPorLaMitad;
 
         var fi = new FileInfo(ruta);
         _fuente = new VideoRow { Path = ruta, Bytes = fi.Length };
