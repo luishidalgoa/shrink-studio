@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-07-22
+
 ### Corregido
 
 - **Identificar una carpeta ya no descarga vídeos de la nube.** Para los ficheros que
