@@ -557,6 +557,12 @@ public static class ReindexEngine
         }
         Add(f.TituloNombre);
         Add(f.TituloMeta);
+        // El metadato tambien puede venir multi-historia («A ┃ B»): se compara ademas cada
+        // trozo por separado, igual que se hace con el nombre del fichero.
+        if (f.TituloMeta != null)
+            foreach (var parte in f.TituloMeta.Split(new[] { '┃', '|' },
+                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                Add(parte);
         foreach (var seg in f.Segmentos) Add(seg);
         return lista;
     }

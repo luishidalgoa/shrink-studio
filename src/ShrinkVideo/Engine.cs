@@ -125,6 +125,35 @@ public sealed class Engine
     private static string Ffmpeg => ResolveTool("ffmpeg");
     private static string Ffprobe => ResolveTool("ffprobe");
 
+    /// <summary>
+    /// El título grabado DENTRO del contenedor (la etiqueta «title» del MKV/MP4), o null.
+    /// Existe para los ficheros sin título en el nombre: el metadato suele conservarlo.
+    /// Barato a propósito: solo cabecera de formato, sin analizar pistas.
+    /// </summary>
+    public static async Task<string?> LeerTituloAsync(string path)
+    {
+        try
+        {
+            var (code, stdout, _) = await RunAsync(Ffprobe, new[]
+            {
+                "-v", "quiet", "-show_entries", "format_tags=title", "-of", "json", path,
+            });
+            if (code != 0) return null;
+
+            using var doc = System.Text.Json.JsonDocument.Parse(stdout);
+            if (doc.RootElement.TryGetProperty("format", out var f) &&
+                f.TryGetProperty("tags", out var tags))
+                foreach (var prop in tags.EnumerateObject())
+                    if (prop.Name.Equals("title", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var t = prop.Value.GetString();
+                        return string.IsNullOrWhiteSpace(t) ? null : t.Trim();
+                    }
+            return null;
+        }
+        catch { return null; }   // sin ffprobe o fichero ilegible: simplemente no hay metadato
+    }
+
     public static async Task<bool> ToolsAvailableAsync()
     {
         try

@@ -31,6 +31,7 @@ public static class Program
         PrefijoDeSerie();
         BibliotecaPorTemporadas();
         CatalogosReales();
+        TituloDelNfo();
         SegmentoRecordado();
         OrdinalDeTemporada();
         Sidecars();
@@ -1012,6 +1013,46 @@ public static class Program
 
         Eq(0, SidecarPlanner.Planear(de, de, enCarpeta).Count,
             "si el vídeo no cambia de nombre, no hay nada que mover");
+    }
+
+    // ─────────────── El título del .nfo compañero ───────────────
+
+    /// <summary>
+    /// Los ficheros sin título en el nombre suelen llevarlo en su .nfo (el XML de Kodi).
+    /// Es la fuente ideal: leer un XML es instantáneo, sondear el vídeo en la nube no.
+    /// </summary>
+    private static void TituloDelNfo()
+    {
+        Seccion("Título del .nfo compañero");
+
+        Eq("El pistolero Nobita", NfoTitulo.Extraer("""
+            <?xml version="1.0" encoding="utf-8"?>
+            <episodedetails><title>El pistolero Nobita</title><season>2018</season></episodedetails>
+            """), "saca el <title> del XML de Kodi");
+        Eq("A ┃ B", NfoTitulo.Extraer("<episodedetails><title>A ┃ B</title></episodedetails>"),
+            "los separadores de historias sobreviven");
+        Eq(null, NfoTitulo.Extraer("<episodedetails><season>2018</season></episodedetails>"),
+            "sin <title> no hay título");
+        Eq(null, NfoTitulo.Extraer("esto no es xml <"), "un XML roto no revienta: null");
+        Eq(null, NfoTitulo.Extraer("<episodedetails><title>  </title></episodedetails>"),
+            "un título en blanco no cuenta");
+
+        // Y el motor casa por CADA historia del metadato, no solo por el texto entero
+        var cat = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0",
+          "serie": "Doraemon (2005)",
+          "episodios": [
+            { "num": 496, "temporada": 2018,
+              "titulos": { "es": ["Los huevos de cuento", "Juegos de espías"] } }
+          ]
+        }
+        """);
+        var señal = SignalExtractor.Extract(F("Doraemon (2005) S2018E03.mkv", "Season 2018"),
+            "Season 2018", tituloMeta: "Los huevos de cuento ┃ Juegos de espías");
+        var r = ReindexEngine.Resolve(new[] { señal }, cat)[0];
+        Eq(496, r.Episodio?.Num, "el título del metadato multi-historia identifica al episodio");
+        Eq(ReindexConfianza.Alta, r.Confianza, "y con confianza: las dos historias casan");
     }
 
     // ─────────────── La decisión «es solo una historia» se recuerda ───────────────

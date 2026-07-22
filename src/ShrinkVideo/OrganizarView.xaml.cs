@@ -507,6 +507,51 @@ public partial class OrganizarView : UserControl
             if (animar) _etapas[1].EnCurso();
             var resoluciones = await ConTiempoDeVerse(
                 Task.Run(() => ReindexEngine.Resolve(señales, catalogo, decisiones)), animar);
+
+            // ── Etapa 2b: metadatos SOLO de los dudosos ──
+            // El contenedor suele llevar el título grabado («title» del MKV) aunque el
+            // nombre no lo traiga — el caso de los S2018E01 pelados. Se lee únicamente de
+            // los que quedaron en duda: sondear 548 ficheros en OneDrive hidrataría medio
+            // disco; sondear 18 dudosos, no. Tope de 80 por la misma razón.
+            var dudosos = resoluciones
+                .Where(x => x.EsDuda && string.IsNullOrEmpty(x.Archivo.TituloMeta) &&
+                            string.IsNullOrEmpty(x.Archivo.Error))
+                .Select(x => x.Archivo.Path)
+                .Take(80)
+                .ToList();
+            if (dudosos.Count > 0)
+            {
+                Escribir($"Leyendo el título del contenedor de {dudosos.Count} dudosos…");
+                var metadatos = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                await Task.Run(async () =>
+                {
+                    var tareas = dudosos.Select(async ruta =>
+                    {
+                        // Primero el .nfo compañero: es un XML minúsculo y trae el título en
+                        // limpio. El sondeo del contenedor queda de reserva — en OneDrive
+                        // obliga a hidratar la cabecera desde la nube y se nota.
+                        string? t = null;
+                        var nfo = Path.ChangeExtension(ruta, ".nfo");
+                        if (File.Exists(nfo))
+                            try { t = NfoTitulo.Extraer(File.ReadAllText(nfo)); } catch { }
+                        t ??= await Engine.LeerTituloAsync(ruta);
+                        if (t != null) lock (metadatos) metadatos[ruta] = t;
+                    });
+                    await Task.WhenAll(tareas);
+                });
+
+                if (metadatos.Count > 0)
+                {
+                    // Con los títulos en la mano, se re-resuelve TODO el lote: las reglas de
+                    // deduplicación miran al conjunto y parchear filas sueltas las esquivaría.
+                    for (int i = 0; i < señales.Count; i++)
+                        if (metadatos.TryGetValue(señales[i].Path, out var titulo))
+                            señales[i] = SignalExtractor.Extract(señales[i].Path, señales[i].Carpeta, titulo);
+                    resoluciones = await Task.Run(() => ReindexEngine.Resolve(señales, catalogo, decisiones));
+                    Escribir($"{metadatos.Count} títulos encontrados en los metadatos.");
+                }
+            }
+
             if (animar) _etapas[1].Hecha($"contra «{catalogo.Serie}»");
 
             // ── Etapa 3: montar la tabla ──
@@ -696,13 +741,10 @@ public partial class OrganizarView : UserControl
             Ascender<CheckBox>(e.OriginalSource as DependencyObject) == null &&
             Ascender<DataGridRow>(e.OriginalSource as DependencyObject)?.Item is OrganizarRow filaVideo)
         {
-            try
-            {
-                System.Diagnostics.Process.Start(
-                    new System.Diagnostics.ProcessStartInfo(filaVideo.RutaActual) { UseShellExecute = true });
-                Escribir($"Abriendo «{Path.GetFileName(filaVideo.RutaActual)}» en el reproductor.");
-            }
-            catch (Exception ex) { Aviso($"No se pudo abrir el vídeo: {ex.Message}"); }
+            // Reproductor INTEGRADO en modo focus, no una ventana del sistema: la pregunta
+            // es «¿qué capítulo es?» y la respuesta debe estar a un Esc de distancia. Si el
+            // códec no está soportado, la propia ventana ofrece el reproductor del sistema.
+            new ReproductorWindow(filaVideo.RutaActual) { Owner = Window.GetWindow(this) }.ShowDialog();
             e.Handled = true;
             return;
         }
