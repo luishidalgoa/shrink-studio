@@ -28,7 +28,7 @@ public sealed class ApartadoParaRevisar
 /// </summary>
 public sealed class ColaRevision
 {
-    private sealed class Archivo
+    internal sealed class Archivo
     {
         [JsonPropertyName("version")] public int Version { get; set; } = 1;
         [JsonPropertyName("apartados")] public List<ApartadoParaRevisar> Apartados { get; set; } = new();
@@ -73,13 +73,12 @@ public sealed class ColaRevision
         _por[despues] = a;
     }
 
+    // Por contexto generado, no por reflexión: la CLI se publica recortada y el recortador
+    // se lleva los tipos que solo se alcanzan por reflexión — la cola volvería vacía y sin
+    // decir nada.
     public string Escribir() =>
         JsonSerializer.Serialize(new Archivo { Apartados = _por.Values.ToList() },
-            new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            });
+                                 ColaRevisionJson.Default.Archivo);
 
     /// <summary>Lee una cola. Un fichero roto devuelve una cola vacía: no impide trabajar.</summary>
     public static ColaRevision Leer(string? json)
@@ -88,7 +87,7 @@ public sealed class ColaRevision
         if (string.IsNullOrWhiteSpace(json)) return cola;
         try
         {
-            var doc = JsonSerializer.Deserialize<Archivo>(json);
+            var doc = JsonSerializer.Deserialize(json, ColaRevisionJson.Default.Archivo);
             foreach (var a in doc?.Apartados ?? new())
                 if (!string.IsNullOrWhiteSpace(a.Ruta))
                     cola._por[a.Ruta] = a;
@@ -97,3 +96,8 @@ public sealed class ColaRevision
         return cola;
     }
 }
+
+[JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true, WriteIndented = true,
+    UseStringEnumConverter = false)]
+[JsonSerializable(typeof(ColaRevision.Archivo))]
+internal partial class ColaRevisionJson : JsonSerializerContext { }

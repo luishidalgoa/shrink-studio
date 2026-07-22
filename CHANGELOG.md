@@ -29,6 +29,17 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-07-22
+
+### Corregido
+
+- **La versión de terminal (`shrinkstudio`) vuelve a publicarse.** Llevaba sin compilar desde
+  que Recortes enseñó al motor a cortar por tramos: la CLI no incluía esa parte del motor y
+  ninguna de las cinco variantes (Windows, Linux, macOS) llegaba a la publicación. La app de
+  escritorio nunca se vio afectada.
+- **Deshacer un lote devuelve también la marca de revisión.** Si tenías un fichero apartado
+  y deshacías el renombrado, la marca seguía apuntando al nombre que ya no existía.
+
 ## [0.14.0] - 2026-07-22
 
 ### Añadido

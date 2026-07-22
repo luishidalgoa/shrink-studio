@@ -1272,6 +1272,17 @@ public partial class OrganizarView : UserControl
             : $"Lote deshecho: {devueltos} devueltos · {fallidos} no se pudieron.");
 
         var lote = _ultimoLote;
+
+        // La marca de revisión sigue al fichero también hacia atrás: al deshacer, el fichero
+        // recupera su nombre anterior y el apartado apuntaría a uno que ya no existe. Se
+        // comprueba en disco cuál de los dos nombres está, porque deshacer puede fallar a
+        // medias y entonces cada fichero está en un sitio distinto.
+        bool tocada = false;
+        foreach (var m in lote.Movimientos)
+            if (_revision.Tiene(m.A) && File.Exists(m.De))
+            { _revision.Renombrado(m.A, m.De); tocada = true; }
+        if (tocada) GuardarRevision();
+
         ReindexStore.OlvidarLote(_ultimoLote);
         _ultimoLote = null;
         bannerAplicado.Visibility = Visibility.Collapsed;
