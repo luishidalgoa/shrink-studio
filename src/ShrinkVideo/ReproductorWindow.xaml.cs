@@ -29,6 +29,7 @@ public partial class ReproductorWindow : Window
     private bool _visible = true;
     private bool _mudo;
     private readonly bool _eraMarcador;   // ¿estaba solo en la nube antes de abrirlo?
+    private readonly PenduloCargando _cargando = new();
     private double _volumenPrevio = 0.8;
     private Point _ultimoRaton;
     private int _tics;
@@ -58,6 +59,11 @@ public partial class ReproductorWindow : Window
         // el remuestreo caro. Es la diferencia entre un escalado por hardware y uno fino.
         RenderOptions.SetBitmapScalingMode(video, BitmapScalingMode.LowQuality);
         glifoVol.Fill = null;
+
+        huecoCargando.Children.Add(_cargando.Raiz);
+        _cargando.Arrancar(_eraMarcador
+            ? "Descargando el vídeo de la nube…"   // puede tardar: baja el fichero entero
+            : "Abriendo el vídeo…");
 
         btnCerrar.Click += (_, _) => Close();
         btnPlay.Click += (_, _) => Alternar();
@@ -119,13 +125,18 @@ public partial class ReproductorWindow : Window
             lblFallo.Text = "Este vídeo no se puede reproducir aquí (códec no soportado por " +
                             $"el decodificador del sistema): {e.ErrorException?.Message}";
             panelFallo.Visibility = Visibility.Visible;
+            _cargando.Parar();
         };
-        video.BufferingStarted += (_, _) => Chip("Cargando…");
+        // El péndulo se queda hasta que el vídeo AVANZA de verdad, no cuando dice estar
+        // abierto: con un fichero descargándose, MediaOpened llega mucho antes que el primer
+        // fotograma, y quitarlo ahí dejaba el rectángulo negro sin explicación.
+        video.BufferingStarted += (_, _) => { Chip("Cargando…"); _cargando.Arrancar(); };
         video.BufferingEnded += (_, _) => RevisarNube();
 
         _reloj = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _reloj.Tick += (_, _) =>
         {
+            if (video.Position > TimeSpan.Zero) _cargando.Parar();
             if (_arrastrando || !video.NaturalDuration.HasTimeSpan) return;
             _desdeReloj = true;
             barra.Value = video.Position.TotalSeconds;
@@ -152,12 +163,14 @@ public partial class ReproductorWindow : Window
             {
                 lblFallo.Text = $"No se pudo abrir el vídeo: {ex.Message}";
                 panelFallo.Visibility = Visibility.Visible;
+                _cargando.Parar();
             }
         };
         Closed += (_, _) =>
         {
             _reloj.Stop();
             _apagon.Stop();
+            _cargando.Parar();
             video.Close();
 
             // Si estaba solo en la nube, se devuelve a la nube: verlo para identificarlo no
