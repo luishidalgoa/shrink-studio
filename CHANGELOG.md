@@ -29,6 +29,17 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **La app ya no gasta media máquina parada, y todo va más suelto.** Con la app en reposo
+  absoluto se consumía un 6-8 % de CPU (y de batería) en repintar decoraciones: la luz
+  ambiental redibujaba TODA la interfaz 60 veces por segundo para un latido de 9 segundos,
+  el brillo de cada barra de progreso recalculaba su desenfoque en cada fotograma (con una
+  cola larga, la app entera se arrastraba: escribir iba a tirones y arrastrar ventanas a
+  golpes), y el halo del campo con foco se recalculaba mientras el haz giraba. Medido pieza
+  a pieza y arreglado sin quitar nada: los mismos brillos y latidos, pero componiendo
+  texturas ya pintadas en vez de repintar. En reposo: de 6-8 % a ~1 %.
+
 ### Anadido
 
 - **Vista previa del fotograma al recorrer la barra en Recortes.** Encontrar el punto de
