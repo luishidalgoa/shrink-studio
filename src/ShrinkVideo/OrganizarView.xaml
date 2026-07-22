@@ -138,6 +138,10 @@
         </ToggleButton>
         <ToggleButton x:Name="chipDudas" Style="{StaticResource FiltroChip}" Content="Solo dudas" Margin="6,0,0,0"
                       ToolTip="Deja solo lo que necesita que decidas tú"/>
+        <ToggleButton x:Name="chipRevision" Style="{StaticResource FiltroChip}" Margin="6,0,0,0"
+                      ToolTip="Los que apartaste para mirar con calma. Sobreviven al cierre de la app.">
+          <TextBlock><Run Text="🔖" Foreground="#C9A0FF"/><Run x:Name="runRevision" Text=" 0 apartados"/></TextBlock>
+        </ToggleButton>
       </WrapPanel>
 
       <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -432,6 +436,10 @@
               <MenuItem x:Name="miReproducir" Header="Reproducir"/>
               <MenuItem x:Name="miRecortar" Header="Cortar este vídeo…"/>
               <MenuItem x:Name="miUbicacion" Header="Abrir la ubicación del fichero"/>
+              <Separator/>
+              <!-- Encontrar un fichero problemático cuesta más que arreglarlo: esto lo
+                   aparta para mañana sin tener que volver a buscarlo. -->
+              <MenuItem x:Name="miRevisar" Header="Apartar para revisar luego"/>
             </ContextMenu>
           </DataGrid.ContextMenu>
           <DataGrid.Columns>
@@ -470,6 +478,17 @@
                                  VerticalAlignment="Center"/>
                     </StackPanel>
                   </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+
+            <!-- APARTADO — sin encabezado ni anchura fija: es un margen de libreta, no una
+                 columna de datos. Solo aparece si hay algo apartado. -->
+            <DataGridTemplateColumn Width="Auto">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="🔖" FontSize="12" Margin="0,0,2,0" VerticalAlignment="Center"
+                             Visibility="{Binding VerApartada}" ToolTip="{Binding ApartadaTooltip}"/>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>

@@ -13,9 +13,17 @@ namespace ShrinkVideo;
 /// </summary>
 public partial class DialogWindow : Window
 {
-    private DialogWindow(string titulo, string mensaje, string aceptar, string? cancelar)
+    private DialogWindow(string titulo, string mensaje, string aceptar, string? cancelar,
+                         string? entrada = null, string? pista = null)
     {
         InitializeComponent();
+
+        if (entrada != null)
+        {
+            txtEntrada.Visibility = Visibility.Visible;
+            txtEntrada.Text = entrada;
+            if (pista != null) txtEntrada.ToolTip = pista;
+        }
 
         lblTitulo.Text = titulo;
         txtMensaje.Text = mensaje;
@@ -38,7 +46,13 @@ public partial class DialogWindow : Window
             else if (e.Key == Key.Enter) { DialogResult = true; e.Handled = true; }
         };
 
-        Loaded += (_, _) => btnSi.Focus();
+        // Si hay algo que escribir, el foco va ahí: teclear es la razón de que el diálogo
+        // esté abierto, y llegar y tener que pinchar primero sobra.
+        Loaded += (_, _) =>
+        {
+            if (txtEntrada.Visibility == Visibility.Visible) { txtEntrada.Focus(); txtEntrada.SelectAll(); }
+            else btnSi.Focus();
+        };
     }
 
     private static bool Mostrar(Window? dueno, string titulo, string mensaje,
@@ -65,4 +79,18 @@ public partial class DialogWindow : Window
     public static bool Confirmar(Window? dueno, string titulo, string mensaje,
                                  string aceptar = "Sí", string cancelar = "No") =>
         Mostrar(dueno, titulo, mensaje, aceptar, cancelar);
+
+    /// <summary>
+    /// Pide escribir algo. Devuelve null si se cancela — que no es lo mismo que devolver
+    /// cadena vacía, porque vacío puede ser una respuesta válida.
+    /// </summary>
+    public static string? Escribir(Window? dueno, string titulo, string mensaje,
+                                   string valor = "", string pista = "",
+                                   string aceptar = "Guardar", string cancelar = "Cancelar")
+    {
+        var v = new DialogWindow(titulo, mensaje, aceptar, cancelar, valor, pista);
+        if (dueno is { IsVisible: true }) v.Owner = dueno;
+        else v.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        return v.ShowDialog() == true ? v.txtEntrada.Text.Trim() : null;
+    }
 }

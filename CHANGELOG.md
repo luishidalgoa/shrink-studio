@@ -31,6 +31,14 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Cola de revisión en Organizar.** Con el botón derecho sobre un fichero puedes apartarlo
+  para mirarlo con calma, dejando escrito qué le pasa. Queda marcado con un 🔖, hay un chip
+  que deja ver solo los apartados, y **sobrevive al cierre de la app**: al volver los tienes
+  ahí sin buscarlos otra vez entre cientos. Si mientras tanto aplicas el renombrado, la marca
+  se va con el fichero a su nombre nuevo.
+- **Al terminar de exportar en Recortes se ofrece borrar el original.** Solo si TODOS los
+  tramos están de verdad en disco, y va a la papelera de reciclaje, así que se puede
+  recuperar si al verlos algo no cuadra.
 - **Pausar y detener la exportación en Recortes.** Pausar suspende ffmpeg donde va y reanudar
   sigue desde ahí, no desde el principio. Detener corta y **mata el proceso**: comprobado que
   no queda ninguno de fondo, también en el caso traicionero de pausar primero y detener

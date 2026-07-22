@@ -38,6 +38,9 @@ public partial class OrganizarView : UserControl
     private ReindexCatalog? _catalogoCargado;
     private LibraryTemplate _plantilla = new();
     private Dictionary<string, ReindexOverride> _decisiones = new();
+
+    /// <summary>Los ficheros apartados para mirar con calma. Vive en disco entre sesiones.</summary>
+    private ColaRevision _revision = new();
     private LoteJournal? _ultimoLote;
     private string[] _ficheros = Array.Empty<string>();
     private bool _cargando;
@@ -93,7 +96,7 @@ public partial class OrganizarView : UserControl
 
         cboSerie.SelectionChanged += (_, _) => ElegirCatalogo(cboSerie.SelectedItem as CatalogoGuardado);
 
-        foreach (var chip in new[] { chipLimpios, chipCorregidos, chipEspeciales, chipConflictos, chipErrores, chipDudas })
+        foreach (var chip in new[] { chipLimpios, chipCorregidos, chipEspeciales, chipConflictos, chipErrores, chipDudas, chipRevision })
         {
             chip.Checked += (_, _) => AplicarFiltro();
             chip.Unchecked += (_, _) => AplicarFiltro();
@@ -133,6 +136,11 @@ public partial class OrganizarView : UserControl
             miReproducir.IsEnabled = File.Exists(r.RutaActual);
             miRecortar.IsEnabled = miReproducir.IsEnabled;
             miUbicacion.IsEnabled = miReproducir.IsEnabled;
+            // El mismo sitio sirve para apartar y para desapartar: el rótulo dice cuál de
+            // las dos toca ahora, así no hay que recordar el estado de la fila.
+            miRevisar.Header = r.Apartada
+                ? "Quitar de la cola de revisión"
+                : "Apartar para revisar luego…";
         };
         miReproducir.Click += (_, _) => ReproducirFila(tabla.SelectedItem as OrganizarRow);
         miRecortar.Click += (_, _) =>
@@ -141,6 +149,7 @@ public partial class OrganizarView : UserControl
                 AbrirEnRecortes?.Invoke(f.RutaActual, false);
         };
         miUbicacion.Click += (_, _) => AbrirUbicacion(tabla.SelectedItem as OrganizarRow);
+        miRevisar.Click += (_, _) => AlternarApartada(tabla.SelectedItem as OrganizarRow);
 
         tabla.PreviewKeyDown += OnTablaKeyDown;
         tabla.PreviewMouseLeftButtonDown += OnTablaClic;
@@ -177,6 +186,7 @@ public partial class OrganizarView : UserControl
         try
         {
             _decisiones = ReindexStore.CargarDecisiones();
+            _revision = ReindexStore.CargarRevision();
             CargarCatalogos();
             RefrescarUltimoLote();
         }
@@ -615,8 +625,18 @@ public partial class OrganizarView : UserControl
             var raiz = txtCarpeta.Text?.Trim() ?? "";
             _filas.Clear();
             foreach (var r in resoluciones)
-                _filas.Add(new OrganizarRow(r, catalogo, _plantilla,
-                    LibraryScan.Etiqueta(LibraryScan.Grupo(raiz, r.Archivo.Path))));
+            {
+                var fila = new OrganizarRow(r, catalogo, _plantilla,
+                    LibraryScan.Etiqueta(LibraryScan.Grupo(raiz, r.Archivo.Path)));
+                // Lo que apartaste la última vez sigue apartado: es toda la razón de ser de
+                // la cola — no volver a buscarlo entre cientos al reabrir la app.
+                if (_revision.Tiene(fila.RutaActual))
+                {
+                    fila.Apartada = true;
+                    fila.NotaApartada = _revision.Nota(fila.RutaActual);
+                }
+                _filas.Add(fila);
+            }
 
             int temporadas = RecalcularSeparadores();
             int listos = _filas.Count(f => f.ListoParaAplicar);
@@ -730,6 +750,11 @@ public partial class OrganizarView : UserControl
         runEspeciales.Text = $" {especiales} especiales";
         runConflictos.Text = $" {conflictos} conflictos";
         runErrores.Text = $" {errores} errores";
+
+        int apartados = _filas.Count(f => f.Apartada);
+        runRevision.Text = $" {apartados} apartados";
+        chipRevision.IsEnabled = apartados > 0;
+        if (apartados == 0) chipRevision.IsChecked = false;
 
         chipEspeciales.IsEnabled = especiales > 0;
         chipConflictos.IsEnabled = conflictos > 0;
@@ -892,6 +917,7 @@ public partial class OrganizarView : UserControl
         if (vista == null) return;
 
         bool soloDudas = chipDudas.IsChecked == true;
+        bool soloApartados = chipRevision.IsChecked == true;
         var estados = new List<ReindexEstado>();
         if (chipLimpios.IsChecked == true) estados.Add(ReindexEstado.Limpio);
         if (chipCorregidos.IsChecked == true) estados.Add(ReindexEstado.Corregido);
@@ -914,13 +940,14 @@ public partial class OrganizarView : UserControl
                 || TitleMatch.Norm(f.Propuesta).Contains(q, StringComparison.Ordinal);
         }
 
-        if (estados.Count == 0 && !soloDudas && q.Length == 0)
+        if (estados.Count == 0 && !soloDudas && !soloApartados && q.Length == 0)
         { vista.Filter = null; RecalcularSeparadores(); return; }
 
         vista.Filter = o =>
         {
             if (o is not OrganizarRow f) return false;
             if (soloDudas && !f.EsDuda) return false;
+            if (soloApartados && !f.Apartada) return false;
             if (!PasaTexto(f)) return false;
             return estados.Count == 0 || estados.Contains(f.EstadoVisible);
         };
@@ -929,10 +956,52 @@ public partial class OrganizarView : UserControl
         RecalcularSeparadores();
     }
 
+    /// <summary>
+    /// Aparta la fila para revisarla otro día, o la saca de la cola si ya estaba.
+    /// La nota es opcional pero es lo que hace útil volver: dentro de una semana «raro» no
+    /// dice nada y «el título no cuadra con el .nfo» sí.
+    /// </summary>
+    private void AlternarApartada(OrganizarRow? f)
+    {
+        if (f == null) return;
+
+        if (f.Apartada)
+        {
+            _revision.Sacar(f.RutaActual);
+            f.Apartada = false;
+            f.NotaApartada = "";
+            Escribir($"«{f.Original}» sale de la cola de revisión.");
+        }
+        else
+        {
+            var nota = DialogWindow.Escribir(Window.GetWindow(this), "Apartar para revisar luego",
+                $"{f.Original}{Environment.NewLine}{Environment.NewLine}" +
+                "¿Qué le pasa? (opcional — te lo encontrarás escrito al volver)",
+                pista: "Por ejemplo: «no sé si es el 173 o el 174»",
+                aceptar: "Apartar");
+            if (nota == null) return;   // cancelar no aparta nada
+
+            _revision.Meter(f.RutaActual, nota);
+            f.Apartada = true;
+            f.NotaApartada = nota;
+            Escribir($"«{f.Original}» apartado para revisar." + (nota.Length > 0 ? $" ({nota})" : ""));
+        }
+
+        GuardarRevision();
+        ActualizarContadores();
+        AplicarFiltro();
+    }
+
+    private void GuardarRevision()
+    {
+        try { ReindexStore.GuardarRevision(_revision); }
+        catch (Exception ex) { Escribir($"No se pudo guardar la cola de revisión: {ex.Message}"); }
+    }
+
     private void FiltrarSolo(ReindexEstado estado)
     {
         chipLimpios.IsChecked = chipCorregidos.IsChecked = chipConflictos.IsChecked = chipErrores.IsChecked = false;
-        chipDudas.IsChecked = false;
+        chipDudas.IsChecked = chipRevision.IsChecked = false;
         chipEspeciales.IsChecked = estado == ReindexEstado.Especial;
         AplicarFiltro();
     }
@@ -1154,10 +1223,19 @@ public partial class OrganizarView : UserControl
         int hechos = 0, fallos = 0;
         foreach (var (fila, error) in resultados)
         {
-            if (error == null) { fila.Aplicado = true; hechos++; }
+            if (error == null)
+            {
+                fila.Aplicado = true;
+                hechos++;
+                // La marca se va con el fichero: si no, aplicar borraría de la cola justo
+                // lo que estabas arreglando, que es lo contrario de lo que la cola sirve.
+                if (fila.Apartada) _revision.Renombrado(fila.Res.Archivo.Path, fila.RutaActual);
+            }
             else { fallos++; Escribir($"No se pudo renombrar «{fila.Original}»: {error}"); }
         }
         btnAplicar.IsEnabled = btnSimular.IsEnabled = true;
+
+        if (resultados.Any(r => r.error == null && r.fila.Apartada)) GuardarRevision();
 
         _ultimoLote = lote;
         RefrescarUltimoLote();

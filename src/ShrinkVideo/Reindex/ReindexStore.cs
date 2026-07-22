@@ -113,6 +113,9 @@ public static class ReindexStore
     /// <summary>Qué serie estaba elegida al cerrar.</summary>
     public static string RutaPreferencias => Path.Combine(Raiz, "organizar.json");
 
+    /// <summary>Los ficheros apartados para revisar otro día.</summary>
+    public static string RutaRevision => Path.Combine(Raiz, "revision.json");
+
     private static readonly JsonSerializerOptions Opciones = new()
     {
         WriteIndented = true,
@@ -268,6 +271,27 @@ public static class ReindexStore
         var doc = new DecisionesArchivo { Version = 1, Overrides = overrides };
         File.WriteAllText(RutaDecisiones,
             JsonSerializer.Serialize(doc, ReindexStoreJson.Default.DecisionesArchivo), System.Text.Encoding.UTF8);
+    }
+
+    /// <summary>
+    /// La cola de revisión. Si el fichero no se puede leer se devuelve vacía: perder la cola
+    /// es molesto, pero no poder abrir la app por eso sería peor.
+    /// </summary>
+    public static ColaRevision CargarRevision()
+    {
+        try
+        {
+            return File.Exists(RutaRevision)
+                ? ColaRevision.Leer(File.ReadAllText(RutaRevision, System.Text.Encoding.UTF8))
+                : new ColaRevision();
+        }
+        catch { return new ColaRevision(); }
+    }
+
+    public static void GuardarRevision(ColaRevision cola)
+    {
+        Directory.CreateDirectory(Raiz);
+        File.WriteAllText(RutaRevision, cola.Escribir(), System.Text.Encoding.UTF8);
     }
 
     public static void OlvidarDecisiones()
