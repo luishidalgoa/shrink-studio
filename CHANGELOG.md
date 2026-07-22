@@ -43,6 +43,15 @@ es un acuerdo de buena voluntad: está verificado.
   tramos») y el tramo que se esta procesando se resalta en la lista con la marca
   EXPORTANDO.
 
+### Añadido
+
+- **Un fichero que contiene dos episodios ya no se renombra solo.** Hay ficheros que
+  emparejan dos historias que el catálogo cuenta como episodios distintos: ponerles el
+  número de uno pierde al otro en silencio. Ahora se detecta y se te pregunta, diciendo
+  cuáles son los dos. No confunde esto con un remake —la misma historia en un episodio
+  viejo y en uno moderno es lo normal—: solo salta si el episodio elegido no cubre lo que
+  el fichero trae.
+
 ### Corregido
 
 - **La app ya sabe releer los ficheros que ella misma marcó como una sola historia.** Al
