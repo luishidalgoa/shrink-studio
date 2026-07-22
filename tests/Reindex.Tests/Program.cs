@@ -31,6 +31,7 @@ public static class Program
         PrefijoDeSerie();
         BibliotecaPorTemporadas();
         CatalogosReales();
+        MarcadorManda();
         SepararHistorias();
         PeleaPorElMismoEpisodio();
         PartirEnTramos();
@@ -1019,6 +1020,47 @@ public static class Program
 
         Eq(0, SidecarPlanner.Planear(de, de, enCarpeta).Count,
             "si el vídeo no cambia de nombre, no hay nada que mover");
+    }
+
+    // ─────────────── Un marcador explícito manda sobre un número suelto ───────────────
+
+    /// <summary>
+    /// Salió auditando: hay catálogos cuyos títulos llevan números entre corchetes
+    /// («Cuido de mamá (LA)[30] + Vamos a un restaurante (ES)[31]»). Al escribir el nombre
+    /// propuesto, ese [30] acababa dentro del fichero, y al volver a leerlo ganaba al
+    /// «S2005E536» que la propia app había puesto: la segunda simulación creía que era el
+    /// episodio 30. Renombrar y re-simular tiene que dar SIEMPRE lo mismo, o los datos se
+    /// van degradando solos sin que nadie lo vea.
+    /// </summary>
+    private static void MarcadorManda()
+    {
+        Seccion("El marcador explícito manda");
+
+        var conRuido = SignalExtractor.Extract(F(
+            "Crayon Shin-Chan - S2005E536 - Cuido de mamá (LA)[30] + Vamos a cenar (ES)[31].mkv"));
+        Eq(536, conRuido.Indice, "el SxxExx gana a un [30] metido en el título");
+
+        // La convención de corchetes sigue viva para los ficheros que NO traen marcador
+        var soloCorchetes = SignalExtractor.Extract(F("[499b] La niña de los zapatos rojos.mkv"));
+        Eq(499, soloCorchetes.Indice, "sin marcador, el corchete sigue mandando");
+        Eq("b", soloCorchetes.SubSegmento, "y conserva su letra de historia");
+
+        // La propiedad que de verdad importa: ida y vuelta sin deriva.
+        var cat = ReindexCatalog.Parse("""
+        {
+          "esquema": "reindex/1.0",
+          "serie": "Crayon Shin-Chan",
+          "episodios": [
+            { "num": 536, "temporada": 2005,
+              "titulos": { "es": ["Cuido de mamá (LA)[30]", "Vamos a cenar (ES)[31]"] } }
+          ]
+        }
+        """);
+        var plantilla = new LibraryTemplate(LibraryTemplate.PatronPorDefecto);
+        var ep = cat.PorNum(536)!;
+        var nombre = plantilla.Render(cat, ep, conRuido)!;
+        var releido = SignalExtractor.Extract(F(nombre));
+        Eq(536, releido.Indice, "el nombre que escribe la app se relee como el mismo episodio");
     }
 
     // ─────────────── Otras formas de separar las historias ───────────────

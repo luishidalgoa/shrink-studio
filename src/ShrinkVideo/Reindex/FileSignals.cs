@@ -145,21 +145,27 @@ public static partial class SignalExtractor
             resto = resto.Remove(mEsp.Index, mEsp.Length);
         }
 
-        // 3. índice: corchetes → SxxExx → E72 → número inicial (en orden de fiabilidad)
-        var mCor = RxIndiceCorchetes().Match(resto);
-        if (mCor.Success)
+        // 3. índice: SxxExx → corchetes → E72 → número inicial (en orden de fiabilidad).
+        //
+        // El SxxExx va PRIMERO porque es el único marcador que no admite otra lectura. Los
+        // corchetes iban delante y se los llevaba cualquier número entre corchetes del
+        // título: hay catálogos que los usan («Cuido de mamá (LA)[30]»), y entonces el
+        // nombre que la propia app escribía se releía como el episodio 30. Renombrar y
+        // volver a simular tiene que dar lo mismo, o los datos se degradan solos.
+        var mSE = RxSxxExx().Match(resto);
+        if (mSE.Success)
         {
-            indice = int.Parse(mCor.Groups[1].Value);
-            if (mCor.Groups[2].Success) subSegmento = mCor.Groups[2].Value.ToLowerInvariant();
-            resto = resto.Remove(mCor.Index, mCor.Length);
+            indice = int.Parse(mSE.Groups[2].Value);
+            resto = TrasElMarcador(resto, mSE.Index, mSE.Length);
         }
         else
         {
-            var mSE = RxSxxExx().Match(resto);
-            if (mSE.Success)
+            var mCor = RxIndiceCorchetes().Match(resto);
+            if (mCor.Success)
             {
-                indice = int.Parse(mSE.Groups[2].Value);
-                resto = TrasElMarcador(resto, mSE.Index, mSE.Length);
+                indice = int.Parse(mCor.Groups[1].Value);
+                if (mCor.Groups[2].Success) subSegmento = mCor.Groups[2].Value.ToLowerInvariant();
+                resto = resto.Remove(mCor.Index, mCor.Length);
             }
             else
             {
