@@ -1040,6 +1040,21 @@ public static class Program
         // están en el disco — el error contrario, y también gratuito.
         Eq(false, Nube.EsMarcador(FileAttributes.Archive | FileAttributes.ReparsePoint),
             "descargado (Archive+ReparsePoint, sin OFFLINE) NO es un marcador");
+
+        // ── Devolverlo a la nube después de mirarlo ──
+        // Ver un vídeo para identificarlo no debería dejar 250 MB ocupados para siempre.
+        // El aviso de «libera este fichero» es el mismo para todos los proveedores: lo
+        // define Windows (Cloud Files API), no OneDrive — quitar ANCLADO y poner SOLTADO.
+        const int anclado = Nube.Anclado, soltado = Nube.Soltado;
+        const int archivo = (int)FileAttributes.Archive, reparse = (int)FileAttributes.ReparsePoint;
+
+        Eq(archivo | soltado, Nube.AtributosParaLiberar(archivo | anclado),
+            "quita ANCLADO y pone SOLTADO");
+        Eq(archivo | reparse | soltado, Nube.AtributosParaLiberar(archivo | reparse),
+            "conserva el resto de atributos intactos");
+        Eq(archivo | soltado, Nube.AtributosParaLiberar(archivo | soltado),
+            "si ya estaba soltado, no cambia nada");
+        Eq(0, Nube.AtributosParaLiberar(anclado) & anclado, "ANCLADO nunca sobrevive");
     }
 
     // ─────────────── El título del .nfo compañero ───────────────

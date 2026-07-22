@@ -29,6 +29,25 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **Menú contextual en la tabla de Organizar.** Clic derecho sobre un fichero para
+  reproducirlo o **abrir su ubicación** en el explorador, con el fichero ya seleccionado.
+  Abrir la ubicación no descarga nada, así que sirve igual para los que están en la nube.
+  También responde a la tecla Menú del teclado, sobre la fila seleccionada.
+- **Los vídeos que se descargan de la nube para verlos vuelven a la nube al cerrar.**
+  Identificar un capítulo mirándolo medio minuto no debería dejar 250 MB ocupados para
+  siempre: si el fichero estaba solo en la nube antes de abrirlo, al cerrar el reproductor
+  se pide que se libere. Solo se toca lo que ya estaba en la nube — lo que tengas guardado
+  a propósito se queda.
+
+### Cambiado
+
+- **Lo de la nube ya no habla de un proveedor concreto ni promete tirones.** El aviso del
+  reproductor pasa a ser «En la nube · descargando para verlo». El mecanismo lo define
+  Windows, no un proveedor: funciona igual con OneDrive, Nextcloud, Dropbox, Google Drive
+  o iCloud, porque se miran los atributos del fichero y no quién los puso.
+
 ## [0.12.1] - 2026-07-22
 
 ### Corregido

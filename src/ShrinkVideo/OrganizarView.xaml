@@ -424,6 +424,15 @@
              DataGrid.GroupStyle: agrupar rompe el reparto de las columnas en «*». -->
         <DataGrid x:Name="tabla" Style="{StaticResource OrgGrid}"
                   RowDetailsVisibilityMode="VisibleWhenSelected">
+          <!-- Va en la tabla y no en el estilo de fila: el estilo vive en un diccionario
+               de recursos, que no tiene código detrás donde colgar los manejadores. La
+               fila sobre la que se pulsó se resuelve al abrirlo. -->
+          <DataGrid.ContextMenu>
+            <ContextMenu x:Name="menuFila">
+              <MenuItem x:Name="miReproducir" Header="Reproducir"/>
+              <MenuItem x:Name="miUbicacion" Header="Abrir la ubicación del fichero"/>
+            </ContextMenu>
+          </DataGrid.ContextMenu>
           <DataGrid.Columns>
 
             <!-- Marcar qué se aplica. Solo tiene casilla lo que ESTÁ listo: poner una en
