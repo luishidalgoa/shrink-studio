@@ -1,0 +1,68 @@
+<Window x:Class="ShrinkVideo.ReproductorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Reproductor" Width="1080" Height="660" MinWidth="560" MinHeight="360"
+        WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}" Background="#0C0D16">
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="38" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0"
+                  UseAeroCaptionButtons="False"/>
+  </WindowChrome.WindowChrome>
+
+  <Border Background="#0C0D16" BorderBrush="{StaticResource Divider}" BorderThickness="1" CornerRadius="8">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/><!-- título -->
+        <RowDefinition Height="*"/>   <!-- vídeo -->
+        <RowDefinition Height="Auto"/><!-- controles -->
+      </Grid.RowDefinitions>
+
+      <Grid Grid.Row="0" Height="38">
+        <TextBlock x:Name="lblTitulo" FontSize="12.5" FontWeight="Medium" VerticalAlignment="Center"
+                   Margin="16,0,110,0" TextTrimming="CharacterEllipsis"/>
+        <Button x:Name="btnCerrar" Style="{StaticResource BtnClose}" HorizontalAlignment="Right"
+                WindowChrome.IsHitTestVisibleInChrome="True">
+          <Path Data="M2,2 L11,11 M11,2 L2,11" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                StrokeThickness="1.2" Width="13" Height="13" Stretch="None"
+                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Button>
+      </Grid>
+
+      <Grid Grid.Row="1" Background="Black">
+        <MediaElement x:Name="video" LoadedBehavior="Manual" UnloadedBehavior="Stop"
+                      Stretch="Uniform" ScrubbingEnabled="True"/>
+        <!-- Si el códec no está soportado, se dice y se ofrece el reproductor del sistema:
+             mejor un plan B claro que una pantalla negra sin explicación. -->
+        <StackPanel x:Name="panelFallo" Visibility="Collapsed" VerticalAlignment="Center"
+                    HorizontalAlignment="Center" MaxWidth="440">
+          <TextBlock x:Name="lblFallo" TextWrapping="Wrap" TextAlignment="Center" FontSize="12.5"
+                     Foreground="{StaticResource Neutral400}" LineHeight="19"/>
+          <Button x:Name="btnSistema" Style="{StaticResource BtnPrimary}" Margin="0,14,0,0"
+                  HorizontalAlignment="Center" Content="Abrir en el reproductor del sistema"/>
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="2" Margin="14,10,14,12">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <Button x:Name="btnPlay" Style="{StaticResource BtnSecondary}" Width="38" Height="30" Padding="0"
+                ToolTip="Reproducir / pausar (espacio)">
+          <TextBlock x:Name="glifoPlay" Text="⏸" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Button>
+
+        <TextBlock x:Name="lblTiempo" Grid.Column="1" VerticalAlignment="Center" Margin="12,0"
+                   FontFamily="{StaticResource FontMono}" FontSize="11.5"
+                   Foreground="{StaticResource Neutral400}" Text="0:00 / 0:00"/>
+
+        <Slider x:Name="barra" Grid.Column="2" VerticalAlignment="Center" IsMoveToPointEnabled="True"/>
+
+        <TextBlock Grid.Column="3" Text="🔊" FontSize="12" VerticalAlignment="Center" Margin="12,0,6,0"/>
+        <Slider x:Name="volumen" Grid.Column="4" Width="90" VerticalAlignment="Center"
+                Minimum="0" Maximum="1" Value="0.8"/>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

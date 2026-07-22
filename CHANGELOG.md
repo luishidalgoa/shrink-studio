@@ -29,6 +29,24 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **Reproductor integrado en modo focus.** El doble clic sobre una fila ya no abre el
+  reproductor de Windows: abre una ventana oscura dentro de la app con el vídeo, pausa
+  (espacio), barra de posición para saltar, volumen y Esc para cerrar. Si el códec no está
+  soportado, lo dice y ofrece el reproductor del sistema con un botón.
+- **Los dudosos se identifican también por su `.nfo` y por los metadatos del vídeo.** Un
+  fichero sin título en el nombre («S2018E01.mkv») suele llevarlo en su `.nfo` de Kodi o en
+  la etiqueta del contenedor. Tras la primera pasada, la app lee esas dos fuentes SOLO de
+  los que quedaron en duda —el `.nfo` primero, que es instantáneo— y re-identifica. La
+  Season 2018 pasó de 18 dudas a 18 listos con su título de verdad.
+
+### Corregido
+
+- **El texto de los campos se veía ligeramente borroso.** El halo de foco (el efecto de
+  sombra) envolvía al propio texto y lo rasterizaba sin ClearType. El halo sigue; el texto
+  ya vive fuera de él.
+
 ### Corregido
 
 - **Buscar el nombre viejo de un fichero ya renombrado ya no lo encuentra.** Tras aplicar,
