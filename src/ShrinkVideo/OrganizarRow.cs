@@ -359,6 +359,17 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     public bool SinCambios => !Aplicado && NombreNuevo != null
         && string.Equals(NombreNuevo, Original, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// El estado a efectos de contadores y de filtros. Una fila ya aplicada está BIEN en el
+    /// disco, así que cuenta como limpia: seguir sumándola a «corregidos» decía que quedaba
+    /// trabajo pendiente que ya no existe, y al filtrar por «corregidos» salían mezcladas
+    /// las hechas con las que faltan.
+    ///
+    /// <see cref="ReindexResolution.Estado"/> no se toca: ese es el veredicto de la
+    /// identificación y es lo que explica POR QUÉ se renombró.
+    /// </summary>
+    public ReindexEstado EstadoVisible => Aplicado ? ReindexEstado.Limpio : Res.Estado;
+
     // Ni pendiente ni por despachar: no hay nada que hacerle.
     public bool EsDuda => !Aplicado && !SinCambios && Res.EsDuda;
     public bool ListoParaAplicar =>
