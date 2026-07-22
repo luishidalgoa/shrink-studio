@@ -93,6 +93,23 @@ public partial class OrganizarView : UserControl
             chip.Unchecked += (_, _) => AplicarFiltro();
         }
 
+        txtBuscarTabla.TextChanged += (_, _) => AplicarFiltro();
+        txtBuscarTabla.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape) { txtBuscarTabla.Text = ""; tabla.Focus(); e.Handled = true; }
+        };
+        // Ctrl+K desde cualquier punto de la página: el estándar de «buscar aquí dentro»
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control &&
+                vistaRevision.Visibility == Visibility.Visible)
+            {
+                txtBuscarTabla.Focus();
+                txtBuscarTabla.SelectAll();
+                e.Handled = true;
+            }
+        };
+
         tabla.PreviewKeyDown += OnTablaKeyDown;
         tabla.PreviewMouseLeftButtonDown += OnTablaClic;
         tabla.PreviewMouseMove += OnTablaArrastre;
@@ -445,6 +462,13 @@ public partial class OrganizarView : UserControl
 
     private async void Simular()
     {
+        // Se RE-ESCANEA siempre: tras aplicar, la lista vieja apunta a nombres que ya no
+        // existen, y simular sobre ella re-resolvía el pasado — la tabla enseñaba los
+        // mismos «Corregido» de antes como si aplicar no hubiera hecho nada.
+        var carpetaActual = txtCarpeta.Text?.Trim() ?? "";
+        try { _ficheros = LibraryScan.Escanear(carpetaActual, Engine.VideoExtensions); }
+        catch { /* la carpeta puede haber desaparecido; el guard de abajo lo dice */ }
+
         if (_catalogoCargado == null || _ficheros.Length == 0) return;
 
         // Las etapas viven en la pantalla de inicio: al re-simular desde la revisión (botón
@@ -755,12 +779,21 @@ public partial class OrganizarView : UserControl
         if (chipConflictos.IsChecked == true) estados.Add(ReindexEstado.Conflicto);
         if (chipErrores.IsChecked == true) estados.Add(ReindexEstado.Error);
 
-        if (estados.Count == 0 && !soloDudas) { vista.Filter = null; RecalcularSeparadores(); return; }
+        // El texto filtra con la normalización del identificador: «sonrisa» encuentra
+        // «¡En busca de una sonrisa!» aunque el nombre lleve signos y tildes.
+        var q = TitleMatch.Norm(txtBuscarTabla.Text);
+        bool PasaTexto(OrganizarRow f) => q.Length == 0
+            || TitleMatch.Norm(f.Original).Contains(q, StringComparison.Ordinal)
+            || TitleMatch.Norm(f.Propuesta).Contains(q, StringComparison.Ordinal);
+
+        if (estados.Count == 0 && !soloDudas && q.Length == 0)
+        { vista.Filter = null; RecalcularSeparadores(); return; }
 
         vista.Filter = o =>
         {
             if (o is not OrganizarRow f) return false;
             if (soloDudas && !f.EsDuda) return false;
+            if (!PasaTexto(f)) return false;
             return estados.Count == 0 || estados.Contains(f.Res.Estado);
         };
 
@@ -913,7 +946,7 @@ public partial class OrganizarView : UserControl
         overlayConfirmar.Visibility = Visibility.Visible;
     }
 
-    private void Aplicar()
+    private async void Aplicar()
     {
         var listos = _filas.Where(f => f.ListoParaAplicar && f.Marcado).ToList();
         if (listos.Count == 0) return;
@@ -954,21 +987,29 @@ public partial class OrganizarView : UserControl
         try { ReindexStore.EscribirJournal(lote); }
         catch (Exception ex) { Aviso($"No se pudo guardar el registro del lote, no se renombra nada: {ex.Message}"); return; }
 
-        int hechos = 0, fallos = 0;
-        foreach (var (fila, destino) in planeados)
+        // Los movimientos van FUERA del hilo de interfaz: 462 renombrados en OneDrive
+        // tardan, y con la ventana congelada parecía que aplicar no hacía nada.
+        btnAplicar.IsEnabled = btnSimular.IsEnabled = false;
+        lblEstadoOrg.Text = $"Renombrando {planeados.Count} ficheros…";
+
+        var resultados = await Task.Run(() =>
         {
-            try
+            var lista = new List<(OrganizarRow fila, string? error)>();
+            foreach (var (fila, destino) in planeados)
             {
-                File.Move(fila.Res.Archivo.Path, destino);
-                fila.Aplicado = true;
-                hechos++;
+                try { File.Move(fila.Res.Archivo.Path, destino); lista.Add((fila, null)); }
+                catch (Exception ex) { lista.Add((fila, ex.Message)); }
             }
-            catch (Exception ex)
-            {
-                fallos++;
-                Escribir($"No se pudo renombrar «{fila.Original}»: {ex.Message}");
-            }
+            return lista;
+        });
+
+        int hechos = 0, fallos = 0;
+        foreach (var (fila, error) in resultados)
+        {
+            if (error == null) { fila.Aplicado = true; hechos++; }
+            else { fallos++; Escribir($"No se pudo renombrar «{fila.Original}»: {error}"); }
         }
+        btnAplicar.IsEnabled = btnSimular.IsEnabled = true;
 
         _ultimoLote = lote;
         RefrescarUltimoLote();

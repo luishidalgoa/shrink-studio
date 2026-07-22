@@ -31,6 +31,23 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Buscador dentro de la tabla de Organizar (Ctrl+K).** Filtra en vivo por el nombre
+  original o por la propuesta, con la misma normalización del identificador: «animo» sin
+  tilde encuentra «¡Ánimo, antepasado!». Esc lo limpia. Se combina con los filtros de
+  estado que ya había.
+
+### Corregido
+
+- **Volver a simular tras aplicar enseñaba el pasado.** La lista de ficheros se escaneaba al
+  elegir la carpeta y no se refrescaba nunca: después de renombrar 462 ficheros, re-simular
+  volvía a resolver los nombres viejos y la tabla enseñaba los mismos «Corregido» de antes
+  — como si aplicar no hubiera hecho nada, cuando el renombrado sí se había hecho. Ahora
+  cada simulación re-escanea la carpeta.
+- **Aplicar cientos de renombrados ya no congela la ventana.** Los movimientos van en
+  segundo plano y la barra dice «Renombrando N ficheros…» mientras tanto.
+
+### Añadido
+
 - **Un fichero puede ser SOLO una historia de un episodio, y ya hay forma estándar de
   decirlo.** En el resolutor, «Elegir otro episodio…» abre por fin el explorador (buscando ya
   el título del fichero); al elegir un episodio con varias historias, la app pregunta si el
