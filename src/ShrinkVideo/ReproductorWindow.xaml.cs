@@ -29,7 +29,7 @@ public partial class ReproductorWindow : Window
     private bool _visible = true;
     private bool _mudo;
     private readonly bool _eraMarcador;   // ¿estaba solo en la nube antes de abrirlo?
-    private readonly PenduloCargando _cargando = new();
+    private readonly CirculosCargando _cargando = new();
     private double _volumenPrevio = 0.8;
     private Point _ultimoRaton;
     private int _tics;
