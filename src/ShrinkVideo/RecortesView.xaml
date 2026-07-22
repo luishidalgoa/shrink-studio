@@ -121,6 +121,54 @@
                            Foreground="{StaticResource Neutral600}" Text=""/>
               </StackPanel>
             </Border>
+
+            <!-- ══ Mientras se exporta ══
+                 El reproductor se apaga a propósito: el motor necesita el fichero suelto
+                 para poder codificarlo. En vez de dejar un rectángulo negro que parece una
+                 avería, se vela la imagen y se dice por qué. Los pulsos de luz son el mismo
+                 lenguaje que el fondo de la app —manchas radiales muy tenues— pero latiendo,
+                 para que se lea como «trabajando» y no como «colgado». -->
+            <Border x:Name="capaExportando" Visibility="Collapsed" Background="#B21B1E2A">
+              <Grid ClipToBounds="True">
+                <!-- Los pulsos. A 5 fps y con BitmapCache: la lección de la auditoría —
+                     esto va sobre un vídeo y no puede robarle sitio al trabajo. -->
+                <Grid x:Name="pulsos">
+                  <Grid.CacheMode><BitmapCache/></Grid.CacheMode>
+                  <Ellipse x:Name="pulso1" Width="420" Height="260" Opacity="0"
+                           HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-60,-40,0,0">
+                    <Ellipse.Fill>
+                      <RadialGradientBrush>
+                        <GradientStop Color="#33FFFFFF" Offset="0"/>
+                        <GradientStop Color="#00FFFFFF" Offset="1"/>
+                      </RadialGradientBrush>
+                    </Ellipse.Fill>
+                  </Ellipse>
+                  <Ellipse x:Name="pulso2" Width="520" Height="300" Opacity="0"
+                           HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-80,-50">
+                    <Ellipse.Fill>
+                      <RadialGradientBrush>
+                        <GradientStop Color="#2ECFC7FF" Offset="0"/>
+                        <GradientStop Color="#00CFC7FF" Offset="1"/>
+                      </RadialGradientBrush>
+                    </Ellipse.Fill>
+                  </Ellipse>
+                </Grid>
+
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
+                  <!-- Triángulo de aviso, dibujado: nada de fuentes de iconos. -->
+                  <Path HorizontalAlignment="Center" Stretch="Uniform" Width="34" Height="34"
+                        Stroke="White" StrokeThickness="1.6" StrokeLineJoin="Round"
+                        Data="M12,3.4 L22,20.6 L2,20.6 Z M12,9.5 L12,14.5 M12,17.2 L12,17.4"
+                        StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                  <TextBlock Margin="0,12,0,0" FontSize="13" FontWeight="Medium" Foreground="White"
+                             TextAlignment="Center" TextWrapping="Wrap"
+                             Text="El reproductor está en pausa mientras se exporta"/>
+                  <TextBlock Margin="0,5,0,0" FontSize="11.5" Foreground="#CBD0E2"
+                             TextAlignment="Center" TextWrapping="Wrap"
+                             Text="El vídeo tiene que estar libre para poder cortarlo. Vuelve solo al terminar."/>
+                </StackPanel>
+              </Grid>
+            </Border>
           </Grid>
 
           <StackPanel Grid.Row="1" Margin="14,8,14,12">
@@ -363,6 +411,13 @@
                        Foreground="{StaticResource Neutral400}" Text=""/>
             <Button x:Name="btnDestino" Style="{StaticResource BtnSecondary}" Padding="10,6" Margin="0,0,8,0"
                     Content="Guardar en…" ToolTip="Por defecto, junto al vídeo original"/>
+            <!-- Solo salen mientras se exporta: un «Detener» apagado permanente es ruido. -->
+            <Button x:Name="btnPausarExp" Style="{StaticResource BtnSecondary}" Padding="10,6"
+                    Margin="0,0,8,0" Content="Pausar" Visibility="Collapsed"
+                    ToolTip="Suspende ffmpeg donde va. Reanudar sigue desde ahí, no desde el principio."/>
+            <Button x:Name="btnDetenerExp" Style="{StaticResource BtnSecondary}" Padding="10,6"
+                    Margin="0,0,8,0" Content="Detener" Visibility="Collapsed"
+                    ToolTip="Corta la exportación y mata el proceso de ffmpeg, no lo deja de fondo."/>
             <Button x:Name="btnExportar" Style="{StaticResource BtnPrimary}" Padding="16,7"
                     Content="Exportar" IsEnabled="False"/>
           </StackPanel>

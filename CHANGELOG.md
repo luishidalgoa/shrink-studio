@@ -31,6 +31,18 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Pausar y detener la exportación en Recortes.** Pausar suspende ffmpeg donde va y reanudar
+  sigue desde ahí, no desde el principio. Detener corta y **mata el proceso**: comprobado que
+  no queda ninguno de fondo, también en el caso traicionero de pausar primero y detener
+  después.
+- **Aviso mientras se exporta.** El reproductor se apaga a propósito —el vídeo tiene que
+  estar libre para poder cortarlo—, así que en vez de un rectángulo negro que parece una
+  avería se vela la imagen, late una luz suave y un triángulo explica por qué.
+- **Deshacer y rehacer en Recortes (Ctrl+Z, Ctrl+Y y Ctrl+Mayús+Z).**
+- **Se avisa antes de perder el trabajo.** Cargar otro vídeo con una exportación en marcha
+  ya no se hace a medias: se dice que la detengas. Y si tenías tramos preparados, se
+  pregunta antes de descartarlos.
+
 - **Ampliar la línea de tiempo en Recortes (Ctrl + rueda, Ctrl + y Ctrl −).** Hasta 40×, para
   clavar un corte al fotograma en vez de a ojo. Amplía **por donde apuntas**: el punto bajo el
   cursor no se mueve, así que no pierdes de vista lo que estabas mirando. Ctrl+0 vuelve a ver

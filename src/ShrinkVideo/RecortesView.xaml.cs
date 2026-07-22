@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using Rectangle = System.Windows.Shapes.Rectangle;
 using System.Windows.Threading;
@@ -129,6 +130,8 @@ public partial class RecortesView : UserControl
         btnAdelante.Click += (_, _) => Saltar(10);
         btnCortar.Click += (_, _) => CortarAqui();
         btnExportar.Click += async (_, _) => await ExportarAsync();
+        btnPausarExp.Click += (_, _) => AlternarPausaExp();
+        btnDetenerExp.Click += (_, _) => DetenerExportacion();
         btnDestino.Click += (_, _) => ElegirDestino();
 
         AllowDrop = true;
@@ -211,12 +214,17 @@ public partial class RecortesView : UserControl
             Ampliar(e.Delta > 0 ? 1.25 : 1 / 1.25, e.GetPosition(visorPista).X);
             e.Handled = true;
         };
-        // Ctrl + y Ctrl − para quien no use rueda; Ctrl+0 devuelve la vista entera.
+        // Ctrl+Z / Ctrl+Y para el historial; Ctrl + y Ctrl − para el aumento (Ctrl+0, entero).
         PreviewKeyDown += (_, e) =>
         {
-            if (Keyboard.Modifiers != ModifierKeys.Control) return;
+            // HasFlag y no «==»: con «==» exacto, Ctrl+Mayús+Z (el rehacer de toda la vida)
+            // no entraba nunca aquí.
+            if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) return;
             switch (e.Key)
             {
+                case Key.Z when Keyboard.Modifiers.HasFlag(ModifierKeys.Shift): RehacerAccion(); e.Handled = true; break;
+                case Key.Z: Deshacer(); e.Handled = true; break;
+                case Key.Y: RehacerAccion(); e.Handled = true; break;
                 case Key.OemPlus or Key.Add: Ampliar(1.25); e.Handled = true; break;
                 case Key.OemMinus or Key.Subtract: Ampliar(1 / 1.25); e.Handled = true; break;
                 case Key.D0 or Key.NumPad0: Ampliar(ZoomMin / Math.Max(_zoom, 0.0001)); e.Handled = true; break;
@@ -238,6 +246,14 @@ public partial class RecortesView : UserControl
     /// desplazarse, y cada segundo ocupa ocho veces más — que es de lo que se trata.
     /// </summary>
     private bool _ajustandoAncho;
+
+    // ── deshacer / rehacer ──
+    // Rehacer() es el ÚNICO sitio por el que cambian los tramos, así que basta con guardar
+    // ahí la foto anterior. Las dos pilas se manejan como en cualquier editor: una acción
+    // nueva invalida la rama de rehacer.
+    private readonly Stack<List<Tramo>> _atras = new();
+    private readonly Stack<List<Tramo>> _adelante = new();
+    private bool _pausadaExp;
 
     private void AjustarAnchoPista()
     {
@@ -331,6 +347,24 @@ public partial class RecortesView : UserControl
     public async void Cargar(string ruta, bool partirPorLaMitad = false)
     {
         if (!File.Exists(ruta)) return;
+
+        // Cargar otro vídeo mientras se exporta dejaría la exportación hablando de un
+        // fichero que ya no está en pantalla. Y si hay cortes hechos, se van a perder: eso
+        // se pregunta, no se hace.
+        var dueno = Window.GetWindow(this);
+        if (_exportando)
+        {
+            DialogWindow.Aviso(dueno, "Recortes",
+                "Se está exportando ahora mismo. Detén la exportación antes de cargar otro vídeo.");
+            return;
+        }
+        if (_fuente != null && !string.Equals(_fuente.Path, ruta, StringComparison.OrdinalIgnoreCase)
+            && _tramos.Count > 1
+            && !DialogWindow.Confirmar(dueno, "Recortes",
+                    $"Tienes {_tramos.Count} tramos preparados sobre " +
+                    $"«{Path.GetFileName(_fuente.Path)}».{Environment.NewLine}{Environment.NewLine}" +
+                    "Cargar otro vídeo los descarta. ¿Seguir?"))
+            return;
         _partirAlSaberDuracion = partirPorLaMitad;
 
         var fi = new FileInfo(ruta);
@@ -404,6 +438,9 @@ public partial class RecortesView : UserControl
     /// coincidir, y el globo y el botón de cortar viven fuera del visor: sin restar el
     /// desplazamiento saldrían corridos justo cuando más precisión hace falta.
     /// </summary>
+    /// <summary>Cuántos tramos hay preparados. Solo para las pruebas.</summary>
+    internal int NumTramos => _tramos.Count;
+
     /// <summary>El segundo que hay en una x de la pista. Solo para las pruebas.</summary>
     internal double SegundoBajo(double xPista) => SegundoEn(xPista);
 
@@ -608,8 +645,15 @@ public partial class RecortesView : UserControl
     /// respetan; los que sigan siendo los sugeridos se recalculan, porque al cambiar el
     /// número de tramos el reparto de historias del nombre ya no es el mismo.
     /// </summary>
-    private void Rehacer(IReadOnlyList<Tramo> nuevos)
+    private void Rehacer(IReadOnlyList<Tramo> nuevos, bool registrar = true)
     {
+        // La foto de ANTES, para poder volver. Cargar un vídeo o deshacer no se registran:
+        // el primero no tiene «antes» y el segundo ya gestiona las pilas él mismo.
+        if (registrar && _tramos.Count > 0)
+        {
+            _atras.Push(_tramos.Select(f => new Tramo(f.Inicio, f.Fin, f.Nombre)).ToList());
+            _adelante.Clear();
+        }
         var escritos = _tramos.ToDictionary(t => (t.Inicio, t.Fin), t => t.Nombre);
         var baseNombre = _fuente != null
             ? Path.GetFileNameWithoutExtension(_fuente.Path) : "recorte";
@@ -920,6 +964,90 @@ public partial class RecortesView : UserControl
     }
 
     /// <summary>Al desplazarse hay celdas nuevas a la vista: se tienden con un respiro.</summary>
+    /// <summary>Ctrl+Z: vuelve al estado anterior de los tramos.</summary>
+    /// <summary>Suspende o reanuda ffmpeg donde va. Reanudar sigue, no reempieza.</summary>
+    private void AlternarPausaExp()
+    {
+        if (!_exportando) return;
+        _pausadaExp = !_pausadaExp;
+        if (_pausadaExp) { _engine.Pause(); btnPausarExp.Content = "Reanudar"; lblProgreso.Text = "En pausa"; }
+        else { _engine.Resume(); btnPausarExp.Content = "Pausar"; lblProgreso.Text = _tramoActual; }
+    }
+
+    /// <summary>
+    /// Corta la exportación. Si estaba en pausa se reanuda ANTES de cancelar: un proceso
+    /// suspendido no puede atender su propia muerte, y quedaría vivo de fondo — que es
+    /// exactamente lo que no se quiere.
+    /// </summary>
+    private void DetenerExportacion()
+    {
+        if (!_exportando) return;
+        if (_pausadaExp) { _engine.Resume(); _pausadaExp = false; btnPausarExp.Content = "Pausar"; }
+        lblProgreso.Text = "Deteniendo…";
+        btnDetenerExp.IsEnabled = false;
+        _cancelar?.Cancel();
+    }
+
+    /// <summary>La cara de «se está exportando»: la capa sobre el vídeo y los botones.</summary>
+    private void PintarExportando(bool si)
+    {
+        capaExportando.Visibility = si ? Visibility.Visible : Visibility.Collapsed;
+        btnPausarExp.Visibility = btnDetenerExp.Visibility = si ? Visibility.Visible : Visibility.Collapsed;
+        btnPausarExp.IsEnabled = btnDetenerExp.IsEnabled = si;
+        btnPausarExp.Content = "Pausar";
+        if (si) LatirPulsos(); else PararPulsos();
+    }
+
+    /// <summary>
+    /// Los pulsos de luz de la capa. A 5 fps a propósito: van sobre un vídeo y toda la
+    /// máquina está codificando — es justo la animación que no puede costar nada.
+    /// </summary>
+    private void LatirPulsos()
+    {
+        void Latido(UIElement e, double tope, double segundos, double retraso)
+        {
+            var a = new System.Windows.Media.Animation.DoubleAnimationUsingKeyFrames
+            {
+                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                BeginTime = TimeSpan.FromSeconds(retraso),
+            };
+            var suave = new System.Windows.Media.Animation.SineEase
+            { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut };
+            a.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
+                tope, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos / 2)), suave));
+            a.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
+                0.12, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos)), suave));
+            System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(a, 5);
+            e.BeginAnimation(UIElement.OpacityProperty, a);
+        }
+        Latido(pulso1, 1.0, 3.4, 0);
+        Latido(pulso2, 0.85, 4.6, 1.1);
+    }
+
+    private void PararPulsos()
+    {
+        pulso1.BeginAnimation(UIElement.OpacityProperty, null);
+        pulso2.BeginAnimation(UIElement.OpacityProperty, null);
+        pulso1.Opacity = pulso2.Opacity = 0;
+    }
+
+    private void Deshacer()
+    {
+        if (_exportando || _atras.Count == 0) return;
+        _adelante.Push(_tramos.Select(f => new Tramo(f.Inicio, f.Fin, f.Nombre)).ToList());
+        Rehacer(_atras.Pop(), registrar: false);
+        Log?.Invoke("Recortes: deshecho.");
+    }
+
+    /// <summary>Ctrl+Y (o Ctrl+Mayús+Z): vuelve a aplicar lo deshecho.</summary>
+    private void RehacerAccion()
+    {
+        if (_exportando || _adelante.Count == 0) return;
+        _atras.Push(_tramos.Select(f => new Tramo(f.Inicio, f.Fin, f.Nombre)).ToList());
+        Rehacer(_adelante.Pop(), registrar: false);
+        Log?.Invoke("Recortes: rehecho.");
+    }
+
     private void AlDesplazarPista()
     {
         Cabezal(video.Position.TotalSeconds);
@@ -1014,8 +1142,10 @@ public partial class RecortesView : UserControl
         video.Source = null;
 
         _cancelar = new CancellationTokenSource();
+        _pausadaExp = false;
         btnExportar.IsEnabled = false;
         btnCortar.IsEnabled = false;
+        PintarExportando(true);
         var rep = new Reportero(this);
         var hechos = new List<string>();
         var fallidos = new List<string>();
@@ -1067,7 +1197,9 @@ public partial class RecortesView : UserControl
         {
             _cancelar = null;
             _exportando = false;
+            _pausadaExp = false;
             _tramoActual = "";
+            PintarExportando(false);
             foreach (var f in _tramos) f.EnCurso = false;
             video.Source = fuente;      // vuelve la previsualización
             video.Play();
