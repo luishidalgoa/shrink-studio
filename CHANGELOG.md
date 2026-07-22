@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-22
+
 ### Añadido
 
 - **Menú contextual en la tabla de Organizar.** Clic derecho sobre un fichero para
