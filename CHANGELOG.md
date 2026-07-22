@@ -29,6 +29,16 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Cambiado
+
+- **El panel de ficheros es ahora el centro de la identificación, con progreso animado.**
+  La carpeta a organizar, el recuento y «Simular» estaban repartidos por tres sitios de la
+  pantalla; ahora viven juntos en el panel. Y al simular, el panel enseña las tres fases
+  reales del trabajo —leer los nombres, identificar contra el catálogo, preparar la
+  revisión— cada una con su círculo en espera, su arco girando mientras corre y su check
+  verde que se dibuja y da un pequeño salto al terminar, con el haz de luz recorriendo el
+  borde del panel mientras trabaja.
+
 ## [0.10.0] - 2026-07-22
 
 ### Añadido
