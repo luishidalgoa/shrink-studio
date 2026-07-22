@@ -1123,6 +1123,55 @@ public partial class RecortesView : UserControl
             : $"Se guardará en: {c}{(_destino == null ? "  (junto al original)" : "")}";
     }
 
+    /// <summary>
+    /// Con los tramos ya en disco, ofrece deshacerse del original — que es lo que casi
+    /// siempre quieres tras partir un vídeo, y buscarlo a mano después es una lata.
+    ///
+    /// Va a la PAPELERA, no a borrado directo: la comprobación de que los tramos existen
+    /// dice que los ficheros están, no que estén bien. Si al verlos algo falla, el original
+    /// sigue ahí. Devuelve true solo si el fichero se ha ido de verdad.
+    /// </summary>
+    private bool OfrecerBorrarOriginal(string ruta, int cuantos, string destino)
+    {
+        if (!File.Exists(ruta)) return false;
+
+        var fi = new FileInfo(ruta);
+        var dueno = Window.GetWindow(this);
+        if (!DialogWindow.Confirmar(dueno, "¿Borrar el original?",
+                $"Los {cuantos} tramos están en:{Environment.NewLine}{destino}" +
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                $"«{fi.Name}» ({Humano(fi.Length)}) ya no hace falta." +
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                "Va a la papelera de reciclaje, así que se puede recuperar.",
+                "Sí, a la papelera", "No, conservarlo"))
+            return false;
+
+        if (!RecycleBin.Send(ruta))
+        {
+            Log?.Invoke($"Recortes: no se pudo enviar «{fi.Name}» a la papelera; sigue donde estaba.");
+            DialogWindow.Aviso(dueno, "Recortes",
+                $"No se pudo borrar «{fi.Name}». Sigue en su sitio.");
+            return false;
+        }
+
+        Log?.Invoke($"Recortes: «{fi.Name}» a la papelera tras exportar {cuantos} tramos.");
+        lblProgreso.Text = $"Listo · {cuantos} tramos · original a la papelera";
+
+        // Sin fichero no hay proyecto: dejar la línea de tiempo con los cortes de un vídeo
+        // que ya no existe solo lleva a exportar de nuevo y no entender por qué falla.
+        _fuente = null;
+        _tramos.Clear();
+        _duracion = 0;
+        LiberarMiniaturas();
+        lblVideo.Text = "";
+        lblVideoDet.Text = "";
+        lblSinVideo.Visibility = Visibility.Visible;
+        _atras.Clear();
+        _adelante.Clear();
+        PintarPista();
+        return true;
+    }
+
     private async Task ExportarAsync()
     {
         // Reentrada: exportar tarda, y sin cerrojo cada clic lanza otra tanda entera sobre
@@ -1136,6 +1185,7 @@ public partial class RecortesView : UserControl
         // El reproductor de esta página tiene el fichero abierto, y el motor comprueba que
         // nadie lo tenga cogido para no pillar una descarga a medias: con el vídeo cargado
         // se saltaba el fichero entero y no salía nada. Se suelta antes de codificar.
+        var rutaOriginal = _fuente.Path;   // en texto: Uri.LocalPath tropieza con '#' en el nombre
         var fuente = new Uri(_fuente.Path);
         video.Stop();
         video.Close();
@@ -1150,6 +1200,7 @@ public partial class RecortesView : UserControl
         var hechos = new List<string>();
         var fallidos = new List<string>();
         int n = 0;
+        bool salioTodo = false;
 
         try
         {
@@ -1179,6 +1230,11 @@ public partial class RecortesView : UserControl
                 else fallidos.Add(t.Nombre);
             }
 
+            // Solo cuenta como completo si TODOS los tramos están en disco. Es la condición
+            // que habilita ofrecer el borrado del original: con un tramo sin salir, borrarlo
+            // perdería ese trozo para siempre.
+            salioTodo = fallidos.Count == 0 && hechos.Count == _tramos.Count && hechos.Count > 0;
+
             lblProgreso.Text = fallidos.Count == 0
                 ? $"Listo · {hechos.Count} fichero{(hechos.Count == 1 ? "" : "s")}"
                 : $"{hechos.Count} de {_tramos.Count} · {fallidos.Count} sin salir";
@@ -1201,9 +1257,17 @@ public partial class RecortesView : UserControl
             _tramoActual = "";
             PintarExportando(false);
             foreach (var f in _tramos) f.EnCurso = false;
-            video.Source = fuente;      // vuelve la previsualización
-            video.Play();
-            video.Pause();
+
+            // La pregunta va ANTES de reabrir el vídeo: el reproductor mantiene el fichero
+            // cogido y con él abierto el borrado falla en silencio.
+            bool borrado = salioTodo && OfrecerBorrarOriginal(rutaOriginal, hechos.Count, destino);
+
+            if (!borrado)
+            {
+                video.Source = fuente;      // vuelve la previsualización
+                video.Play();
+                video.Pause();
+            }
             btnCortar.IsEnabled = true;
             RefrescarEstimacion();
         }

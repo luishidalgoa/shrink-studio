@@ -31,6 +31,7 @@ public static class Program
         PrefijoDeSerie();
         BibliotecaPorTemporadas();
         CatalogosReales();
+        ColaDeRevision();
         FicheroDeDosEpisodios();
         LeerLoQueEscribe();
         MarcadorManda();
@@ -860,6 +861,22 @@ public static class Program
             Eq(0, dev3, "no deshace si el destino está ocupado");
             Eq(1, fall3, "lo cuenta como fallido");
             Eq("contenido", File.ReadAllText(viejo), "el fichero original quedó intacto");
+
+            // — la cola de revisión sobrevive al cierre de la app —
+            Eq(0, ReindexStore.CargarRevision().Cuantos, "de entrada no hay nada apartado");
+
+            var cola = new ColaRevision();
+            cola.Meter(viejo, "no sé si es el 173 o el 174");
+            ReindexStore.GuardarRevision(cola);
+
+            var vuelta = ReindexStore.CargarRevision();
+            Eq(1, vuelta.Cuantos, "el apartado se recupera del disco");
+            Assert(vuelta.Tiene(viejo), "y con la ruta correcta");
+            Eq("no sé si es el 173 o el 174", vuelta.Nota(viejo), "la nota entera, con tildes");
+
+            // Un fichero corrupto no puede impedir abrir la página
+            File.WriteAllText(ReindexStore.RutaRevision, "{ esto no es json");
+            Eq(0, ReindexStore.CargarRevision().Cuantos, "una cola rota se lee como vacía, sin reventar");
         }
         finally
         {
@@ -1023,6 +1040,52 @@ public static class Program
 
         Eq(0, SidecarPlanner.Planear(de, de, enCarpeta).Count,
             "si el vídeo no cambia de nombre, no hay nada que mover");
+    }
+
+    // ─────────────── La cola de revisión ───────────────
+
+    /// <summary>
+    /// Apartar un fichero para mirarlo con calma otro día. Lo que tiene que aguantar: que la
+    /// app se cierre, que el fichero se RENOMBRE (que es lo que hace esta app todo el rato)
+    /// y que se marque dos veces sin duplicarse.
+    /// </summary>
+    private static void ColaDeRevision()
+    {
+        Seccion("Cola de revisión");
+
+        var cola = new ColaRevision();
+        Eq(0, cola.Cuantos, "empieza vacía");
+
+        cola.Meter(F("Doraemon - S2005E1 - Un titulo.mkv"), "no sé qué episodio es");
+        Eq(1, cola.Cuantos, "se aparta uno");
+        Eq(true, cola.Tiene(F("Doraemon - S2005E1 - Un titulo.mkv")), "y consta");
+        Eq("no sé qué episodio es", cola.Nota(F("Doraemon - S2005E1 - Un titulo.mkv")),
+            "con la nota de por qué se apartó");
+
+        cola.Meter(F("Doraemon - S2005E1 - Un titulo.mkv"), "otra vez");
+        Eq(1, cola.Cuantos, "marcarlo dos veces no lo duplica");
+        Eq("otra vez", cola.Nota(F("Doraemon - S2005E1 - Un titulo.mkv")), "y la nota se actualiza");
+
+        // Lo que de verdad rompería esto: la app renombra ficheros. Si la cola guardara solo
+        // la ruta, al renombrar se perdería la marca — justo del fichero que estabas
+        // arreglando. Por eso sigue al fichero cuando cambia de nombre.
+        cola.Renombrado(F("Doraemon - S2005E1 - Un titulo.mkv"), F("Doraemon - S2005E7 - Un titulo.mkv"));
+        Eq(true, cola.Tiene(F("Doraemon - S2005E7 - Un titulo.mkv")), "sigue al fichero renombrado");
+        Eq(false, cola.Tiene(F("Doraemon - S2005E1 - Un titulo.mkv")), "y suelta el nombre viejo");
+        Eq(1, cola.Cuantos, "sin duplicarse por el camino");
+
+        cola.Sacar(F("Doraemon - S2005E7 - Un titulo.mkv"));
+        Eq(0, cola.Cuantos, "y se puede sacar");
+        Eq(false, cola.Tiene(F("Doraemon - S2005E7 - Un titulo.mkv")), "ya no consta");
+
+        // Ida y vuelta por JSON: es lo que la hace sobrevivir al cierre de la app.
+        var otra = new ColaRevision();
+        otra.Meter(F("A.mkv"), "una");
+        otra.Meter(F("B.mkv"), "");
+        var vuelta = ColaRevision.Leer(otra.Escribir());
+        Eq(2, vuelta.Cuantos, "sobrevive a escribir y leer");
+        Eq("una", vuelta.Nota(F("A.mkv")), "con sus notas");
+        Eq(0, ColaRevision.Leer("{ esto no es json").Cuantos, "un fichero roto no impide trabajar");
     }
 
     // ─────────────── Un fichero con historias de dos episodios ───────────────
