@@ -31,6 +31,7 @@ public static class Program
         PrefijoDeSerie();
         BibliotecaPorTemporadas();
         CatalogosReales();
+        MarcadorDeNube();
         TituloDelNfo();
         SegmentoRecordado();
         OrdinalDeTemporada();
@@ -1013,6 +1014,32 @@ public static class Program
 
         Eq(0, SidecarPlanner.Planear(de, de, enCarpeta).Count,
             "si el vídeo no cambia de nombre, no hay nada que mover");
+    }
+
+    // ─────────────── Ficheros que están solo en la nube ───────────────
+
+    /// <summary>
+    /// Con «Archivos a petición» (OneDrive) un fichero del disco puede ser un MARCADOR:
+    /// leer un solo byte lo descarga ENTERO. Medido: sondear con ffprobe un marcador de
+    /// 277 MB se lo bajó completo en 18 s. Identificar una carpeta no puede vaciarle a
+    /// nadie la tarifa de datos ni el disco, así que hay que reconocerlos antes de tocarlos.
+    /// </summary>
+    private static void MarcadorDeNube()
+    {
+        Seccion("Ficheros solo en la nube");
+
+        Eq(true, Nube.EsMarcador(FileAttributes.Offline), "OFFLINE es un marcador");
+        Eq(true, Nube.EsMarcador((FileAttributes)Nube.RecallOnDataAccess),
+            "RECALL_ON_DATA_ACCESS es un marcador");
+        Eq(true, Nube.EsMarcador(FileAttributes.Archive | FileAttributes.ReparsePoint |
+                                 FileAttributes.Offline), "mezclado con otros, también");
+        Eq(false, Nube.EsMarcador(FileAttributes.Archive), "un fichero normal no lo es");
+
+        // El caso que de verdad importa: un fichero de OneDrive YA descargado conserva su
+        // punto de reanálisis. Confundirlo con un marcador dejaría de sondear ficheros que
+        // están en el disco — el error contrario, y también gratuito.
+        Eq(false, Nube.EsMarcador(FileAttributes.Archive | FileAttributes.ReparsePoint),
+            "descargado (Archive+ReparsePoint, sin OFFLINE) NO es un marcador");
     }
 
     // ─────────────── El título del .nfo compañero ───────────────

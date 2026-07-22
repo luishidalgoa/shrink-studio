@@ -513,6 +513,7 @@ public partial class OrganizarView : UserControl
             // nombre no lo traiga — el caso de los S2018E01 pelados. Se lee únicamente de
             // los que quedaron en duda: sondear 548 ficheros en OneDrive hidrataría medio
             // disco; sondear 18 dudosos, no. Tope de 80 por la misma razón.
+            _dudososEnNube = 0;   // cada simulación parte de cero
             var dudosos = resoluciones
                 .Where(x => x.EsDuda && string.IsNullOrEmpty(x.Archivo.TituloMeta) &&
                             string.IsNullOrEmpty(x.Archivo.Error))
@@ -521,24 +522,46 @@ public partial class OrganizarView : UserControl
                 .ToList();
             if (dudosos.Count > 0)
             {
-                Escribir($"Leyendo el título del contenedor de {dudosos.Count} dudosos…");
+                Escribir($"Buscando el título de {dudosos.Count} dudosos…");
                 var metadatos = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                int enNube = 0;
                 await Task.Run(async () =>
                 {
+                    // De ocho en ocho: cada sondeo levanta un proceso de ffprobe, y ochenta
+                    // a la vez castigan el disco sin acabar antes.
+                    using var turno = new SemaphoreSlim(8);
                     var tareas = dudosos.Select(async ruta =>
                     {
-                        // Primero el .nfo compañero: es un XML minúsculo y trae el título en
-                        // limpio. El sondeo del contenedor queda de reserva — en OneDrive
-                        // obliga a hidratar la cabecera desde la nube y se nota.
-                        string? t = null;
-                        var nfo = Path.ChangeExtension(ruta, ".nfo");
-                        if (File.Exists(nfo))
-                            try { t = NfoTitulo.Extraer(File.ReadAllText(nfo)); } catch { }
-                        t ??= await Engine.LeerTituloAsync(ruta);
-                        if (t != null) lock (metadatos) metadatos[ruta] = t;
+                        await turno.WaitAsync();
+                        try
+                        {
+                            // El .nfo compañero primero: es un XML minúsculo y trae el título
+                            // en limpio.
+                            var nfo = Path.ChangeExtension(ruta, ".nfo");
+                            string? t = null;
+                            if (File.Exists(nfo))
+                                try { t = NfoTitulo.Extraer(File.ReadAllText(nfo)); } catch { }
+
+                            // Y si no lo hay, el contenedor... salvo que el vídeo sea un
+                            // marcador de «Archivos a petición»: abrirlo para mirar una
+                            // etiqueta se lo descargaría ENTERO (medido: 277 MB en 18 s).
+                            // Identificar una carpeta no puede gastarle a nadie gigabytes
+                            // sin avisar, así que ahí se para.
+                            if (t == null)
+                            {
+                                if (Nube.EsMarcador(ruta)) Interlocked.Increment(ref enNube);
+                                else t = await Engine.LeerTituloAsync(ruta);
+                            }
+                            if (t != null) lock (metadatos) metadatos[ruta] = t;
+                        }
+                        finally { turno.Release(); }
                     });
                     await Task.WhenAll(tareas);
                 });
+
+                _dudososEnNube = enNube;
+                if (enNube > 0)
+                    Escribir($"{enNube} están solo en la nube: no se abren para no descargarlos enteros.");
 
                 if (metadatos.Count > 0)
                 {
@@ -695,7 +718,8 @@ public partial class OrganizarView : UserControl
         // 548 deja 0 sin explicar y parece que se han perdido por el camino.
         int hechos = _filas.Count(f => f.SinCambios);
         lblEstadoOrg.Text = $"{_filas.Count} ficheros · {listos} listos para aplicar · {dudas} por despachar"
-                            + (hechos > 0 ? $" · {hechos} ya estaban bien" : "");
+                            + (hechos > 0 ? $" · {hechos} ya estaban bien" : "")
+                            + (_dudososEnNube > 0 ? $" · {_dudososEnNube} solo en la nube (no se abren)" : "");
 
         // Si la mayoría son dudas, se dice de frente en vez de dejar que lo descubra fila a fila
         if (_filas.Count > 0 && dudas > _filas.Count / 2)
@@ -1185,6 +1209,13 @@ public partial class OrganizarView : UserControl
     }
 
     private void Escribir(string linea) => Log?.Invoke(linea);
+
+    /// <summary>
+    /// Dudosos que no se llegaron a sondear porque el vídeo está solo en la nube. Sale en
+    /// el resumen, no en el registro: el panel del registro va plegado, así que contarlo
+    /// solo ahí es no contarlo.
+    /// </summary>
+    private int _dudososEnNube;
 
     private void Aviso(string mensaje)
     {
