@@ -5,7 +5,7 @@ namespace ShrinkVideo.Reindex;
 /// <summary>
 /// Saca el «title» de un .nfo de Kodi/Jellyfin. Es la fuente ideal para ficheros sin título
 /// en el nombre: leer un XML pequeño es instantáneo, mientras que sondear el vídeo con
-/// ffprobe en una carpeta de OneDrive obliga a hidratar cabeceras desde la nube.
+/// ffprobe un fichero sincronizado «bajo demanda» lo descarga entero (ver Nube).
 ///
 /// Función pura sobre el CONTENIDO: el disco lo lee quien llama.
 /// </summary>

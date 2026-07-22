@@ -28,6 +28,7 @@ public partial class ReproductorWindow : Window
     private bool _desdeReloj;                   // el reloj mueve la barra: eso no es buscar
     private bool _visible = true;
     private bool _mudo;
+    private readonly bool _eraMarcador;   // ¿estaba solo en la nube antes de abrirlo?
     private double _volumenPrevio = 0.8;
     private Point _ultimoRaton;
     private int _tics;
@@ -48,6 +49,10 @@ public partial class ReproductorWindow : Window
         InitializeComponent();
         _ruta = ruta;
         lblTitulo.Text = Path.GetFileName(ruta);
+
+        // Se anota ANTES de tocar el fichero: reproducirlo lo descarga, y después ya no
+        // habría forma de saber si estaba en el disco porque el usuario quiso.
+        _eraMarcador = Reindex.Nube.EsMarcador(ruta);
 
         // El vídeo se escala a la ventana; para una vista de identificación no hace falta
         // el remuestreo caro. Es la diferencia entre un escalado por hardware y uno fino.
@@ -149,7 +154,17 @@ public partial class ReproductorWindow : Window
                 panelFallo.Visibility = Visibility.Visible;
             }
         };
-        Closed += (_, _) => { _reloj.Stop(); _apagon.Stop(); video.Close(); };
+        Closed += (_, _) =>
+        {
+            _reloj.Stop();
+            _apagon.Stop();
+            video.Close();
+
+            // Si estaba solo en la nube, se devuelve a la nube: verlo para identificarlo no
+            // es motivo para quedarse 250 MB en el disco. Va después de Close() porque
+            // mientras el reproductor tenga el fichero abierto no se puede liberar.
+            if (_eraMarcador) NubeLocal.Liberar(_ruta);
+        };
     }
 
     // ─────────────────────────── reproducción ───────────────────────────
@@ -253,15 +268,14 @@ public partial class ReproductorWindow : Window
     // ─────────────────────────── ficheros en la nube ───────────────────────────
 
     /// <summary>
-    /// Con «Archivos a petición» de OneDrive el vídeo puede no estar en el disco: se
-    /// descarga mientras se reproduce, y entonces va a tirones. Decirlo evita que parezca
-    /// que el reproductor está roto.
+    /// Con la sincronización «bajo demanda» el vídeo puede no estar en el disco: se
+    /// descarga mientras se reproduce. Decirlo evita que parezca que el reproductor está
+    /// roto. Da igual el proveedor — se miran los atributos, no quién los puso.
     /// </summary>
     private void RevisarNube()
     {
         {
-            Chip(Reindex.Nube.EsMarcador(_ruta)
-                ? "En la nube · OneDrive lo está descargando, puede ir a tirones" : null);
+            Chip(Reindex.Nube.EsMarcador(_ruta) ? "En la nube · descargando para verlo" : null);
         }
     }
 

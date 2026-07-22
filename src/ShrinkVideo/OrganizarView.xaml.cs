@@ -110,6 +110,26 @@ public partial class OrganizarView : UserControl
             }
         };
 
+        // Menú contextual: se resuelve la fila bajo el puntero y se selecciona, para que
+        // no quede duda de sobre cuál se va a actuar. Fuera de una fila no se abre: un menú
+        // que aparece sobre el vacío y actúa sobre «lo último seleccionado» es una trampa.
+        tabla.ContextMenuOpening += (_, e) =>
+        {
+            // Con la tecla Menú no hay puntero al que preguntar: WPF lo indica poniendo la
+            // posición en negativo, y entonces manda la fila seleccionada. Sin esto el menú
+            // quedaría muerto para quien no use el ratón.
+            bool conTeclado = e.CursorLeft < 0 && e.CursorTop < 0;
+            var r = conTeclado
+                ? tabla.SelectedItem as OrganizarRow
+                : Ascender<DataGridRow>(Mouse.DirectlyOver as DependencyObject)?.Item as OrganizarRow;
+            if (r == null) { e.Handled = true; return; }
+            tabla.SelectedItem = r;
+            miReproducir.IsEnabled = File.Exists(r.RutaActual);
+            miUbicacion.IsEnabled = miReproducir.IsEnabled;
+        };
+        miReproducir.Click += (_, _) => ReproducirFila(tabla.SelectedItem as OrganizarRow);
+        miUbicacion.Click += (_, _) => AbrirUbicacion(tabla.SelectedItem as OrganizarRow);
+
         tabla.PreviewKeyDown += OnTablaKeyDown;
         tabla.PreviewMouseLeftButtonDown += OnTablaClic;
         tabla.PreviewMouseMove += OnTablaArrastre;
@@ -511,8 +531,8 @@ public partial class OrganizarView : UserControl
             // ── Etapa 2b: metadatos SOLO de los dudosos ──
             // El contenedor suele llevar el título grabado («title» del MKV) aunque el
             // nombre no lo traiga — el caso de los S2018E01 pelados. Se lee únicamente de
-            // los que quedaron en duda: sondear 548 ficheros en OneDrive hidrataría medio
-            // disco; sondear 18 dudosos, no. Tope de 80 por la misma razón.
+            // los que quedaron en duda, y de esos solo los que están en el disco: abrir un
+            // fichero sincronizado «bajo demanda» lo descarga entero. Tope de 80.
             _dudososEnNube = 0;   // cada simulación parte de cero
             var dudosos = resoluciones
                 .Where(x => x.EsDuda && string.IsNullOrEmpty(x.Archivo.TituloMeta) &&
@@ -768,7 +788,7 @@ public partial class OrganizarView : UserControl
             // Reproductor INTEGRADO en modo focus, no una ventana del sistema: la pregunta
             // es «¿qué capítulo es?» y la respuesta debe estar a un Esc de distancia. Si el
             // códec no está soportado, la propia ventana ofrece el reproductor del sistema.
-            new ReproductorWindow(filaVideo.RutaActual) { Owner = Window.GetWindow(this) }.ShowDialog();
+            ReproducirFila(filaVideo);
             e.Handled = true;
             return;
         }
@@ -1177,6 +1197,41 @@ public partial class OrganizarView : UserControl
             catch { /* si la carpeta no se puede releer, la próxima simulación lo dirá */ }
         }
         else RevisarCarpeta();   // desde la pantalla de inicio, solo refrescar el recuento
+    }
+
+    /// <summary>
+    /// Reproductor INTEGRADO en modo focus, no una ventana del sistema: la pregunta es
+    /// «¿qué capítulo es?» y la respuesta debe estar a un Esc de distancia.
+    /// </summary>
+    private void ReproducirFila(OrganizarRow? fila)
+    {
+        if (fila == null || !File.Exists(fila.RutaActual)) return;
+        new ReproductorWindow(fila.RutaActual) { Owner = Window.GetWindow(this) }.ShowDialog();
+    }
+
+    /// <summary>
+    /// Abre el explorador con el fichero ya seleccionado. No lo abre: seleccionarlo no
+    /// descarga nada, así que sirve igual para los que están solo en la nube.
+    /// </summary>
+    private void AbrirUbicacion(OrganizarRow? fila)
+    {
+        if (fila == null) return;
+        var ruta = fila.RutaActual;
+        try
+        {
+            if (File.Exists(ruta))
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                    "explorer.exe", $"/select,\"{ruta}\"") { UseShellExecute = true });
+            else
+            {
+                // Si el fichero ya no está (renombrado fuera, movido), al menos la carpeta
+                var carpeta = Path.GetDirectoryName(ruta);
+                if (Directory.Exists(carpeta))
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(carpeta)
+                        { UseShellExecute = true });
+            }
+        }
+        catch (Exception ex) { Escribir($"No se pudo abrir la ubicación: {ex.Message}"); }
     }
 
     private void AbrirMemoria()
