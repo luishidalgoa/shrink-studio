@@ -409,7 +409,9 @@ public sealed class Engine
             string ext = OutputExtension(opt);
 
             // nombre de salida, con la regla de renombrado (estilo PowerRename) si la hay
-            string outName = Path.GetFileNameWithoutExtension(name) + ext;
+            string outName = (opt.NombreSalida is { Length: > 0 } propio
+                ? Reindex.LibraryTemplate.LimpiarNombre(propio)
+                : Path.GetFileNameWithoutExtension(name)) + ext;
             string? renamedTo = null;
             if (opt.NameRule is { } rule && rule.HasEffect)
             {
@@ -460,6 +462,9 @@ public sealed class Engine
             var lostSubs = subs.Where(s => !keptSubs.Contains(s)).ToList();
 
             double durSec = double.TryParse(pr.Format?.Duration, System.Globalization.CultureInfo.InvariantCulture, out var dd) ? dd : 0;
+            // Con un tramo, lo que se codifica es SU duración: si no, la barra de progreso
+            // mediría contra el vídeo entero y se quedaría clavada al 10 %.
+            if (opt.Duracion is > 0) durSec = Math.Min(opt.Duracion.Value, durSec > 0 ? durSec : opt.Duracion.Value);
 
             // ---- modo solo audio: extraer sin vídeo ----
             if (opt.AudioOnly)
@@ -497,7 +502,11 @@ public sealed class Engine
             // ---- construir argumentos ----
             List<string> BuildArgs(bool withSubs)
             {
-                var a = new List<string> { "-hide_banner", "-loglevel", "warning", "-stats", "-y", "-i", f };
+                var (ssAntes, tDespues) = Reindex.Tramos.ArgsFfmpeg(opt.Desde, opt.Duracion);
+                var a = new List<string> { "-hide_banner", "-loglevel", "warning", "-stats", "-y" };
+                a.AddRange(ssAntes);        // el salto, ANTES de la entrada: busca por índice
+                a.AddRange(new[] { "-i", f });
+                a.AddRange(tDespues);
                 bool webm = opt.Container == "webm";
                 a.AddRange(new[] { "-map", $"0:{video.Index}" });
                 foreach (var au in audio) a.AddRange(new[] { "-map", $"0:{au.Index}" });

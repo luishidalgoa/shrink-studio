@@ -430,6 +430,7 @@
           <DataGrid.ContextMenu>
             <ContextMenu x:Name="menuFila">
               <MenuItem x:Name="miReproducir" Header="Reproducir"/>
+              <MenuItem x:Name="miRecortar" Header="Cortar este vídeo…"/>
               <MenuItem x:Name="miUbicacion" Header="Abrir la ubicación del fichero"/>
             </ContextMenu>
           </DataGrid.ContextMenu>

@@ -94,7 +94,7 @@ public sealed class LibraryTemplate
             };
         });
 
-        var nombre = Limpiar(texto);
+        var nombre = LimpiarNombre(texto);
         if (nombre.Length == 0) return null;
 
         return nombre + archivo.Extension;
@@ -133,7 +133,7 @@ public sealed class LibraryTemplate
     /// del límite de ruta. Un título con «:» o «?» es de lo más normal en estas series, así
     /// que esto salta constantemente.
     /// </summary>
-    private static string Limpiar(string s)
+    public static string LimpiarNombre(string s)
     {
         var sb = new StringBuilder(s.Length);
         foreach (var ch in s)

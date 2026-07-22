@@ -18,4 +18,12 @@ public sealed class EncodeOptions
     public bool Force { get; set; }
     public bool DryRun { get; set; }
     public RenameRule? NameRule { get; set; }   // renombrado del archivo de salida (estilo PowerRename)
+
+    // ── Recortes ──
+    // Un tramo del original en vez del fichero entero. Se pide aquí, en las MISMAS opciones,
+    // para que recortar herede tal cual el mapeo de pistas, los idiomas, los subtítulos y el
+    // nombrado de la compresión: nada de una segunda ruta de codificación que mantener.
+    public double? Desde { get; set; }          // null = desde el principio
+    public double? Duracion { get; set; }       // null = hasta el final
+    public string? NombreSalida { get; set; }   // sin extensión; null = el del original
 }

@@ -29,6 +29,18 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **Recortes: una tercera sección para partir un vídeo o quitarle un trozo.** Sirve para el
+  caso de «este fichero son dos capítulos»: cargas el vídeo, lo llevas por donde separan,
+  pulsas «Cortar aquí» y salen dos tramos — cada uno será un fichero. Quitar un tramo
+  descarta ese trozo, así que recortar es lo mismo con un paso menos. Si el nombre del
+  fichero trae las dos historias («A ┃ B»), cada tramo se nombra solo con la suya.
+  Desde Organizar, el botón derecho sobre una fila lo abre ahí directamente.
+- **La salida de Recortes usa los mismos ajustes y la misma estimación que Comprimir.**
+  Formato, códec, calidad, resolución y audio son los de siempre, y el tamaño estimado sale
+  de la misma fórmula, ajustada a lo que de verdad se va a exportar.
+
 ### Cambiado
 
 - **Muchas menos decisiones a mano: de 1 a 17 renombrados automáticos sobre la misma
