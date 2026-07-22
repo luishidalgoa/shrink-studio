@@ -37,6 +37,7 @@ public static class Program
         SepararHistorias();
         PeleaPorElMismoEpisodio();
         PartirEnTramos();
+        ArrastrarLasJuntas();
         ArgsDelTramo();
         NombresDeLosTramos();
         MarcadorDeNube();
@@ -1287,6 +1288,76 @@ public static class Program
         Eq(2, sinElMedio.Count, "quitar un tramo lo descarta");
         EqLista(new[] { 0.0, 400.0 }, sinElMedio.Select(t => t.Inicio),
             "los que quedan conservan su posición en el original");
+    }
+
+    /// <summary>
+    /// Arrastrar una junta en la línea de tiempo. Es la otra mitad de «cortar»: primero se
+    /// parte por donde sea, luego se afina tirando del tirador hasta el fotograma exacto.
+    ///
+    /// Lo que no puede pasar bajo ningún concepto es que un tramo se dé la vuelta («desde el
+    /// 400 hasta el 250») o se quede a cero: ffmpeg acepta ambos y saca ficheros vacíos o
+    /// basura, y el usuario no se entera hasta que abre el resultado.
+    /// </summary>
+    private static void ArrastrarLasJuntas()
+    {
+        Seccion("Recortes · arrastrar las juntas");
+
+        var dos = Tramos.Partir(Tramos.Entero(600), 250);
+
+        // Una junta compartida es UNA junta, no dos bordes sueltos: mover el final del
+        // primero arrastra con él el principio del segundo. Si no, quedaría un agujero en
+        // medio del vídeo que nadie ha pedido.
+        var movida = Tramos.MoverJunta(dos, 0, Extremo.Fin, 300, 600);
+        Eq(2, movida.Count, "arrastrar no crea ni quita tramos");
+        Eq(300.0, movida[0].Fin, "el final del primero se va a donde se suelta");
+        Eq(300.0, movida[1].Inicio, "y el principio del segundo va con él, sin dejar hueco");
+        Eq(0.0, movida[0].Inicio, "el extremo de fuera no se toca");
+        Eq(600.0, movida[1].Fin, "ni el del final");
+
+        // Da igual por qué lado se coja: es la misma junta.
+        var porElOtroLado = Tramos.MoverJunta(dos, 1, Extremo.Inicio, 300, 600);
+        EqLista(new[] { 0.0, 300.0 }, porElOtroLado.Select(t => t.Inicio),
+            "cogerla por el tramo de la derecha hace exactamente lo mismo");
+        EqLista(new[] { 300.0, 600.0 }, porElOtroLado.Select(t => t.Fin), "y deja los mismos finales");
+
+        // Los vecinos son el tope.
+        var pasada = Tramos.MoverJunta(dos, 0, Extremo.Fin, 5000, 600);
+        Eq(true, pasada[0].Fin < 600.0, "la junta no se empuja más allá del tramo vecino");
+        Eq(true, pasada[1].Fin > pasada[1].Inicio, "y el vecino nunca se queda del revés");
+        var atras = Tramos.MoverJunta(dos, 0, Extremo.Fin, -50, 600);
+        Eq(true, atras[0].Fin > atras[0].Inicio, "tirando hacia atrás tampoco se invierte el propio tramo");
+
+        // Recortar la cabecera y la cola es mover una junta también, solo que el tope es el
+        // vídeo en vez de un vecino.
+        var entero = Tramos.Entero(600);
+        Eq(30.0, Tramos.MoverJunta(entero, 0, Extremo.Inicio, 30, 600)[0].Inicio,
+            "al primer tramo se le puede recortar la cabecera");
+        Eq(500.0, Tramos.MoverJunta(entero, 0, Extremo.Fin, 500, 600)[0].Fin, "y al último la cola");
+        Eq(0.0, Tramos.MoverJunta(entero, 0, Extremo.Inicio, -10, 600)[0].Inicio,
+            "por delante no se pasa de cero");
+        Eq(600.0, Tramos.MoverJunta(entero, 0, Extremo.Fin, 900, 600)[0].Fin,
+            "por detrás no se pasa del final del vídeo");
+
+        // Con un hueco en medio (alguien quitó un tramo) los dos bordes ya NO son la misma
+        // junta: mover uno no puede arrastrar al otro al otro lado del agujero.
+        var tres = Tramos.Partir(Tramos.Partir(Tramos.Entero(600), 200), 400);
+        var conHueco = Tramos.Quitar(tres, 1);          // quedan 0–200 y 400–600
+        var estirado = Tramos.MoverJunta(conHueco, 0, Extremo.Fin, 350, 600);
+        Eq(350.0, estirado[0].Fin, "el borde suelto se estira por el hueco");
+        Eq(400.0, estirado[1].Inicio, "y el del otro lado del hueco se queda donde estaba");
+        Eq(400.0, Tramos.MoverJunta(conHueco, 0, Extremo.Fin, 550, 600)[0].Fin,
+            "pero no se mete dentro del tramo siguiente");
+
+        // Arrastrar una junta no es renombrar nada.
+        var conNombre = new List<Tramo> { new(0, 250, "Primera historia"), new(250, 600, "Segunda") };
+        EqLista(new[] { "Primera historia", "Segunda" },
+            Tramos.MoverJunta(conNombre, 0, Extremo.Fin, 300, 600).Select(t => t.Nombre),
+            "cada nombre se queda con su tramo");
+
+        // Un índice que no existe no puede tumbar la app.
+        Eq(2, Tramos.MoverJunta(dos, 9, Extremo.Fin, 100, 600).Count,
+            "un índice fuera de la lista no hace nada");
+        Eq(2, Tramos.MoverJunta(dos, -1, Extremo.Inicio, 100, 600).Count, "ni uno negativo");
     }
 
     /// <summary>

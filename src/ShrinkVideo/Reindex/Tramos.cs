@@ -9,6 +9,9 @@ public sealed record Tramo(double Inicio, double Fin, string Nombre = "")
     public double Duracion => Fin - Inicio;
 }
 
+/// <summary>Cuál de los dos extremos de un tramo se está agarrando.</summary>
+public enum Extremo { Inicio, Fin }
+
 /// <summary>
 /// El modelo de «Recortes», entero: una lista de tramos. Se arranca con el vídeo completo y
 /// cada corte parte en dos el tramo donde cae; quitar un trozo es borrar su tramo.
@@ -20,6 +23,9 @@ public static class Tramos
 {
     /// <summary>Margen para no crear tramos de duración ~cero, que dan ficheros vacíos.</summary>
     private const double Minimo = 0.05;
+
+    /// <summary>Dos bordes en el mismo instante son la misma junta, sin fiarse del último bit.</summary>
+    private static bool MismoSitio(double a, double b) => Math.Abs(a - b) < 1e-6;
 
     public static List<Tramo> Entero(double duracion) => new() { new Tramo(0, duracion) };
 
@@ -41,6 +47,67 @@ public static class Tramos
                 partido = true;
             }
             else fuera.Add(t);
+        }
+        return fuera;
+    }
+
+    /// <summary>
+    /// Arrastra un extremo de un tramo hasta <paramref name="segundo"/>. Es la otra mitad de
+    /// «cortar»: se parte a ojo y luego se afina tirando del tirador.
+    ///
+    /// Si el tramo de al lado empieza justo donde este acaba, los dos bordes son UNA junta y
+    /// se mueven juntos: separarlos abriría en medio del vídeo un agujero que nadie ha
+    /// pedido. Si hay hueco (alguien quitó un tramo), son dos bordes independientes y cada
+    /// uno se estira por su lado hasta topar con el otro.
+    ///
+    /// El punto queda siempre encerrado entre lo que hay a los lados, así que ningún tramo
+    /// se da la vuelta ni se queda a cero. Un tramo invertido o vacío ffmpeg lo acepta sin
+    /// rechistar y saca un fichero basura del que nadie se entera hasta abrirlo.
+    /// </summary>
+    public static List<Tramo> MoverJunta(
+        IReadOnlyList<Tramo> tramos, int indice, Extremo extremo, double segundo, double duracion)
+    {
+        var fuera = new List<Tramo>(tramos);
+        if (indice < 0 || indice >= fuera.Count) return fuera;
+
+        var yo = fuera[indice];
+        int vecino = extremo == Extremo.Fin ? indice + 1 : indice - 1;
+        bool hayVecino = vecino >= 0 && vecino < fuera.Count;
+        // ¿Comparten instante? Entonces es una sola junta y el vecino viene detrás.
+        bool pegados = hayVecino && MismoSitio(
+            extremo == Extremo.Fin ? fuera[vecino].Inicio : fuera[vecino].Fin,
+            extremo == Extremo.Fin ? yo.Fin : yo.Inicio);
+
+        double minimo, maximo;
+        if (extremo == Extremo.Fin)
+        {
+            minimo = yo.Inicio + Minimo;
+            maximo = !hayVecino ? duracion
+                   : pegados ? fuera[vecino].Fin - Minimo
+                   : fuera[vecino].Inicio;
+        }
+        else
+        {
+            maximo = yo.Fin - Minimo;
+            minimo = !hayVecino ? 0
+                   : pegados ? fuera[vecino].Inicio + Minimo
+                   : fuera[vecino].Fin;
+        }
+
+        // Sin sitio donde ponerla (dos tramos ya minúsculos) es mejor no tocar nada que
+        // recolocar a la fuerza: Math.Clamp además revienta si el mínimo pasa al máximo.
+        if (maximo < minimo) return fuera;
+        double donde = Math.Clamp(segundo, minimo, maximo);
+
+        if (extremo == Extremo.Fin)
+        {
+            fuera[indice] = yo with { Fin = donde };
+            if (pegados) fuera[vecino] = fuera[vecino] with { Inicio = donde };
+        }
+        else
+        {
+            fuera[indice] = yo with { Inicio = donde };
+            if (pegados) fuera[vecino] = fuera[vecino] with { Fin = donde };
         }
         return fuera;
     }

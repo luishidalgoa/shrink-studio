@@ -42,6 +42,18 @@ es un acuerdo de buena voluntad: está verificado.
 - **Mas feedback al exportar:** el boton dice cuantos tramos va a sacar («Exportar 2
   tramos») y el tramo que se esta procesando se resalta en la lista con la marca
   EXPORTANDO.
+- **Recortes tiene una pista de edición, como un editor de vídeo.** Donde antes había dos
+  cosas separadas —una línea morada que solo se miraba y una barra debajo para moverse—
+  ahora hay una sola pista: el fondo son fotogramas del propio vídeo, cada tramo es un
+  bloque con su número y el nombre del fichero que va a salir, y lo que has quitado se ve
+  oscurecido, así que de un vistazo sabes qué se va a exportar y qué no.
+- **Las juntas entre tramos se arrastran para afinar el corte.** Cortas a ojo y luego tiras
+  del tirador hasta el fotograma exacto, con el globo de la previa siguiéndote. Una junta
+  no puede pasarse de los tramos de al lado, así que ningún tramo se queda del revés ni a
+  cero. Si has quitado un trozo y hay hueco, cada borde se estira por su lado.
+- **Las acciones van donde actúan.** «Cortar aquí» ya no está abajo a la derecha: es una ✂
+  pegada al cabezal, justo por donde va a partir. Y cada bloque lleva su ✕ para quitarlo,
+  que asoma al pasar por encima.
 
 ### Añadido
 
@@ -68,6 +80,10 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **En Recortes ya se puede escribir el nombre de un tramo entero.** Los atajos de la
+  página se comían las teclas antes de que llegaran al cuadro de texto: en el nombre de un
+  tramo no se podía poner un espacio, ni escribir una «c», ni mover el cursor con las
+  flechas. Ahora, mientras estás escribiendo, las teclas son letras y no atajos.
 - **Recortes no exportaba nada.** El motor comprueba que nadie tenga el fichero cogido
   (para no pillar una descarga a medias) y quien lo tenia cogido era el propio reproductor
   de la pagina: se saltaba el video y no salia ni un fichero. Ahora se suelta antes de
