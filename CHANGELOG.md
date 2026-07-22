@@ -29,10 +29,13 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-22
+
 ### Añadido
 
-- **Reproductor integrado en modo focus.** El doble clic sobre una fila ya no abre el
-  reproductor de Windows: abre una ventana oscura dentro de la app. Los controles flotan
+- **Doble clic sobre una fila para ver el vídeo, sin salir de la app.** Ante la duda de qué
+  capítulo es, verlo gana a cualquier metadato — también después de aplicar, donde abre el
+  fichero con su nombre nuevo. Se abre una ventana oscura en modo focus. Los controles flotan
   sobre la imagen y se apartan solos a los 2,6 s de no usarlos (vuelven al mover el ratón;
   en pausa se quedan). Barra de posición con punto, salto de ±10 s, volumen, silencio y
   pantalla completa. Atajos: espacio pausa, flechas saltan (con Mayús, 30 s), F pantalla
@@ -46,27 +49,6 @@ es un acuerdo de buena voluntad: está verificado.
   la etiqueta del contenedor. Tras la primera pasada, la app lee esas dos fuentes SOLO de
   los que quedaron en duda —el `.nfo` primero, que es instantáneo— y re-identifica. La
   Season 2018 pasó de 18 dudas a 18 listos con su título de verdad.
-
-### Corregido
-
-- **«Deshacer este lote» ya no te saca de la tabla.** Deshace en el sitio: las filas del
-  lote vuelven de «Hecho» a su estado anterior —con su casilla y su propuesta intactas,
-  listas para re-aplicar si era eso lo que querías— y sigues exactamente donde estabas.
-- **El texto de los campos se veía ligeramente borroso.** El halo de foco (el efecto de
-  sombra) envolvía al propio texto y lo rasterizaba sin ClearType. El halo sigue; el texto
-  ya vive fuera de él.
-
-### Corregido
-
-- **Buscar el nombre viejo de un fichero ya renombrado ya no lo encuentra.** Tras aplicar,
-  la fila solo responde a su nombre nuevo — que es el que existe en disco. Encontrarla por
-  el viejo hacía dudar de si el renombrado había ocurrido de verdad.
-
-### Añadido
-
-- **Doble clic sobre una fila abre el vídeo en tu reproductor.** Ante la duda de qué
-  capítulo es, verlo gana a cualquier metadato. Funciona también después de aplicar: abre el
-  fichero con su nombre nuevo.
 - **Los ficheros numerados por temporada («S2018E01», el 1.º de 2018) ya se entienden.**
   Cuando el número del fichero contradice a su carpeta —el episodio 1 del catálogo es de
   2005, no de 2018— o directamente no existe en la numeración global, se relee como «el N.º
@@ -76,16 +58,28 @@ es un acuerdo de buena voluntad: está verificado.
   nombre viejo queda huérfano y tu reproductor de biblioteca deja de asociarlo. Van al mismo
   diario del lote, así que «Deshacer» también los devuelve. Un subtítulo «.es.srt» conserva
   su sufijo completo.
-
-### Añadido
-
 - **Buscador dentro de la tabla de Organizar (Ctrl+K).** Filtra en vivo por el nombre
   original o por la propuesta, con la misma normalización del identificador: «animo» sin
   tilde encuentra «¡Ánimo, antepasado!». Esc lo limpia. Se combina con los filtros de
   estado que ya había.
+- **Un fichero puede ser SOLO una historia de un episodio, y ya hay forma estándar de
+  decirlo.** En el resolutor, «Elegir otro episodio…» abre por fin el explorador (buscando ya
+  el título del fichero); al elegir un episodio con varias historias, la app pregunta si el
+  fichero es el episodio completo o solo una de ellas. Si es solo una, la letra va pegada al
+  número —`E413b`, para no pisarse con el episodio completo ni con la otra mitad— y el título
+  es el de esa historia, no el del episodio entero. La decisión se recuerda para ese fichero.
 
 ### Corregido
 
+- **«Deshacer este lote» ya no te saca de la tabla.** Deshace en el sitio: las filas del
+  lote vuelven de «Hecho» a su estado anterior —con su casilla y su propuesta intactas,
+  listas para re-aplicar si era eso lo que querías— y sigues exactamente donde estabas.
+- **El texto de los campos se veía ligeramente borroso.** El halo de foco (el efecto de
+  sombra) envolvía al propio texto y lo rasterizaba sin ClearType. El halo sigue; el texto
+  ya vive fuera de él.
+- **Buscar el nombre viejo de un fichero ya renombrado ya no lo encuentra.** Tras aplicar,
+  la fila solo responde a su nombre nuevo — que es el que existe en disco. Encontrarla por
+  el viejo hacía dudar de si el renombrado había ocurrido de verdad.
 - **Volver a simular tras aplicar enseñaba el pasado.** La lista de ficheros se escaneaba al
   elegir la carpeta y no se refrescaba nunca: después de renombrar 462 ficheros, re-simular
   volvía a resolver los nombres viejos y la tabla enseñaba los mismos «Corregido» de antes
@@ -93,15 +87,6 @@ es un acuerdo de buena voluntad: está verificado.
   cada simulación re-escanea la carpeta.
 - **Aplicar cientos de renombrados ya no congela la ventana.** Los movimientos van en
   segundo plano y la barra dice «Renombrando N ficheros…» mientras tanto.
-
-### Añadido
-
-- **Un fichero puede ser SOLO una historia de un episodio, y ya hay forma estándar de
-  decirlo.** En el resolutor, «Elegir otro episodio…» abre por fin el explorador (buscando ya
-  el título del fichero); al elegir un episodio con varias historias, la app pregunta si el
-  fichero es el episodio completo o solo una de ellas. Si es solo una, la letra va pegada al
-  número —`E413b`, para no pisarse con el episodio completo ni con la otra mitad— y el título
-  es el de esa historia, no el del episodio entero. La decisión se recuerda para ese fichero.
 
 ## [0.11.0] - 2026-07-22
 
