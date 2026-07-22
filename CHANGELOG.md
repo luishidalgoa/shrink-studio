@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-22
+
 ### Añadido
 
 - **Eliges qué se aplica, fichero a fichero.** Cada fila lista lleva su casilla (marcadas
@@ -41,9 +43,6 @@ es un acuerdo de buena voluntad: está verificado.
   («planeta espejo»), con la misma normalización que usa el identificador. Antes, dudar de
   una sugerencia obligaba a rebuscar en el JSON a mano — y esa fricción deja dudas razonables
   sin comprobar.
-
-### Añadido (explorador)
-
 - **Al elegir un episodio en el explorador, su JSON emerge en el lateral.** Es el fragmento
   del catálogo tal y como lo está leyendo el identificador —no una reconstrucción— con botón
   de copiar. Para cuando la vista bonita no basta y quieres ver la fuente. El JSON va
