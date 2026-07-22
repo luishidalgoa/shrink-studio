@@ -45,6 +45,8 @@ public partial class OrganizarView : UserControl
     /// <summary>Se avisa al anfitrión para que lo escriba en el registro compartido.</summary>
     public event Action<string>? Log;
 
+    private readonly EtapaVisual[] _etapas;
+
     public OrganizarView()
     {
         InitializeComponent();
@@ -106,6 +108,16 @@ public partial class OrganizarView : UserControl
         // leerse entero. Media página ≥ 470 ⇒ página ≥ 990.
         SizeChanged += (_, _) =>
             lblTituloCatalogos.Visibility = ActualWidth >= 990 ? Visibility.Visible : Visibility.Collapsed;
+
+        // Las tres etapas de la identificación, en el panel de ficheros. Son las fases
+        // REALES del trabajo, no decorado: cada una se enciende cuando su fase corre.
+        _etapas = new[]
+        {
+            new EtapaVisual("Leer los nombres de los ficheros"),
+            new EtapaVisual("Identificarlos contra el catálogo"),
+            new EtapaVisual("Preparar la revisión"),
+        };
+        foreach (var e in _etapas) panelEtapas.Children.Add(e.Raiz);
 
         Loaded += (_, _) => { if (!_cargando) Recargar(); };
     }
@@ -435,8 +447,20 @@ public partial class OrganizarView : UserControl
     {
         if (_catalogoCargado == null || _ficheros.Length == 0) return;
 
-        btnSimular.IsEnabled = btnSimularGrande.IsEnabled = false;
+        // Las etapas viven en la pantalla de inicio: al re-simular desde la revisión (botón
+        // de abajo) no hay dónde pintarlas y se va directo al resultado.
+        bool animar = vistaInicio.Visibility == Visibility.Visible;
+
+        btnSimular.IsEnabled = btnSimularGrande.IsEnabled = btnCarpeta.IsEnabled = false;
         lblEstadoOrg.Text = "Identificando…";
+
+        if (animar)
+        {
+            panelReposo.Visibility = Visibility.Collapsed;
+            panelEtapas.Visibility = Visibility.Visible;
+            foreach (var e in _etapas) e.Pendiente();
+            EncenderHaz();
+        }
 
         var catalogo = _catalogoCargado;
         var ficheros = _ficheros;
@@ -444,17 +468,27 @@ public partial class OrganizarView : UserControl
 
         try
         {
-            // El motor es puro y puede tardar en lotes grandes: fuera del hilo de interfaz.
-            var resoluciones = await Task.Run(() =>
-            {
+            // ── Etapa 1: leer las señales de los nombres ──
+            if (animar) _etapas[0].EnCurso();
+            var señales = await ConTiempoDeVerse(Task.Run(() =>
                 // Nota: el título del metadato del contenedor (titulo_meta) todavía no se lee.
                 // Exigiría un ffprobe por fichero y «Simular» dejaría de ser inmediato en
                 // bibliotecas de cientos. El motor ya lo admite cuando se enganche.
-                var señales = ficheros
+                ficheros
                     .Select(f => SignalExtractor.Extract(f, new DirectoryInfo(Path.GetDirectoryName(f)!).Name))
-                    .ToList();
-                return ReindexEngine.Resolve(señales, catalogo, decisiones);
-            });
+                    .ToList()), animar);
+            if (animar) _etapas[0].Hecha(señales.Count == 1 ? "1 nombre" : $"{señales.Count} nombres");
+
+            // ── Etapa 2: el motor, fuera del hilo de interfaz ──
+            if (animar) _etapas[1].EnCurso();
+            var resoluciones = await ConTiempoDeVerse(
+                Task.Run(() => ReindexEngine.Resolve(señales, catalogo, decisiones)), animar);
+            if (animar) _etapas[1].Hecha($"contra «{catalogo.Serie}»");
+
+            // ── Etapa 3: montar la tabla ──
+            // El respiro de antes deja al arco pintarse: montar filas bloquea el hilo de
+            // interfaz y sin él esta etapa pasaría de pendiente a hecha sin verse en curso.
+            if (animar) { _etapas[2].EnCurso(); await Task.Delay(220); }
 
             var raiz = txtCarpeta.Text?.Trim() ?? "";
             _filas.Clear();
@@ -463,13 +497,62 @@ public partial class OrganizarView : UserControl
                     LibraryScan.Etiqueta(LibraryScan.Grupo(raiz, r.Archivo.Path))));
 
             int temporadas = RecalcularSeparadores();
+            int listos = _filas.Count(f => f.ListoParaAplicar);
+            if (animar)
+            {
+                _etapas[2].Hecha($"{listos} listos para aplicar");
+                await Task.Delay(700);   // que el último check y su salto lleguen a verse
+            }
+
             MostrarRevision();
             ActualizarContadores();
             Escribir($"Simulación: {_filas.Count} ficheros contra «{catalogo.Serie}»" +
                      (temporadas > 0 ? $", repartidos en {temporadas} temporadas." : "."));
         }
         catch (Exception ex) { Aviso($"La simulación falló: {ex.Message}"); }
-        finally { ActualizarEstado(); }
+        finally
+        {
+            if (animar)
+            {
+                ApagarHaz();
+                panelEtapas.Visibility = Visibility.Collapsed;
+                panelReposo.Visibility = Visibility.Visible;
+            }
+            btnCarpeta.IsEnabled = true;
+            ActualizarEstado();
+        }
+    }
+
+    /// <summary>
+    /// Espera la tarea, y con animación le garantiza un mínimo en pantalla: una etapa que
+    /// entra y sale en 40 ms no informa, parpadea.
+    /// </summary>
+    private static async Task<T> ConTiempoDeVerse<T>(Task<T> tarea, bool animar)
+    {
+        if (animar) await Task.WhenAll(tarea, Task.Delay(300));
+        return await tarea;
+    }
+
+    // ── el haz que rodea el panel mientras se identifica ──
+
+    private void EncenderHaz()
+    {
+        hazFicheros.BeginAnimation(OpacityProperty,
+            new System.Windows.Media.Animation.DoubleAnimation(1, TimeSpan.FromMilliseconds(180)));
+        if (hazFicheros.BorderBrush is System.Windows.Media.LinearGradientBrush b &&
+            b.RelativeTransform is System.Windows.Media.RotateTransform rt)
+            rt.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty,
+                new System.Windows.Media.Animation.DoubleAnimation(0, 360, TimeSpan.FromSeconds(2.8))
+                { RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever });
+    }
+
+    private void ApagarHaz()
+    {
+        hazFicheros.BeginAnimation(OpacityProperty,
+            new System.Windows.Media.Animation.DoubleAnimation(0, TimeSpan.FromMilliseconds(250)));
+        if (hazFicheros.BorderBrush is System.Windows.Media.LinearGradientBrush b &&
+            b.RelativeTransform is System.Windows.Media.RotateTransform rt)
+            rt.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty, null);
     }
 
     /// <summary>
