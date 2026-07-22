@@ -4,6 +4,61 @@
              FontFamily="{StaticResource FontUI}" Foreground="{StaticResource Text}">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="B2V"/>
+
+    <!-- ══ Acción colgada de la pista ══
+         Redonda y pequeña porque va encima de la línea de tiempo, pegada al punto al que se
+         refiere. Un botón con texto ahí arriba taparía justo lo que hay que mirar. -->
+    <Style x:Key="AccionPista" TargetType="Button">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Width" Value="24"/>
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Grid>
+              <Ellipse x:Name="fondo" Fill="{StaticResource Accent600}"
+                       Stroke="#59FFFFFF" StrokeThickness="1"/>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="fondo" Property="Fill" Value="{StaticResource Accent}"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.3"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- ══ Quitar un tramo desde su propio bloque ══
+         Solo aparece al pasar por encima del bloque: con una ✕ fija en cada tramo la pista
+         se llena de aspas y deja de leerse como una línea de tiempo. -->
+    <Style x:Key="QuitarBloque" TargetType="Button">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Width" Value="19"/>
+      <Setter Property="Height" Value="19"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Grid>
+              <Ellipse x:Name="fondo" Fill="#D90E1018" Stroke="#66FFFFFF" StrokeThickness="1"/>
+              <Path Data="M3,3 L9,9 M9,3 L3,9" Stretch="None" Width="12" Height="12"
+                    Stroke="White" StrokeThickness="1.3" StrokeStartLineCap="Round"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="fondo" Property="Fill" Value="#E6B04A44"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </UserControl.Resources>
 
   <Grid Margin="0,8,0,0">
@@ -40,7 +95,7 @@
         <ColumnDefinition Width="*"/><ColumnDefinition Width="300"/>
       </Grid.ColumnDefinitions>
 
-      <!-- reproductor con la barra de posición y las marcas de corte -->
+      <!-- reproductor con la pista de tramos debajo -->
       <Border Grid.Column="0" Background="#08090F" CornerRadius="8" ClipToBounds="True"
               BorderBrush="{StaticResource Divider}" BorderThickness="1">
         <Grid>
@@ -69,25 +124,62 @@
           </Grid>
 
           <StackPanel Grid.Row="1" Margin="14,8,14,12">
-            <!-- La regla de tramos va PEGADA encima de la barra: es la misma línea de
-                 tiempo, y separarlas obligaría a traducir mentalmente de una a otra. -->
-            <Canvas x:Name="regla" Height="10" Margin="0,0,0,1" ClipToBounds="True"
-                    ToolTip="Los tramos que se exportarán, cada uno un fichero. Se dibujan sobre la misma línea de tiempo que la barra de abajo."/>
+            <!-- ══ La pista ══
+                 UNA sola línea de tiempo, como en un editor de vídeo. Antes eran dos cosas
+                 separadas: una regla morada arriba, que solo se miraba, y un deslizador
+                 debajo para moverse — y había que traducir mentalmente de una a otra para
+                 saber por dónde se estaba cortando. Aquí el fondo son fotogramas del propio
+                 vídeo, cada tramo es un bloque, las juntas se agarran y se arrastran, y el
+                 cabezal va encima de todo. Las acciones cuelgan del sitio donde actúan.
+
+                 La previa flotante va en la MISMA columna que la pista y con altura cero:
+                 así su origen de coordenadas es exactamente el que devuelve
+                 GetPosition(pista) y el globo cae justo bajo el cursor. Si se cambia de
+                 sitio hay que conservar esa propiedad o vuelve a salir torcido; con un
+                 Popup había que traducir entre dos sistemas de coordenadas, y ahí fallaba. -->
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
-              <TextBlock x:Name="lblPos" VerticalAlignment="Center" Margin="0,0,11,0" MinWidth="46"
-                         TextAlignment="Right" FontFamily="{StaticResource FontMono}" FontSize="11"
-                         Foreground="#D6D9E8" Text="0:00"/>
-              <Slider x:Name="barra" Grid.Column="1" Style="{StaticResource BarraVideo}" VerticalAlignment="Center"/>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="26"/>    <!-- acciones rápidas, colgadas del cabezal -->
+                <RowDefinition Height="Auto"/>  <!-- la pista -->
+              </Grid.RowDefinitions>
 
-              <!-- La previa va en la MISMA columna que el deslizador y con altura cero: así
-                   su origen de coordenadas es exactamente el que devuelve GetPosition(barra)
-                   y el globo cae justo bajo el cursor. Con un Popup había que traducir entre
-                   dos sistemas de coordenadas, y ahí es donde se torcía. -->
-              <Canvas x:Name="capaPrevia" Grid.Column="1" Height="0" VerticalAlignment="Top"
-                      IsHitTestVisible="False">
+              <!-- «Cortar aquí» va pegado al cabezal, que es justo por donde va a partir.
+                   Abajo a la derecha, como estaba, obligaba a mirar a un sitio para apuntar
+                   y a otro distinto para disparar. -->
+              <Canvas x:Name="capaAcciones" Grid.Row="0" Grid.Column="1">
+                <Button x:Name="btnCortar" Style="{StaticResource AccionPista}" IsEnabled="False"
+                        Visibility="Collapsed"
+                        ToolTip="Cortar aquí: parte en dos el tramo por donde va el cabezal  (C)">
+                  <TextBlock Text="✂" FontSize="12" Foreground="White" Margin="0,1,0,0"/>
+                </Button>
+              </Canvas>
+
+              <TextBlock x:Name="lblPos" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"
+                         Margin="0,0,11,0" MinWidth="46" TextAlignment="Right"
+                         FontFamily="{StaticResource FontMono}" FontSize="11"
+                         Foreground="#D6D9E8" Text="0:00"/>
+
+              <Grid x:Name="pista" Grid.Row="1" Grid.Column="1" Height="54" ClipToBounds="True"
+                    Background="Transparent" Cursor="Hand"
+                    ToolTip="Pincha para moverte por el vídeo. Arrastra los tiradores de las juntas para afinar dónde corta.">
+                <Border Background="#0E1018" BorderBrush="{StaticResource Divider}" BorderThickness="1"/>
+                <Canvas x:Name="capaFotogramas" IsHitTestVisible="False"/>
+                <Canvas x:Name="capaBloques"/>
+                <Canvas x:Name="capaTiradores"/>
+                <Canvas x:Name="capaCabezal" IsHitTestVisible="False">
+                  <!-- Blanco con un filo oscuro a cada lado: sobre un fotograma claro una
+                       línea blanca a secas desaparece. -->
+                  <Border x:Name="cabezal" Width="4" Background="White" Visibility="Collapsed"
+                          BorderBrush="#70000000" BorderThickness="1,0"
+                          Height="{Binding ActualHeight, ElementName=pista}"/>
+                </Canvas>
+              </Grid>
+
+              <Canvas x:Name="capaPrevia" Grid.Row="0" Grid.Column="1" Height="0"
+                      VerticalAlignment="Top" IsHitTestVisible="False">
                 <Border x:Name="globoPrevia" Visibility="Collapsed" Background="#F00A0B14"
                         CornerRadius="6" Padding="3" BorderBrush="{StaticResource Accent700}"
                         BorderThickness="1">
@@ -104,39 +196,35 @@
                   </Grid>
                 </Border>
               </Canvas>
-              <TextBlock x:Name="lblDur" Grid.Column="2" VerticalAlignment="Center" Margin="11,0,0,0" MinWidth="46"
-                         FontFamily="{StaticResource FontMono}" FontSize="11"
-                         Foreground="#B9BECF" Text="0:00"/>
+
+              <TextBlock x:Name="lblDur" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center"
+                         Margin="11,0,0,0" MinWidth="46" FontFamily="{StaticResource FontMono}"
+                         FontSize="11" Foreground="#B9BECF" Text="0:00"/>
             </Grid>
 
-            <!-- Vista previa del punto al que apuntas: encontrar el corte mirando una barra
-                 lisa es adivinar. El fotograma se saca bajo demanda de donde está el cursor,
-                 que es justo donde hace falta — una tira fija enseña doce sitios que no son
-                 el que te importa. -->
+            <!-- Los fotogramas del fondo sitúan a ojo; el globo que sigue al cursor da el
+                 fotograma exacto del punto al que apuntas, que es lo que hace falta para
+                 clavar un corte. Se saca bajo demanda y se tira: no se guarda una tira fija
+                 de doce sitios que no son el que te importa. -->
 
-            <Grid Margin="0,8,0,0">
-              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Button x:Name="btnAtras" Style="{StaticResource BtnIcono}" Margin="0,0,10,0"
-                        ToolTip="Atrás 10 s  (flecha izquierda)">
-                  <Path Data="M10,5 L4.5,10 L10,15 M16,5 L10.5,10 L16,15" Stretch="None" Width="20" Height="20"
-                        Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                        StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
-                </Button>
-                <Button x:Name="btnPlay" Style="{StaticResource BtnPlay}" ToolTip="Reproducir / pausar  (espacio)">
-                  <Path x:Name="glifoPlay" Stretch="None" Data="M6.5,3.5 L17,10 L6.5,16.5 Z" Fill="White"
-                        Stroke="White" StrokeThickness="2.2" StrokeLineJoin="Round" Width="19" Height="20"/>
-                </Button>
-                <Button x:Name="btnAdelante" Style="{StaticResource BtnIcono}" Margin="10,0,0,0"
-                        ToolTip="Adelante 10 s  (flecha derecha)">
-                  <Path Data="M10,5 L15.5,10 L10,15 M4,5 L9.5,10 L4,15" Stretch="None" Width="20" Height="20"
-                        Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                        StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
-                </Button>
-              </StackPanel>
-              <Button x:Name="btnCortar" HorizontalAlignment="Right" VerticalAlignment="Center"
-                      Style="{StaticResource BtnPrimary}" Padding="14,6" IsEnabled="False"
-                      Content="✂  Cortar aquí" ToolTip="Parte en dos el tramo por donde va la reproducción  (C)"/>
-            </Grid>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+              <Button x:Name="btnAtras" Style="{StaticResource BtnIcono}" Margin="0,0,10,0"
+                      ToolTip="Atrás 10 s  (flecha izquierda)">
+                <Path Data="M10,5 L4.5,10 L10,15 M16,5 L10.5,10 L16,15" Stretch="None" Width="20" Height="20"
+                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+              </Button>
+              <Button x:Name="btnPlay" Style="{StaticResource BtnPlay}" ToolTip="Reproducir / pausar  (espacio)">
+                <Path x:Name="glifoPlay" Stretch="None" Data="M6.5,3.5 L17,10 L6.5,16.5 Z" Fill="White"
+                      Stroke="White" StrokeThickness="2.2" StrokeLineJoin="Round" Width="19" Height="20"/>
+              </Button>
+              <Button x:Name="btnAdelante" Style="{StaticResource BtnIcono}" Margin="10,0,0,0"
+                      ToolTip="Adelante 10 s  (flecha derecha)">
+                <Path Data="M10,5 L15.5,10 L10,15 M4,5 L9.5,10 L4,15" Stretch="None" Width="20" Height="20"
+                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+              </Button>
+            </StackPanel>
           </StackPanel>
         </Grid>
       </Border>
@@ -167,7 +255,7 @@
                     <Style TargetType="Border">
                       <Setter Property="Background" Value="{StaticResource Field}"/>
                       <Setter Property="BorderBrush" Value="{StaticResource Divider}"/>
-                      <!-- El tramo que se está exportando se ve sin buscarlo: la barra de
+                      <!-- El tramo que se está exportando se ve sin buscarlo: el rótulo de
                            abajo dice cuál va, pero la vista de tramos es donde se mira. -->
                       <Style.Triggers>
                         <DataTrigger Binding="{Binding EnCurso}" Value="True">

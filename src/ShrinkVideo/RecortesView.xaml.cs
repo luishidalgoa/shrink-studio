@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -35,6 +36,17 @@ public sealed class TramoFila : INotifyPropertyChanged
     public double Duracion => Fin - Inicio;
     public string Rango => $"{Reloj(Inicio)} – {Reloj(Fin)}  ({Reloj(Duracion)})";
 
+    /// <summary>
+    /// Los extremos han cambiado (se ha arrastrado una junta). Se avisa a mano porque
+    /// arrastrando se tocan sesenta veces por segundo y rehacer la lista entera a ese ritmo
+    /// le quita el foco al campo del nombre en mitad de una palabra.
+    /// </summary>
+    public void Refrescar()
+    {
+        PropertyChanged?.Invoke(this, new(nameof(Rango)));
+        PropertyChanged?.Invoke(this, new(nameof(Duracion)));
+    }
+
     public static string Reloj(double s) =>
         s >= 3600 ? $"{(int)(s / 3600)}:{(int)(s % 3600 / 60):00}:{(int)(s % 60):00}"
                   : $"{(int)(s / 60)}:{(int)(s % 60):00}";
@@ -61,7 +73,6 @@ public partial class RecortesView : UserControl
     private VideoRow? _fuente;
     private double _duracion;
     private bool _pausado = true;
-    private bool _desdeReloj;
     private CancellationTokenSource? _cancelar;
     private string _tramoActual = "";
     private string? _destino;      // null = junto al vídeo original
@@ -73,6 +84,20 @@ public partial class RecortesView : UserControl
     private readonly DispatcherTimer _esperaPrevia;
     private int _previaPedida = -1;
     private bool _sacandoPrevia;
+    // El fondo de la pista pide sus fotogramas por esta cola; el que mira el cursor se cuela
+    // por delante, porque es el unico que el usuario esta esperando de verdad.
+    private readonly Queue<int> _colaFondo = new();
+    private readonly List<(Image Celda, int Hueco)> _celdas = new();
+    // Puntos de los que ffmpeg no ha sabido sacar fotograma. Se anotan para no pedirlos en bucle.
+    private readonly HashSet<int> _sinFotograma = new();
+    private readonly DispatcherTimer _esperaPista;
+
+    /// <summary>Qué se está arrastrando con el ratón sobre la pista.</summary>
+    private enum Agarre { Nada, Cabezal, Junta }
+
+    private Agarre _agarre = Agarre.Nada;
+    private int _juntaTramo;
+    private Extremo _juntaExtremo;
 
     /// <summary>Se avisa al anfitrión para que lo escriba en el registro compartido.</summary>
     public event Action<string>? Log;
@@ -110,6 +135,10 @@ public partial class RecortesView : UserControl
         PreviewKeyDown += (_, e) =>
         {
             if (_fuente == null) return;
+            // Escribiendo el nombre de un tramo las teclas son letras, no atajos. Sin esto,
+            // en ese campo no se podía ni poner un espacio ni escribir una «c»: se los comía
+            // el atajo de cortar antes de que el cuadro de texto los viera.
+            if (Keyboard.FocusedElement is TextBox) return;
             switch (e.Key)
             {
                 case Key.Space: Alternar(); break;
@@ -121,20 +150,10 @@ public partial class RecortesView : UserControl
             e.Handled = true;
         };
 
-        barra.ValueChanged += (_, e) =>
-        {
-            if (_desdeReloj || _fuente == null) return;
-            video.Position = TimeSpan.FromSeconds(e.NewValue);
-            lblPos.Text = TramoFila.Reloj(e.NewValue);
-        };
-
         video.MediaOpened += (_, _) =>
         {
             if (!video.NaturalDuration.HasTimeSpan) return;
-            _duracion = video.NaturalDuration.TimeSpan.TotalSeconds;
-            barra.Maximum = _duracion;
-            lblDur.Text = TramoFila.Reloj(_duracion);
-            Rehacer(Tramos.Entero(_duracion));
+            Duracion(video.NaturalDuration.TimeSpan.TotalSeconds);
         };
         video.MediaFailed += (_, _) =>
             lblSinVideo.Text = "Este vídeo no se puede previsualizar aquí, pero sí cortarlo.";
@@ -142,11 +161,10 @@ public partial class RecortesView : UserControl
         _reloj = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _reloj.Tick += (_, _) =>
         {
-            if (_fuente == null) return;
-            _desdeReloj = true;
-            barra.Value = video.Position.TotalSeconds;
-            _desdeReloj = false;
-            lblPos.Text = TramoFila.Reloj(video.Position.TotalSeconds);
+            // Arrastrando manda el ratón: si el reloj sigue recolocando el cabezal, el
+            // tirador y el cabezal se pelean por la misma línea y da tirones.
+            if (_fuente == null || _agarre != Agarre.Nada) return;
+            Cabezal(video.Position.TotalSeconds);
         };
         _reloj.Start();
 
@@ -155,12 +173,49 @@ public partial class RecortesView : UserControl
         _esperaPrevia = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(90) };
         _esperaPrevia.Tick += async (_, _) => { _esperaPrevia.Stop(); await SacarPreviaAsync(); };
 
-        barra.MouseMove += AlPasarPorLaBarra;
-        barra.MouseLeave += (_, _) => globoPrevia.Visibility = Visibility.Collapsed;
+        // Al redimensionar la ventana la pista se repinta al momento (es barato), pero los
+        // fotogramas del fondo esperan a que el usuario suelte: cada uno es una llamada a
+        // ffmpeg y arrastrando el borde saldrían cientos.
+        _esperaPista = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _esperaPista.Tick += (_, _) => { _esperaPista.Stop(); TenderFotogramas(); };
 
-        SizeChanged += (_, _) => PintarRegla();
+        pista.MouseLeftButtonDown += (_, e) =>
+        {
+            if (_fuente == null || _duracion <= 0) return;
+            _agarre = Agarre.Cabezal;
+            pista.CaptureMouse();
+            Buscar(SegundoEn(e.GetPosition(pista).X));
+        };
+        pista.MouseMove += AlPasarPorLaPista;
+        pista.MouseLeftButtonUp += (_, _) => SoltarLaPista();
+        pista.LostMouseCapture += (_, _) => _agarre = Agarre.Nada;
+        pista.MouseLeave += (_, _) =>
+        {
+            if (_agarre == Agarre.Nada) globoPrevia.Visibility = Visibility.Collapsed;
+        };
+
+        SizeChanged += (_, _) => { PintarPista(); _esperaPista.Stop(); _esperaPista.Start(); };
         // Al salir de la página no se deja nada en memoria ni en disco temporal.
         Unloaded += (_, _) => LiberarMiniaturas();
+    }
+
+    /// <summary>
+    /// Ya se sabe cuánto dura: la pista puede dibujarse y pedir sus fotogramas. La duración
+    /// llega por dos caminos —el reproductor al abrir y el sondeo— y además el reproductor
+    /// se recarga al acabar una exportación, así que esto se ejecuta varias veces sobre el
+    /// mismo vídeo. Los tramos solo se rehacen si de verdad es otro material; si no, volver
+    /// de exportar borraría los cortes que el usuario acaba de hacer.
+    /// </summary>
+    private void Duracion(double segundos)
+    {
+        if (segundos <= 0) return;
+        bool otroVideo = Math.Abs(_duracion - segundos) > 0.01;
+        _duracion = segundos;
+        lblDur.Text = TramoFila.Reloj(_duracion);
+        if (otroVideo || _tramos.Count == 0) Rehacer(Tramos.Entero(_duracion));
+        else PintarPista();
+        Cabezal(video.Position.TotalSeconds);
+        TenderFotogramas();
     }
 
     // ─────────────────────────── cargar ───────────────────────────
@@ -186,6 +241,7 @@ public partial class RecortesView : UserControl
         lblVideoDet.Text = "Analizando…";
         lblSinVideo.Visibility = Visibility.Collapsed;
         _tramos.Clear();
+        _duracion = 0;            // la del vídeo anterior no vale, y sin esto no se recalcula
         LiberarMiniaturas();      // los fotogramas del vídeo anterior no valen para este
 
         video.Source = new Uri(ruta);
@@ -202,13 +258,9 @@ public partial class RecortesView : UserControl
         _fuente.Channels = info.Channels; _fuente.AudioCodec = info.AudioCodec;
         _fuente.Codec = info.Codec; _fuente.Probed = true;
 
-        if (_duracion <= 0 && info.DurationSec > 0)
-        {
-            _duracion = info.DurationSec;
-            barra.Maximum = _duracion;
-            lblDur.Text = TramoFila.Reloj(_duracion);
-            Rehacer(Tramos.Entero(_duracion));
-        }
+        // Si el reproductor no ha sabido abrirlo, la duración la da el sondeo: cortar tiene
+        // que seguir siendo posible aunque no se pueda previsualizar.
+        if (_duracion <= 0) Duracion(info.DurationSec);
 
         lblVideoDet.Text = $"{info.Codec.ToUpperInvariant()} · {info.Width}×{info.Height} · " +
                            $"{Humano(fi.Length)}";
@@ -235,32 +287,48 @@ public partial class RecortesView : UserControl
         btnCortar.IsEnabled = !si && _fuente != null;
         btnExportar.IsEnabled = false;      // lo recalcula RefrescarEstimacion al terminar
         listaTramos.IsEnabled = !si;
-        barra.IsEnabled = !si;
+        pista.IsEnabled = !si;
         foreach (var b in new[] { btnPlay, btnAtras, btnAdelante }) b.IsEnabled = !si;
     }
 
     /// <summary>Cada cuántos segundos se guarda un fotograma. Más fino sería más lento.</summary>
     private const int HuecoPrevia = 5;
 
+    /// <summary>El segundo del vídeo que hay bajo una x de la pista, y la vuelta.</summary>
+    private double SegundoEn(double x) =>
+        _duracion <= 0 ? 0 : Math.Clamp(x / Math.Max(1, pista.ActualWidth) * _duracion, 0, _duracion);
+
+    private double XDe(double segundo) =>
+        _duracion <= 0 ? 0 : segundo / _duracion * pista.ActualWidth;
+
     /// <summary>
-    /// El globo sigue al cursor por encima de la barra y enseña el fotograma de ese punto.
-    /// La posición se saca del ratón y no del valor del control: así funciona igual pasando
-    /// por encima que arrastrando, y no obliga a mover el vídeo para mirar.
+    /// Todo lo que pasa moviendo el ratón por la pista. La posición se saca del ratón y no
+    /// del estado de ningún control: así funciona igual pasando por encima que arrastrando.
+    ///
+    /// Los tiradores y los bloques están DENTRO de la pista, así que este manejador recibe
+    /// también sus movimientos al burbujear — que es lo que se quiere: arrastrando una junta
+    /// el globo sigue enseñando el fotograma exacto por donde va a partir.
     /// </summary>
-    private void AlPasarPorLaBarra(object remitente, MouseEventArgs e)
+    private void AlPasarPorLaPista(object remitente, MouseEventArgs e)
     {
         if (_fuente == null || _duracion <= 0) { globoPrevia.Visibility = Visibility.Collapsed; return; }
 
-        double x = Math.Clamp(e.GetPosition(barra).X, 0, barra.ActualWidth);
-        double seg = x / Math.Max(1, barra.ActualWidth) * _duracion;
+        double x = Math.Clamp(e.GetPosition(pista).X, 0, pista.ActualWidth);
+        double seg = SegundoEn(x);
+
+        switch (_agarre)
+        {
+            case Agarre.Junta: ArrastrarJunta(seg); break;
+            case Agarre.Cabezal: Buscar(seg); break;
+        }
 
         globoPrevia.Visibility = Visibility.Visible;
 
-        // Centrado con el ancho REAL, y sujeto a los bordes de la barra: un globo medio
+        // Centrado con el ancho REAL, y sujeto a los bordes de la pista: un globo medio
         // salido de la ventana no se lee.
         double ancho = globoPrevia.ActualWidth > 0 ? globoPrevia.ActualWidth : 200;
         double alto = globoPrevia.ActualHeight > 0 ? globoPrevia.ActualHeight : 132;
-        Canvas.SetLeft(globoPrevia, Math.Clamp(x - ancho / 2, 0, Math.Max(0, barra.ActualWidth - ancho)));
+        Canvas.SetLeft(globoPrevia, Math.Clamp(x - ancho / 2, 0, Math.Max(0, pista.ActualWidth - ancho)));
         Canvas.SetTop(globoPrevia, -alto - 8);
         lblPrevia.Text = TramoFila.Reloj(seg);
 
@@ -277,6 +345,71 @@ public partial class RecortesView : UserControl
         _esperaPrevia.Start();
     }
 
+    /// <summary>Se suelta el ratón: se acaba el arrastre.</summary>
+    private void SoltarLaPista()
+    {
+        _agarre = Agarre.Nada;
+        if (pista.IsMouseCaptured) pista.ReleaseMouseCapture();
+        if (!pista.IsMouseOver) globoPrevia.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Dónde se dejan los jpg mientras se cargan. UNA por ejecución: cada uno se borra nada
+    /// más leerlo, pero con una carpeta por vídeo cargado la carpeta vacía se quedaba en el
+    /// temporal, y ahora la pista pide fotogramas siempre (antes solo si pasabas el ratón),
+    /// así que se acumularían de verdad.
+    /// </summary>
+    private string CarpetaDeFotogramas()
+    {
+        if (_tempMiniaturas != null) return _tempMiniaturas;
+        _tempMiniaturas = Path.Combine(Path.GetTempPath(), $"shrinkstudio-previa-{Environment.ProcessId}");
+        Directory.CreateDirectory(_tempMiniaturas);
+        BarrerCarpetasHuerfanas();
+        return _tempMiniaturas;
+    }
+
+    /// <summary>
+    /// Las carpetas que dejaran ejecuciones anteriores que se fueron sin recoger (un cierre
+    /// forzado, un cuelgue). Si el proceso dueño sigue vivo no se toca: puede haber dos
+    /// ShrinkStudio abiertos y no se le va a quitar el suelo al otro.
+    /// </summary>
+    private static void BarrerCarpetasHuerfanas()
+    {
+        try
+        {
+            foreach (var d in Directory.EnumerateDirectories(Path.GetTempPath(), "shrinkstudio-previa-*"))
+            {
+                // Las viejas llevaban un Guid en vez de un pid: esas no tienen dueño posible.
+                if (int.TryParse(Path.GetFileName(d).Split('-')[^1], out var pid))
+                {
+                    if (pid == Environment.ProcessId) continue;
+                    try { using (Process.GetProcessById(pid)) continue; }   // vive: no es huérfana
+                    catch (ArgumentException) { }
+                }
+                try { Directory.Delete(d, true); } catch { }
+            }
+        }
+        catch { /* barrer es cortesía: si no se puede, no rompe nada */ }
+    }
+
+    /// <summary>Ya se intentó: o está en la caché, o se sabe que de ahí no sale fotograma.</summary>
+    private bool Intentado(int hueco) => _previas.ContainsKey(hueco) || _sinFotograma.Contains(hueco);
+
+    /// <summary>
+    /// El siguiente fotograma que hace falta. Manda el que está mirando el cursor: el fondo
+    /// de la pista puede esperar, pero el globo lo tiene el usuario delante de los ojos.
+    /// Devuelve -1 si no queda nada por sacar.
+    ///
+    /// MIRA la cola sin vaciarla, porque esto se llama también para preguntar «¿queda algo?»
+    /// y una consulta no puede tirar trabajo pendiente.
+    /// </summary>
+    private int SiguienteHueco()
+    {
+        if (_previaPedida >= 0 && !Intentado(_previaPedida)) return _previaPedida;
+        while (_colaFondo.Count > 0 && Intentado(_colaFondo.Peek())) _colaFondo.Dequeue();
+        return _colaFondo.Count > 0 ? _colaFondo.Peek() : -1;
+    }
+
     /// <summary>
     /// Saca el fotograma pedido. De uno en uno: encadenar ffmpeg por cada píxel del arrastre
     /// solo consigue una cola que llega tarde. El jpg se carga ENTERO en memoria y se borra
@@ -285,16 +418,13 @@ public partial class RecortesView : UserControl
     private async Task SacarPreviaAsync()
     {
         if (_sacandoPrevia || _fuente == null) return;
-        int hueco = _previaPedida;
-        if (hueco < 0 || _previas.ContainsKey(hueco)) return;
+        int hueco = SiguienteHueco();
+        if (hueco < 0) return;
 
         _sacandoPrevia = true;
         try
         {
-            _tempMiniaturas ??= Path.Combine(Path.GetTempPath(),
-                "shrinkstudio-previa-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(_tempMiniaturas);
-            var jpg = Path.Combine(_tempMiniaturas, $"{hueco}.jpg");
+            var jpg = Path.Combine(CarpetaDeFotogramas(), $"{hueco}.jpg");
 
             if (await Engine.MakeThumbnailAsync(_fuente.Path, jpg, hueco))
             {
@@ -313,15 +443,23 @@ public partial class RecortesView : UserControl
                         imgPrevia.Source = bmp;
                         lblPreviaCargando.Visibility = Visibility.Collapsed;
                     }
+                    // El mismo fotograma puede alimentar varias celdas del fondo si el vídeo
+                    // es corto y dos celdas caen en el mismo hueco.
+                    foreach (var (celda, suyo) in _celdas)
+                        if (suyo == hueco) celda.Source = bmp;
                 }
-                catch { /* un fotograma que no sale no rompe nada */ }
+                catch { _sinFotograma.Add(hueco); }
                 finally { try { File.Delete(jpg); } catch { } }
             }
+            // Si de ese punto no sale fotograma se anota y no se vuelve a pedir: sin esto el
+            // globo lo reintenta cada 90 ms y no para nunca.
+            else _sinFotograma.Add(hueco);
         }
         finally { _sacandoPrevia = false; }
 
-        // Mientras se sacaba ese, el cursor ya estará en otro sitio: se atiende el último.
-        if (_previaPedida != hueco && !_previas.ContainsKey(_previaPedida)) _esperaPrevia.Start();
+        // Mientras se sacaba ese, el cursor ya estará en otro sitio y el fondo seguirá a
+        // medias: se sigue con lo que quede.
+        if (SiguienteHueco() >= 0) _esperaPrevia.Start();
     }
 
     /// <summary>Suelta los fotogramas y borra lo que quedara en disco. Nada se acumula.</summary>
@@ -331,6 +469,10 @@ public partial class RecortesView : UserControl
         imgPrevia.Source = null;
         _previas.Clear();
         _previaPedida = -1;
+        _colaFondo.Clear();
+        _celdas.Clear();
+        _sinFotograma.Clear();
+        capaFotogramas.Children.Clear();
         if (_tempMiniaturas != null)
         {
             try { Directory.Delete(_tempMiniaturas, true); } catch { }
@@ -369,13 +511,17 @@ public partial class RecortesView : UserControl
         {
             var t = nuevos[i];
             escritos.TryGetValue((t.Inicio, t.Fin), out var previo);
-            _tramos.Add(new TramoFila
+            var fila = new TramoFila
             {
                 Inicio = t.Inicio,
                 Fin = t.Fin,
                 Numero = i + 1,
                 Nombre = string.IsNullOrWhiteSpace(previo) ? sugeridos[i] : previo,
-            });
+            };
+            // El bloque de la pista lleva escrito el nombre del fichero que va a salir: si se
+            // reescribe en la lista de la derecha, la pista tiene que decir lo mismo.
+            fila.PropertyChanged += (_, a) => { if (a.PropertyName == nameof(TramoFila.Nombre)) PintarPista(); };
+            _tramos.Add(fila);
         }
         btnExportar.Content = _tramos.Count switch
         {
@@ -383,32 +529,276 @@ public partial class RecortesView : UserControl
             1 => "Exportar 1 tramo",
             _ => $"Exportar {_tramos.Count} tramos",
         };
-        lblAyudaTramos.Text = _tramos.Count == 1
-            ? "Un solo tramo: se exportará el vídeo entero. Corta para partirlo."
-            : $"{_tramos.Count} tramos = {_tramos.Count} ficheros.";
-        PintarRegla();
+        lblAyudaTramos.Text = _tramos.Count switch
+        {
+            0 => "No queda ningún tramo: así no se exportaría nada.",
+            1 => "Un solo tramo: se exportará el vídeo entero. Corta con la ✂ de la pista para partirlo.",
+            _ => $"{_tramos.Count} tramos = {_tramos.Count} ficheros. Arrastra las juntas de la pista para afinar.",
+        };
+        PintarPista();
         RefrescarEstimacion();
     }
 
-    /// <summary>Las juntas entre tramos, dibujadas justo encima de la barra de posición.</summary>
-    private void PintarRegla()
-    {
-        regla.Children.Clear();
-        if (_duracion <= 0 || regla.ActualWidth <= 0) return;
+    // ─────────────────────────── la pista ───────────────────────────
 
+    /// <summary>
+    /// Dibuja la pista: lo que se descarta oscurecido, un bloque por tramo y un tirador por
+    /// junta. Se rehace entera en cada cambio — son una docena de elementos y así no hay que
+    /// llevar la cuenta de qué había antes, que es de donde salen los dibujos a medias.
+    /// </summary>
+    private void PintarPista()
+    {
+        capaBloques.Children.Clear();
+        capaTiradores.Children.Clear();
+        if (_duracion <= 0 || pista.ActualWidth <= 0) return;
+        double alto = pista.ActualHeight;
+
+        // Lo que NO se exporta, oscurecido: un hueco es un trozo que el usuario ha quitado y
+        // tiene que verse de un vistazo que no va a salir en ningún fichero.
+        double llevado = 0;
         foreach (var t in _tramos)
         {
-            double x = t.Inicio / _duracion * regla.ActualWidth;
-            double w = Math.Max(1, t.Duracion / _duracion * regla.ActualWidth - 2);
-            var barrita = new Rectangle
-            {
-                Width = w, Height = 4, RadiusX = 2, RadiusY = 2,
-                Fill = (Brush)FindResource("Accent600"),
-            };
-            Canvas.SetLeft(barrita, x + 1);
-            Canvas.SetTop(barrita, 3);
-            regla.Children.Add(barrita);
+            if (t.Inicio > llevado) Sombra(llevado, t.Inicio, alto);
+            llevado = Math.Max(llevado, t.Fin);
         }
+        if (llevado < _duracion) Sombra(llevado, _duracion, alto);
+
+        for (int i = 0; i < _tramos.Count; i++) Bloque(i, alto);
+
+        // Un tirador por junta. Dos tramos que se tocan comparten UNA, no dos: dibujar dos
+        // tiradores pegados invita a separarlos y a abrir un agujero sin querer.
+        for (int i = 0; i < _tramos.Count; i++)
+        {
+            bool pegadoAlAnterior = i > 0 && Math.Abs(_tramos[i - 1].Fin - _tramos[i].Inicio) < 1e-6;
+            if (!pegadoAlAnterior) Tirador(i, Extremo.Inicio, _tramos[i].Inicio, alto);
+            Tirador(i, Extremo.Fin, _tramos[i].Fin, alto);
+        }
+    }
+
+    private void Sombra(double desde, double hasta, double alto)
+    {
+        var s = new Rectangle
+        {
+            Width = Math.Max(0, XDe(hasta) - XDe(desde)), Height = alto,
+            Fill = new SolidColorBrush(Color.FromArgb(0xC4, 0x06, 0x07, 0x0D)),
+            IsHitTestVisible = false,
+        };
+        Canvas.SetLeft(s, XDe(desde));
+        capaBloques.Children.Add(s);
+    }
+
+    /// <summary>
+    /// Un tramo. Lleva su número y su nombre encima porque la pista y la lista de la derecha
+    /// hablan de lo mismo, y saber cuál es cuál sin contar bloques es media faena. La ✕ solo
+    /// asoma al pasar por encima: fija en cada bloque, la pista se llena de aspas.
+    /// </summary>
+    private void Bloque(int indice, double alto)
+    {
+        var f = _tramos[indice];
+        double x = XDe(f.Inicio), ancho = Math.Max(3, XDe(f.Fin) - XDe(f.Inicio));
+        var dentro = new Grid();
+
+        // Número y nombre van juntos arriba, como el rótulo de un clip: así el resto del
+        // bloque queda despejado y se siguen viendo los fotogramas, que es para lo que están.
+        var rotulo = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(6, 5, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        if (ancho >= 30)
+            rotulo.Children.Add(new Border
+            {
+                Background = (Brush)FindResource("Accent800"),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(5, 1, 5, 1),
+                Child = new TextBlock
+                {
+                    Text = f.Numero.ToString(), FontSize = 10, FontWeight = FontWeights.SemiBold,
+                    Foreground = (Brush)FindResource("Accent200"),
+                },
+            });
+
+        // El hueco descontado deja sitio al número, a los márgenes y a la ✕ de quitar.
+        if (ancho >= 130)
+            rotulo.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xB0, 0, 0, 0)),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(5, 1, 5, 1),
+                Margin = new Thickness(4, 0, 0, 0),
+                MaxWidth = ancho - 68,
+                Child = new TextBlock
+                {
+                    Text = f.Nombre, FontSize = 10, Foreground = Brushes.White,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                },
+            });
+        dentro.Children.Add(rotulo);
+
+        Button? quitar = null;
+        if (ancho >= 46)
+        {
+            quitar = new Button
+            {
+                Style = (Style)FindResource("QuitarBloque"),
+                Tag = f,
+                // Separada del borde para no pisar el tirador de la junta, que va justo ahí.
+                Margin = new Thickness(0, 5, 8, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Visibility = Visibility.Hidden,
+                ToolTip = "Quitar este tramo: no se exportará",
+            };
+            quitar.Click += OnQuitarTramo;
+            dentro.Children.Add(quitar);
+        }
+
+        var bloque = new Border
+        {
+            Width = ancho, Height = alto,
+            CornerRadius = new CornerRadius(5),
+            BorderThickness = new Thickness(2),
+            BorderBrush = (Brush)FindResource("Accent"),
+            Background = new SolidColorBrush(Color.FromArgb(0x22, 0x96, 0x8A, 0xE0)),
+            Child = dentro,
+        };
+        if (quitar != null)
+        {
+            bloque.MouseEnter += (_, _) => quitar.Visibility = Visibility.Visible;
+            bloque.MouseLeave += (_, _) => quitar.Visibility = Visibility.Hidden;
+        }
+        Canvas.SetLeft(bloque, x);
+        capaBloques.Children.Add(bloque);
+    }
+
+    /// <summary>
+    /// El tirador de una junta. La captura del ratón se la queda la PISTA, no el tirador:
+    /// arrastrando se repinta la pista entera y el tirador de debajo del cursor deja de
+    /// existir a media pasada — con la captura en él, el arrastre se cortaba en seco.
+    /// </summary>
+    private void Tirador(int indice, Extremo extremo, double segundo, double alto)
+    {
+        var rayas = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        for (int k = 0; k < 2; k++)
+            rayas.Children.Add(new Rectangle
+            {
+                Width = 1.4, Height = Math.Min(14, alto - 20), RadiusX = 1, RadiusY = 1,
+                Fill = Brushes.White, Opacity = 0.9, Margin = new Thickness(1.1, 0, 1.1, 0),
+            });
+
+        var t = new Border
+        {
+            Width = 10, Height = alto,
+            CornerRadius = new CornerRadius(3),
+            Background = (Brush)FindResource("Accent"),
+            Cursor = Cursors.SizeWE,
+            Child = rayas,
+            ToolTip = "Arrastra para mover el corte. No puede pasarse de los tramos de al lado.",
+        };
+        // Sujeto a la pista: los de los dos extremos del vídeo caen justo en el borde y, sin
+        // esto, se quedan medio recortados y con la mitad de sitio donde agarrarlos.
+        Canvas.SetLeft(t, Math.Clamp(XDe(segundo) - 5, 0, Math.Max(0, pista.ActualWidth - 10)));
+        t.MouseLeftButtonDown += (_, e) =>
+        {
+            _agarre = Agarre.Junta;
+            _juntaTramo = indice;
+            _juntaExtremo = extremo;
+            pista.CaptureMouse();
+            e.Handled = true;      // agarrar la junta no es además saltar la reproducción ahí
+        };
+        capaTiradores.Children.Add(t);
+    }
+
+    /// <summary>
+    /// Arrastre en curso. Se tocan los números del tramo EN EL SITIO y se repinta la pista,
+    /// pero no se rehace la lista de la derecha: reconstruirla sesenta veces por segundo le
+    /// quita el foco al campo del nombre y no se podría ni escribir mientras.
+    /// </summary>
+    private void ArrastrarJunta(double segundo)
+    {
+        var nuevos = Tramos.MoverJunta(Actuales(), _juntaTramo, _juntaExtremo, segundo, _duracion);
+        if (nuevos.Count != _tramos.Count) return;
+        for (int i = 0; i < nuevos.Count; i++)
+        {
+            _tramos[i].Inicio = nuevos[i].Inicio;
+            _tramos[i].Fin = nuevos[i].Fin;
+            _tramos[i].Refrescar();
+        }
+        PintarPista();
+        RefrescarEstimacion();
+    }
+
+    /// <summary>
+    /// El cabezal, y con él el botón de cortar: la tijera va donde va a partir, no en una
+    /// esquina de la pantalla.
+    /// </summary>
+    private void Cabezal(double segundo)
+    {
+        lblPos.Text = TramoFila.Reloj(segundo);
+        if (_duracion <= 0 || pista.ActualWidth <= 0) return;
+
+        double x = XDe(Math.Clamp(segundo, 0, _duracion));
+        cabezal.Visibility = Visibility.Visible;
+        Canvas.SetLeft(cabezal, x - 2);
+
+        btnCortar.Visibility = Visibility.Visible;
+        double ancho = btnCortar.ActualWidth > 0 ? btnCortar.ActualWidth : 24;
+        Canvas.SetLeft(btnCortar, Math.Clamp(x - ancho / 2, 0, Math.Max(0, pista.ActualWidth - ancho)));
+        Canvas.SetTop(btnCortar, 1);
+    }
+
+    /// <summary>Mueve la reproducción, y con ella el cabezal.</summary>
+    private void Buscar(double segundo)
+    {
+        if (_fuente == null) return;
+        var donde = Math.Clamp(segundo, 0, _duracion);
+        video.Position = TimeSpan.FromSeconds(donde);
+        Cabezal(donde);
+    }
+
+    /// <summary>
+    /// Tiende los fotogramas del fondo. Van por la MISMA caché y la misma disciplina que el
+    /// globo: cada jpg se carga entero en memoria, se borra del disco al momento y todo se
+    /// suelta al cambiar de vídeo. Redondear al mismo hueco de 5 s hace que el fondo y el
+    /// globo se aprovechen los fotogramas el uno al otro en vez de sacarlos dos veces.
+    /// </summary>
+    private void TenderFotogramas()
+    {
+        capaFotogramas.Children.Clear();
+        _celdas.Clear();
+        _colaFondo.Clear();
+        if (_fuente == null || _duracion <= 0 || pista.ActualWidth <= 0) return;
+
+        double alto = pista.ActualHeight;
+        double ancho = Math.Round(alto * 16 / 9.0);          // una celda ≈ un fotograma 16:9
+        int cuantas = Math.Max(1, (int)Math.Ceiling(pista.ActualWidth / ancho));
+
+        for (int k = 0; k < cuantas; k++)
+        {
+            double centro = (k + 0.5) * ancho / pista.ActualWidth * _duracion;
+            int hueco = (int)(Math.Clamp(centro, 0, _duracion) / HuecoPrevia) * HuecoPrevia;
+
+            var celda = new Image
+            {
+                Width = ancho, Height = alto, Stretch = Stretch.UniformToFill,
+                Opacity = 0.85,     // el fondo sitúa; los bloques y el cabezal son lo que se lee
+            };
+            _previas.TryGetValue(hueco, out var ya);
+            celda.Source = ya;
+            Canvas.SetLeft(celda, k * ancho);
+            capaFotogramas.Children.Add(celda);
+            _celdas.Add((celda, hueco));
+            if (ya == null) _colaFondo.Enqueue(hueco);
+        }
+
+        if (SiguienteHueco() >= 0) _esperaPrevia.Start();
     }
 
     // ─────────────────────────── reproducción ───────────────────────────
@@ -424,12 +814,7 @@ public partial class RecortesView : UserControl
     private void Saltar(double s)
     {
         if (_fuente == null) return;
-        var destino = Math.Clamp(video.Position.TotalSeconds + s, 0, _duracion);
-        video.Position = TimeSpan.FromSeconds(destino);
-        _desdeReloj = true;
-        barra.Value = destino;
-        _desdeReloj = false;
-        lblPos.Text = TramoFila.Reloj(destino);
+        Buscar(video.Position.TotalSeconds + s);
     }
 
     // ─────────────────────────── salida ───────────────────────────
