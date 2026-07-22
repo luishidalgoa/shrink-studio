@@ -800,9 +800,17 @@ public partial class OrganizarView : UserControl
         // El texto filtra con la normalización del identificador: «sonrisa» encuentra
         // «¡En busca de una sonrisa!» aunque el nombre lleve signos y tildes.
         var q = TitleMatch.Norm(txtBuscarTabla.Text);
-        bool PasaTexto(OrganizarRow f) => q.Length == 0
-            || TitleMatch.Norm(f.Original).Contains(q, StringComparison.Ordinal)
-            || TitleMatch.Norm(f.Propuesta).Contains(q, StringComparison.Ordinal);
+        bool PasaTexto(OrganizarRow f)
+        {
+            if (q.Length == 0) return true;
+            // Una fila YA APLICADA solo se encuentra por su nombre nuevo: el viejo ya no
+            // existe en disco, y que siguiera apareciendo al buscarlo hacía dudar de si el
+            // renombrado había ocurrido de verdad.
+            if (f.Aplicado)
+                return TitleMatch.Norm(f.NombreNuevo ?? f.Original).Contains(q, StringComparison.Ordinal);
+            return TitleMatch.Norm(f.Original).Contains(q, StringComparison.Ordinal)
+                || TitleMatch.Norm(f.Propuesta).Contains(q, StringComparison.Ordinal);
+        }
 
         if (estados.Count == 0 && !soloDudas && q.Length == 0)
         { vista.Filter = null; RecalcularSeparadores(); return; }
