@@ -17,6 +17,10 @@
          Va por debajo de las capas de control, así que estas reciben los suyos primero. -->
     <Rectangle x:Name="lienzo" Fill="Transparent"/>
 
+    <!-- La espera: el péndulo se monta en código (ver PenduloCargando) y se cuelga aquí,
+         encima del vídeo y por debajo de los controles. -->
+    <Grid x:Name="huecoCargando"/>
+
     <!-- Si el códec no está soportado, se dice y se ofrece el reproductor del sistema:
          mejor un plan B claro que una pantalla negra sin explicación. -->
     <StackPanel x:Name="panelFallo" Visibility="Collapsed" VerticalAlignment="Center"
