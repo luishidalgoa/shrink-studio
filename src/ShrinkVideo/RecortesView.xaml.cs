@@ -55,6 +55,9 @@ public partial class RecortesView : UserControl
     private bool _pausado = true;
     private bool _desdeReloj;
     private CancellationTokenSource? _cancelar;
+    private string _tramoActual = "";
+    private string? _destino;      // null = junto al vídeo original
+    private bool _exportando;
 
     /// <summary>Se avisa al anfitrión para que lo escriba en el registro compartido.</summary>
     public event Action<string>? Log;
@@ -81,6 +84,7 @@ public partial class RecortesView : UserControl
         btnAdelante.Click += (_, _) => Saltar(10);
         btnCortar.Click += (_, _) => CortarAqui();
         btnExportar.Click += async (_, _) => await ExportarAsync();
+        btnDestino.Click += (_, _) => ElegirDestino();
 
         AllowDrop = true;
         Drop += (_, e) =>
@@ -183,6 +187,7 @@ public partial class RecortesView : UserControl
                            $"{Humano(fi.Length)}";
         lblDuracionTotal.Text = TramoFila.Reloj(_duracion);
         btnCortar.IsEnabled = true;
+        MostrarDestino();
         RefrescarEstimacion();
     }
 
@@ -305,16 +310,51 @@ public partial class RecortesView : UserControl
                          "estimación aproximada, el resultado real depende del contenido.";
     }
 
+    private void ElegirDestino()
+    {
+        var d = new OpenFolderDialog
+        {
+            Title = "Dónde dejar los recortes",
+            InitialDirectory = CarpetaDestino(),
+        };
+        if (d.ShowDialog() == true) { _destino = d.FolderName; MostrarDestino(); }
+    }
+
+    /// <summary>Por defecto, junto al original: es donde el usuario está mirando.</summary>
+    private string CarpetaDestino() =>
+        _destino ?? (_fuente != null ? Path.GetDirectoryName(_fuente.Path)! : "");
+
+    private void MostrarDestino()
+    {
+        var c = CarpetaDestino();
+        lblDestino.Text = c.Length == 0 ? ""
+            : $"Se guardará en: {c}{(_destino == null ? "  (junto al original)" : "")}";
+    }
+
     private async Task ExportarAsync()
     {
-        if (_fuente == null || _tramos.Count == 0) return;
+        // Reentrada: exportar tarda, y sin cerrojo cada clic lanza otra tanda entera sobre
+        // los mismos ficheros. Pasó: cinco tandas solapadas y ni un fichero.
+        if (_exportando || _fuente == null || _tramos.Count == 0) return;
+        _exportando = true;
 
-        var destino = Path.Combine(Path.GetDirectoryName(_fuente.Path)!, "recortes");
+        var destino = CarpetaDestino();
         Directory.CreateDirectory(destino);
+
+        // El reproductor de esta página tiene el fichero abierto, y el motor comprueba que
+        // nadie lo tenga cogido para no pillar una descarga a medias: con el vídeo cargado
+        // se saltaba el fichero entero y no salía nada. Se suelta antes de codificar.
+        var fuente = new Uri(_fuente.Path);
+        video.Stop();
+        video.Close();
+        video.Source = null;
 
         _cancelar = new CancellationTokenSource();
         btnExportar.IsEnabled = false;
+        btnCortar.IsEnabled = false;
         var rep = new Reportero(this);
+        var hechos = new List<string>();
+        var fallidos = new List<string>();
         int n = 0;
 
         try
@@ -322,7 +362,8 @@ public partial class RecortesView : UserControl
             foreach (var t in _tramos.ToList())
             {
                 n++;
-                lblProgreso.Text = $"Tramo {n} de {_tramos.Count}…";
+                _tramoActual = $"Tramo {n} de {_tramos.Count} · {t.Nombre}";
+                lblProgreso.Text = _tramoActual;
                 var opt = Opciones();
                 opt.Output = destino;
                 opt.Desde = t.Inicio;
@@ -333,9 +374,23 @@ public partial class RecortesView : UserControl
                 opt.Force = true;
 
                 await _engine.CompressAsync(new[] { _fuente.Path }, opt, rep, _cancelar.Token);
+
+                // Se comprueba el fichero EN DISCO, no que la llamada volviera: el motor
+                // puede saltarse un fichero y devolver lista vacía. Dar eso por bueno fue
+                // justo el fallo — decía «2 ficheros creados» sin haber creado ninguno.
+                var esperado = Path.Combine(destino,
+                    LibraryTemplate.LimpiarNombre(t.Nombre) + Engine.OutputExtension(opt));
+                if (File.Exists(esperado)) hechos.Add(Path.GetFileName(esperado));
+                else fallidos.Add(t.Nombre);
             }
-            lblProgreso.Text = $"Listo · {_tramos.Count} ficheros en «recortes»";
-            Log?.Invoke($"Recortes: {_tramos.Count} ficheros creados en {destino}");
+
+            lblProgreso.Text = fallidos.Count == 0
+                ? $"Listo · {hechos.Count} fichero{(hechos.Count == 1 ? "" : "s")}"
+                : $"{hechos.Count} de {_tramos.Count} · {fallidos.Count} sin salir";
+            Log?.Invoke(fallidos.Count == 0
+                ? $"Recortes: {hechos.Count} ficheros creados en {destino}"
+                : $"Recortes: NO salieron {fallidos.Count} de {_tramos.Count} tramos " +
+                  $"({string.Join(", ", fallidos)}) — el motor dice el porqué en las líneas de arriba.");
         }
         catch (OperationCanceledException) { lblProgreso.Text = "Cancelado"; }
         catch (Exception ex)
@@ -346,6 +401,12 @@ public partial class RecortesView : UserControl
         finally
         {
             _cancelar = null;
+            _exportando = false;
+            _tramoActual = "";
+            video.Source = fuente;      // vuelve la previsualización
+            video.Play();
+            video.Pause();
+            btnCortar.IsEnabled = true;
             RefrescarEstimacion();
         }
     }
@@ -362,14 +423,17 @@ public partial class RecortesView : UserControl
         public Reportero(RecortesView v) => _v = v;
         public void Log(string linea) => _v.Dispatcher.Invoke(() => _v.Log?.Invoke(linea));
         public void FileStart(int i, int total, string nombre, double dur) { }
+        // El porcentaje se cuelga del rótulo guardado del tramo, no de recomponer el texto
+        // de la etiqueta: con un nombre que llevara « · » se comía media frase.
         public void FileProgress(double fraccion, string cruda) =>
             _v.Dispatcher.Invoke(() =>
-            {
-                var t = _v.lblProgreso.Text;
-                var corte = t.IndexOf(" · ", StringComparison.Ordinal);
-                if (corte > 0) t = t[..corte];
-                _v.lblProgreso.Text = $"{t} · {fraccion * 100:0}%";
-            });
+                _v.lblProgreso.Text = $"{_v._tramoActual} · {fraccion * 100:0} %");
         public void FileDone(FileResult r) { }
+        public void FileSkipped(string ruta, string porque) =>
+            _v.Dispatcher.Invoke(() =>
+            {
+                _v.lblProgreso.Text = $"{_v._tramoActual} · SALTADO: {porque}";
+                _v.Log?.Invoke($"Recortes: el motor se saltó este tramo — {porque}");
+            });
     }
 }

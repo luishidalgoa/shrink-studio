@@ -29,6 +29,24 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Recortes no exportaba nada.** El motor comprueba que nadie tenga el fichero cogido
+  (para no pillar una descarga a medias) y quien lo tenia cogido era el propio reproductor
+  de la pagina: se saltaba el video y no salia ni un fichero. Ahora se suelta antes de
+  codificar y vuelve al terminar.
+- **Recortes decia «2 ficheros creados» sin haber creado ninguno.** Daba por bueno que la
+  llamada al motor volviera. Ahora se comprueba el fichero en disco y, si falta, se dice
+  cuantos no salieron y con que nombre.
+
+### Anadido
+
+- **Progreso de verdad al exportar:** que tramo va, de cuantos, con su nombre y el
+  porcentaje; y si el motor se salta uno, se ve el motivo en la propia barra.
+- **Se puede elegir donde guardar los recortes.** Por defecto van junto al video original.
+- Exportar ya no se puede lanzar dos veces a la vez: cada clic arrancaba otra tanda entera
+  sobre los mismos ficheros.
+
 ### Añadido
 
 - **Recortes: una tercera sección para partir un vídeo o quitarle un trozo.** Sirve para el
