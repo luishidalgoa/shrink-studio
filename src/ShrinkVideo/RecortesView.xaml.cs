@@ -79,6 +79,10 @@ public partial class RecortesView : UserControl
     private bool _exportando;
     private string? _tempMiniaturas;
     private bool _partirAlSaberDuracion;
+
+    // ── ampliación de la línea de tiempo ──
+    private const double ZoomMin = 1, ZoomMax = 40;
+    private double _zoom = 1;
     // Fotogramas ya sacados, por segundo redondeado al hueco. Es la unica cache que hay y
     // se vacia entera al cambiar de video o al salir de la pagina.
     private readonly Dictionary<int, BitmapImage> _previas = new();
@@ -195,7 +199,29 @@ public partial class RecortesView : UserControl
             if (_agarre == Agarre.Nada) globoPrevia.Visibility = Visibility.Collapsed;
         };
 
-        SizeChanged += (_, _) => { PintarPista(); _esperaPista.Stop(); _esperaPista.Start(); };
+        SizeChanged += (_, _) => { AjustarAnchoPista(); PintarPista(); _esperaPista.Stop(); _esperaPista.Start(); };
+        visorPista.SizeChanged += (_, _) => AjustarAnchoPista();
+        visorPista.ScrollChanged += (_, e) => { if (Math.Abs(e.HorizontalChange) > 0.5) AlDesplazarPista(); };
+
+        // Ctrl + rueda amplía; la rueda sola sigue siendo desplazarse, como en cualquier
+        // editor. PreviewMouseWheel para adelantarse al desplazamiento del propio visor.
+        visorPista.PreviewMouseWheel += (_, e) =>
+        {
+            if (Keyboard.Modifiers != ModifierKeys.Control) return;
+            Ampliar(e.Delta > 0 ? 1.25 : 1 / 1.25, e.GetPosition(visorPista).X);
+            e.Handled = true;
+        };
+        // Ctrl + y Ctrl − para quien no use rueda; Ctrl+0 devuelve la vista entera.
+        PreviewKeyDown += (_, e) =>
+        {
+            if (Keyboard.Modifiers != ModifierKeys.Control) return;
+            switch (e.Key)
+            {
+                case Key.OemPlus or Key.Add: Ampliar(1.25); e.Handled = true; break;
+                case Key.OemMinus or Key.Subtract: Ampliar(1 / 1.25); e.Handled = true; break;
+                case Key.D0 or Key.NumPad0: Ampliar(ZoomMin / Math.Max(_zoom, 0.0001)); e.Handled = true; break;
+            }
+        };
         // Al salir de la página no se deja nada en memoria ni en disco temporal.
         Unloaded += (_, _) => LiberarMiniaturas();
     }
@@ -207,6 +233,61 @@ public partial class RecortesView : UserControl
     /// mismo vídeo. Los tramos solo se rehacen si de verdad es otro material; si no, volver
     /// de exportar borraría los cortes que el usuario acaba de hacer.
     /// </summary>
+    /// <summary>
+    /// La pista mide el ancho del visor por el aumento. A 1× cabe entera; a 8× hay que
+    /// desplazarse, y cada segundo ocupa ocho veces más — que es de lo que se trata.
+    /// </summary>
+    private bool _ajustandoAncho;
+
+    private void AjustarAnchoPista()
+    {
+        // Pestillo: cambiar el ancho fuerza un relayout, ese relayout puede mover el
+        // ViewportWidth (aparece o desaparece la barra de desplazamiento) y eso vuelve a
+        // llamar aquí. Sin el pestillo se realimenta hasta reventar la pila — la primera
+        // versión mataba el proceso sin dejar ni un mensaje.
+        if (_ajustandoAncho) return;
+        double visible = visorPista.ViewportWidth;
+        if (visible <= 0) return;
+        double nuevo = Math.Round(visible * _zoom);
+        if (Math.Abs(pista.Width - nuevo) < 0.5) return;
+
+        _ajustandoAncho = true;
+        try { pista.Width = nuevo; pista.UpdateLayout(); }
+        finally { _ajustandoAncho = false; }
+    }
+
+    /// <summary>
+    /// Amplía o reduce dejando quieto el segundo que hay bajo <paramref name="anclaX"/> (una
+    /// x del VISOR). Es lo que hace que ampliar con la rueda se sienta natural: el punto que
+    /// estás mirando no se te escapa de debajo del cursor.
+    /// </summary>
+    internal void Ampliar(double factor, double? anclaX = null)
+    {
+        double antes = _zoom;
+        double nuevo = Math.Clamp(_zoom * factor, ZoomMin, ZoomMax);
+        if (Math.Abs(nuevo - antes) < 0.001) return;
+
+        double x = anclaX ?? visorPista.ViewportWidth / 2;
+        // El segundo del ancla, ANTES de cambiar nada.
+        double segAncla = SegundoEn(visorPista.HorizontalOffset + x);
+
+        _zoom = nuevo;
+        AjustarAnchoPista();
+
+        // Y se recoloca el desplazamiento para que ese segundo vuelva a caer en la misma x.
+        // El UpdateLayout no es un adorno: ScrollToHorizontalOffset no surte efecto hasta el
+        // siguiente pase de diseño, y girando la rueda deprisa llegan varios pasos dentro
+        // del mismo fotograma — el segundo llamaría leyendo un desplazamiento viejo y el
+        // punto anclado se iría de debajo del cursor (medido: 389 s de deriva en 5 pasos).
+        visorPista.ScrollToHorizontalOffset(Math.Max(0, XDe(segAncla) - x));
+        visorPista.UpdateLayout();
+
+        PintarPista();
+        _esperaPista.Stop();
+        _esperaPista.Start();
+        lblZoom.Text = _zoom <= 1.01 ? "" : $"×{_zoom:0.#}";
+    }
+
     private void Duracion(double segundos)
     {
         if (segundos <= 0) return;
@@ -319,6 +400,16 @@ public partial class RecortesView : UserControl
         _duracion <= 0 ? 0 : segundo / _duracion * pista.ActualWidth;
 
     /// <summary>
+    /// De una x de la PISTA a una x de lo que se ve. Con la pista ampliada las dos dejan de
+    /// coincidir, y el globo y el botón de cortar viven fuera del visor: sin restar el
+    /// desplazamiento saldrían corridos justo cuando más precisión hace falta.
+    /// </summary>
+    /// <summary>El segundo que hay en una x de la pista. Solo para las pruebas.</summary>
+    internal double SegundoBajo(double xPista) => SegundoEn(xPista);
+
+    private double XVisible(double xPista) => xPista - visorPista.HorizontalOffset;
+
+    /// <summary>
     /// Todo lo que pasa moviendo el ratón por la pista. La posición se saca del ratón y no
     /// del estado de ningún control: así funciona igual pasando por encima que arrastrando.
     ///
@@ -345,7 +436,8 @@ public partial class RecortesView : UserControl
         // salido de la ventana no se lee.
         double ancho = globoPrevia.ActualWidth > 0 ? globoPrevia.ActualWidth : 200;
         double alto = globoPrevia.ActualHeight > 0 ? globoPrevia.ActualHeight : 132;
-        Canvas.SetLeft(globoPrevia, Math.Clamp(x - ancho / 2, 0, Math.Max(0, pista.ActualWidth - ancho)));
+        Canvas.SetLeft(globoPrevia, Math.Clamp(XVisible(x) - ancho / 2, 0,
+            Math.Max(0, visorPista.ViewportWidth - ancho)));
         Canvas.SetTop(globoPrevia, -alto - 8);
         lblPrevia.Text = TramoFila.Reloj(seg);
 
@@ -767,7 +859,8 @@ public partial class RecortesView : UserControl
 
         btnCortar.Visibility = Visibility.Visible;
         double ancho = btnCortar.ActualWidth > 0 ? btnCortar.ActualWidth : 24;
-        Canvas.SetLeft(btnCortar, Math.Clamp(x - ancho / 2, 0, Math.Max(0, pista.ActualWidth - ancho)));
+        Canvas.SetLeft(btnCortar, Math.Clamp(XVisible(x) - ancho / 2, 0,
+            Math.Max(0, visorPista.ViewportWidth - ancho)));
         Canvas.SetTop(btnCortar, 1);
     }
 
@@ -795,9 +888,17 @@ public partial class RecortesView : UserControl
 
         double alto = pista.ActualHeight;
         double ancho = Math.Round(alto * 16 / 9.0);          // una celda ≈ un fotograma 16:9
-        int cuantas = Math.Max(1, (int)Math.Ceiling(pista.ActualWidth / ancho));
+        int total = Math.Max(1, (int)Math.Ceiling(pista.ActualWidth / ancho));
 
-        for (int k = 0; k < cuantas; k++)
+        // Solo se tienden las celdas que se VEN, más un margen a cada lado para que al
+        // desplazarse no aparezcan vacías. A 40× la pista mide decenas de miles de píxeles:
+        // tenderla entera serían cientos de extracciones de fotograma para nada.
+        const int margen = 3;
+        int desde = Math.Max(0, (int)(visorPista.HorizontalOffset / ancho) - margen);
+        int hasta = Math.Min(total, (int)Math.Ceiling(
+            (visorPista.HorizontalOffset + Math.Max(visorPista.ViewportWidth, 1)) / ancho) + margen);
+
+        for (int k = desde; k < hasta; k++)
         {
             double centro = (k + 0.5) * ancho / pista.ActualWidth * _duracion;
             int hueco = (int)(Math.Clamp(centro, 0, _duracion) / HuecoPrevia) * HuecoPrevia;
@@ -816,6 +917,14 @@ public partial class RecortesView : UserControl
         }
 
         if (SiguienteHueco() >= 0) _esperaPrevia.Start();
+    }
+
+    /// <summary>Al desplazarse hay celdas nuevas a la vista: se tienden con un respiro.</summary>
+    private void AlDesplazarPista()
+    {
+        Cabezal(video.Position.TotalSeconds);
+        _esperaPista.Stop();
+        _esperaPista.Start();
     }
 
     // ─────────────────────────── reproducción ───────────────────────────

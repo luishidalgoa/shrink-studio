@@ -31,6 +31,11 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Ampliar la línea de tiempo en Recortes (Ctrl + rueda, Ctrl + y Ctrl −).** Hasta 40×, para
+  clavar un corte al fotograma en vez de a ojo. Amplía **por donde apuntas**: el punto bajo el
+  cursor no se mueve, así que no pierdes de vista lo que estabas mirando. Ctrl+0 vuelve a ver
+  el vídeo entero, y arriba a la derecha se indica el aumento.
+
 - **«Partirlo en dos» cuando un fichero trae dos episodios.** Ese caso no se arregla
   eligiendo número —le pongas el que le pongas, pierdes el otro—: hay que partir el vídeo.
   Ahora el resolutor lo ofrece con un botón destacado que lo lleva a Recortes con un corte
