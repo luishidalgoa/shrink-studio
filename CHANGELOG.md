@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.14.6] - 2026-07-23
+
 ### Cambiado
 
 - **El gradiente de plasma también sale de fondo cuando Recortes está vacío.** Antes solo
