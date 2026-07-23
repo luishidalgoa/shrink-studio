@@ -29,6 +29,30 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.14.7] - 2026-07-23
+
+### Cambiado
+
+- **Se retira el fondo de plasma animado de Recortes.** Era bonito, pero se calculaba píxel a
+  píxel en la CPU y —en una app cuyo trabajo es justo saturar la CPU comprimiendo— se comía un
+  núcleo entero **incluso en reposo**, y era la causa real de que la interfaz fuera lenta al
+  importar y después de exportar un vídeo pesado. En su lugar queda un fondo degradado sobrio
+  que no cuesta nada. Medido: el consumo en reposo cae de **~110 % de un núcleo a ~7 %**.
+
+### Corregido
+
+- **«Partir en dos» de otro vídeo justo después de exportar ya no carga el vídeo equivocado.**
+  Al terminar una exportación, la previsualización del vídeo recién exportado se reabría con un
+  pequeño retardo. Si en ese hueco cargabas otro fichero (por ejemplo, «Partir en dos» de otro
+  episodio), esa reapertura tardía pisaba el nuevo vídeo con el anterior y la partición salía
+  sobre el material equivocado. Ahora la reapertura comprueba antes que el vídeo en pantalla
+  sigue siendo el que se exportó; si cargaste otro, no lo toca.
+- **La interfaz ya no se arrastra mientras exportas con un códec por software.** Al comprimir,
+  ffmpeg usaba los ocho núcleos y ahogaba a la propia app; bajarle la prioridad no bastaba.
+  Ahora se le **reservan** un par de núcleos a la interfaz (y también al sondeo y las miniaturas
+  del import), así responde al momento aunque la codificación esté a tope. La codificación tarda
+  un pelín más, imperceptible en una tarea de fondo.
+
 ## [0.14.6] - 2026-07-23
 
 ### Cambiado

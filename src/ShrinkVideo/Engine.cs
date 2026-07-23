@@ -813,20 +813,44 @@ public sealed class Engine
     }
 
     /// <summary>
-    /// ffmpeg codifica con todos los núcleos y, a prioridad normal, se lleva por delante a
-    /// la propia app: medido en esta máquina (8 hilos, x265), la ventana pasaba de recibir
-    /// un 5,9 % de CPU a un 3,1 % mientras exportaba — de ahí la sensación de que todo se
-    /// arrastra. Por debajo de lo normal recupera un 4,9 % y la codificación tarda un ~4 %
-    /// más, que en una tarea de fondo no se nota y en la interfaz sí.
+    /// ffmpeg codifica con TODOS los núcleos y ahoga a la propia app. Bajar la prioridad a
+    /// «por debajo de lo normal» no bastaba: medido en esta máquina (8 hilos, x265), con la
+    /// CPU al 100 % la ventana seguía recibiendo solo un ~4,9 % de CPU y la interfaz respondía
+    /// tarde. La razón es que «por debajo de lo normal» aún COMPITE por los ocho núcleos; si
+    /// los ocho están llenos, el hilo de la interfaz espera su turno.
     ///
-    /// Windows sigue dando a un proceso «por debajo de lo normal» todos los núcleos que
-    /// nadie más quiera: con la máquina parada, esto no la deja en ralentí.
+    /// La cura de verdad es RESERVAR núcleos: se le prohíbe a ffmpeg usar uno (o unos pocos)
+    /// núcleos con la afinidad de proceso, así la interfaz SIEMPRE tiene un núcleo libre,
+    /// pase lo que pase con la codificación. Cuesta ese tanto por ciento de velocidad de
+    /// encode (un núcleo de ocho ≈ 12 %), que en una tarea de fondo no se nota y en la
+    /// interfaz —que es lo que el usuario está mirando— se nota muchísimo.
+    ///
+    /// Se mantiene además «por debajo de lo normal»: sobre los núcleos que sí comparte, la
+    /// interfaz (prioridad normal) le gana el turno igualmente.
     /// </summary>
     private static void ApartarDelPasoDeLaInterfaz(Process proc)
     {
         // Puede haber terminado ya (un ffmpeg que falla al instante) o negarse por permisos:
-        // no poder bajar la prioridad no es motivo para no codificar.
+        // no poder apartarlo no es motivo para no codificar.
         try { proc.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }
+
+        try
+        {
+            int cores = Environment.ProcessorCount;
+            // Por debajo de 3 núcleos no se reserva: quitarle uno a una máquina de 2 dejaría
+            // la codificación coja sin ganar una interfaz fluida de verdad.
+            if (cores < 3) return;
+
+            // Se reserva ~1 de cada 4 (mínimo 1) para la app. En una máquina de 8 son 2, que
+            // en equipos con HyperThreading libera un núcleo físico entero para la interfaz.
+            int reservados = Math.Max(1, cores / 4);
+            int usables = cores - reservados;
+            // Máscara con los `usables` núcleos bajos encendidos; los altos quedan libres para
+            // la interfaz, el hilo de render y todo lo demás de la app.
+            nint mascara = (nint)((1L << usables) - 1);
+            proc.ProcessorAffinity = mascara;
+        }
+        catch { /* la afinidad puede negarse (permisos, >64 núcleos): la prioridad ya ayuda */ }
     }
 
     private async Task<(int code, string err)> RunFfmpegAsync(
@@ -904,6 +928,10 @@ public sealed class Engine
         foreach (var a in args) psi.ArgumentList.Add(a);
         using var proc = new Process { StartInfo = psi };
         proc.Start();
+        // El sondeo y las miniaturas del import también van por aquí: un ffmpeg que busca y
+        // decodifica un fotograma de un vídeo grande da un tirón a la interfaz si corre a
+        // prioridad normal. Se aparta igual que la codificación.
+        ApartarDelPasoDeLaInterfaz(proc);
         var so = proc.StandardOutput.ReadToEndAsync();
         var se = proc.StandardError.ReadToEndAsync();
         await proc.WaitForExitAsync();

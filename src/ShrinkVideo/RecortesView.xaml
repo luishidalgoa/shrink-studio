@@ -103,16 +103,22 @@
             <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
 
-          <Grid Grid.Row="0" Background="Black">
-            <!-- Fondo de plasma. Se ve cuando NO hay vídeo (estado vacío) y también durante
-                 la exportación. Va detrás de todo: el vídeo, al cargarse, lo tapa. Lo
-                 enciende/apaga, lo atenúa y lo pausa el código (RefrescarPlasma); se congela
-                 si minimizas o cambias de pestaña, para no gastar batería en reposo. -->
-            <Image x:Name="plasma" Stretch="Fill" Opacity="0"
-                   RenderOptions.BitmapScalingMode="LowQuality"/>
+          <Grid Grid.Row="0">
+            <!-- Fondo estático del reproductor: un degradado oscuro y sutil, pintado por la GPU
+                 una sola vez (coste cero). El vídeo, al cargarse, lo tapa. Aquí hubo un plasma
+                 animado calculado por CPU, pero en una app que satura la CPU comprimiendo se
+                 comía un núcleo entero en reposo y volvía lenta la interfaz — retirado a
+                 propósito (KRO — rendimiento). -->
+            <Grid.Background>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#090A11" Offset="0"/>
+                <GradientStop Color="#11131D" Offset="0.5"/>
+                <GradientStop Color="#090A11" Offset="1"/>
+              </LinearGradientBrush>
+            </Grid.Background>
             <MediaElement x:Name="video" LoadedBehavior="Manual" UnloadedBehavior="Stop" Stretch="Uniform"/>
             <!-- El texto del estado vacío va en una pastilla translúcida: así se lee igual de
-                 bien sobre el plasma que sobre negro. -->
+                 bien sobre el fondo que sobre el vídeo. -->
             <Border x:Name="chipSinVideo" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Background="#66101018" CornerRadius="8" Padding="14,7">
               <TextBlock x:Name="lblSinVideo" Text="Elige un vídeo para empezar a cortarlo"
@@ -138,10 +144,9 @@
                  avería, se vela la imagen y se dice por qué. Los pulsos de luz son el mismo
                  lenguaje que el fondo de la app —manchas radiales muy tenues— pero latiendo,
                  para que se lea como «trabajando» y no como «colgado». -->
-            <!-- Capa de exportación: el plasma vive detrás (fondo del reproductor), así que
-                 aquí solo va el mensaje. El fondo es un velo RADIAL —oscuro en el centro para
-                 que el texto se lea, transparente en los cantos para que el plasma brille—,
-                 no un velo plano que apagaría el gradiente. -->
+            <!-- Capa de exportación: solo el mensaje sobre un velo RADIAL —oscuro en el centro
+                 para que el texto se lea, transparente en los cantos para que asome el fondo
+                 degradado del reproductor—, no un velo plano. -->
             <Border x:Name="capaExportando" Visibility="Collapsed">
               <Border.Background>
                 <RadialGradientBrush GradientOrigin="0.5,0.5" Center="0.5,0.5" RadiusX="0.75" RadiusY="0.75">
