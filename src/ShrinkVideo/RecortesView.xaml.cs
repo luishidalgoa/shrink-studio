@@ -169,8 +169,8 @@ public partial class RecortesView : UserControl
         };
         video.MediaFailed += (_, _) =>
         {
-            // No se puede previsualizar (pero sí cortar): se dice, en la pastilla, encima del
-            // plasma. El plasma sigue de fondo porque no hay imagen de vídeo que enseñar.
+            // No se puede previsualizar (pero sí cortar): se dice en la pastilla, sobre el
+            // fondo degradado, porque no hay imagen de vídeo que enseñar.
             lblSinVideo.Text = "Este vídeo no se puede previsualizar aquí, pero sí cortarlo.";
             chipSinVideo.Visibility = Visibility.Visible;
         };
@@ -240,31 +240,7 @@ public partial class RecortesView : UserControl
             }
         };
         // Al salir de la página no se deja nada en memoria ni en disco temporal.
-        Unloaded += (_, _) => { LiberarMiniaturas(); _plasma?.Dispose(); _plasma = null; };
-
-        // El plasma se CONGELA mientras arrastras o redimensionas la ventana, como en la
-        // vista previa: es el único momento en que su goteo de fotogramas podría competir
-        // por el hilo de la UI con el bucle modal de mover. Se engancha a los mensajes de
-        // Windows que marcan el principio y el fin de ese bucle.
-        // El plasma ya NO se congela al arrastrar la ventana. Se probó que no hace falta: al
-        // vivir en un hilo de fondo y volcar a la interfaz con prioridad Background, el
-        // volcado cede solo al bucle de mover, así que la animación sigue fluyendo sin meter
-        // tirones (medido: arrastrar exportando va como en reposo). Congelarla se veía peor
-        // que dejarla correr, que es lo que el usuario reportó.
-        //
-        // Sí se congela al MINIMIZAR: ahí nadie la mira, y así no gasta batería moviéndose.
-        Loaded += (_, _) =>
-        {
-            if (Window.GetWindow(this) is { } w)
-            {
-                w.StateChanged += (_, _) =>
-                {
-                    _ventanaActiva = w.WindowState != WindowState.Minimized;
-                    RefrescarPlasma();
-                };
-                _ventanaActiva = w.WindowState != WindowState.Minimized;
-            }
-        };
+        Unloaded += (_, _) => LiberarMiniaturas();
     }
 
     /// <summary>
@@ -443,7 +419,6 @@ public partial class RecortesView : UserControl
         lblVideo.Text = fi.Name;
         lblVideoDet.Text = "Analizando…";
         chipSinVideo.Visibility = Visibility.Collapsed;
-        RefrescarPlasma();   // hay vídeo: el plasma de fondo se apaga (el vídeo toma el sitio)
         _tramos.Clear();
         _duracion = 0;            // la del vídeo anterior no vale, y sin esto no se recalcula
         LiberarMiniaturas();      // los fotogramas del vídeo anterior no valen para este
@@ -454,22 +429,27 @@ public partial class RecortesView : UserControl
         _pausado = true;
 
         Ocupado(true, "Analizando el vídeo…");
-        var info = await _engine.ProbeAsync(ruta);
-        _fuente.Width = info.Width; _fuente.Height = info.Height; _fuente.Fps = info.Fps;
-        _fuente.DurationSec = info.DurationSec;
-        _fuente.VideoBitrateKbps = info.VideoBitrateKbps;
-        _fuente.AudioBitrateKbps = info.AudioBitrateKbps;
-        _fuente.Channels = info.Channels; _fuente.AudioCodec = info.AudioCodec;
-        _fuente.Codec = info.Codec; _fuente.Probed = true;
+        _importando = true;   // el vigía anota a nombre del import cualquier atasco de aquí
+        try
+        {
+            var info = await _engine.ProbeAsync(ruta);
+            _fuente.Width = info.Width; _fuente.Height = info.Height; _fuente.Fps = info.Fps;
+            _fuente.DurationSec = info.DurationSec;
+            _fuente.VideoBitrateKbps = info.VideoBitrateKbps;
+            _fuente.AudioBitrateKbps = info.AudioBitrateKbps;
+            _fuente.Channels = info.Channels; _fuente.AudioCodec = info.AudioCodec;
+            _fuente.Codec = info.Codec; _fuente.Probed = true;
 
-        // Si el reproductor no ha sabido abrirlo, la duración la da el sondeo: cortar tiene
-        // que seguir siendo posible aunque no se pueda previsualizar.
-        if (_duracion <= 0) Duracion(info.DurationSec);
+            // Si el reproductor no ha sabido abrirlo, la duración la da el sondeo: cortar tiene
+            // que seguir siendo posible aunque no se pueda previsualizar.
+            if (_duracion <= 0) Duracion(info.DurationSec);
 
-        lblVideoDet.Text = $"{info.Codec.ToUpperInvariant()} · {info.Width}×{info.Height} · " +
-                           $"{Humano(fi.Length)}";
-        lblDuracionTotal.Text = TramoFila.Reloj(_duracion);
-        MostrarDestino();
+            lblVideoDet.Text = $"{info.Codec.ToUpperInvariant()} · {info.Width}×{info.Height} · " +
+                               $"{Humano(fi.Length)}";
+            lblDuracionTotal.Text = TramoFila.Reloj(_duracion);
+            MostrarDestino();
+        }
+        finally { _importando = false; }
 
         Ocupado(false);
         btnCortar.IsEnabled = true;
@@ -1080,6 +1060,15 @@ public partial class RecortesView : UserControl
     private readonly List<double> _marcos = new();
     private bool _midiendoRender;
 
+    // Vigía SIEMPRE activo (mientras la página se ve), no solo al exportar: mide si el hilo de
+    // la interfaz se queda sin responder durante el IMPORT o en reposo — el síntoma que el
+    // usuario reporta («la interfaz responde tarde»). Durante el export no duplica: ese lo
+    // cubre VigilarBloqueos con su propio umbral.
+    private DispatcherTimer? _vigiaSiempre;
+    private readonly System.Diagnostics.Stopwatch _vigiaSiempreCrono = new();
+    private bool _importando;
+    private bool _tierRegistrado;
+
     private void VigilarBloqueos(bool si)
     {
         if (si)
@@ -1109,6 +1098,54 @@ public partial class RecortesView : UserControl
         if (!_midiendoRender) return;
         _marcos.Add(_marcoCrono.Elapsed.TotalMilliseconds);
         _marcoCrono.Restart();
+    }
+
+    /// <summary>
+    /// Vigía del hilo de la interfaz mientras la página está a la vista. El timer late cada
+    /// 40 ms; si un tick se retrasa más de 120 ms es que el hilo estuvo bloqueado ese tiempo
+    /// —y ahí es donde se siente que «responde tarde»—. Anota cuándo pasó y qué se estaba
+    /// haciendo, para saber si el freno es el import, el reposo o algo de fuera.
+    /// </summary>
+    private void VigilanciaContinua(bool si)
+    {
+        if (si)
+        {
+            _vigiaSiempre ??= CrearVigiaContinuo();
+            _vigiaSiempreCrono.Restart();
+            _vigiaSiempre.Start();
+        }
+        else _vigiaSiempre?.Stop();
+    }
+
+    /// <summary>
+    /// Anota UNA vez el nivel de aceleración gráfica de WPF. Si sale 0, la app está pintando
+    /// por SOFTWARE (sin GPU) y por eso todo va lento pase lo que pase — es una causa distinta
+    /// del ffmpeg y hay que descartarla. 2 = GPU completa; 1 = parcial.
+    /// </summary>
+    private void RegistrarAceleracion()
+    {
+        if (_tierRegistrado) return;
+        _tierRegistrado = true;
+        int tier = System.Windows.Media.RenderCapability.Tier >> 16;
+        Log?.Invoke($"Recortes: aceleración gráfica nivel {tier} " +
+                    "(0 = por software/sin GPU, 1 = parcial, 2 = GPU completa).");
+    }
+
+    private DispatcherTimer CrearVigiaContinuo()
+    {
+        var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
+        t.Tick += (_, _) =>
+        {
+            var gap = _vigiaSiempreCrono.ElapsedMilliseconds;
+            // El export tiene su propio vigía (VigilarBloqueos); aquí no se duplica.
+            if (!_exportando && gap > 120)
+            {
+                string donde = _importando ? "importando un vídeo" : "en reposo";
+                Log?.Invoke($"Recortes: la interfaz se quedó {gap} ms sin responder ({donde}).");
+            }
+            _vigiaSiempreCrono.Restart();
+        };
+        return t;
     }
 
     private void ResumirRender()
@@ -1143,64 +1180,7 @@ public partial class RecortesView : UserControl
         btnPausarExp.Visibility = btnDetenerExp.Visibility = si ? Visibility.Visible : Visibility.Collapsed;
         btnPausarExp.IsEnabled = btnDetenerExp.IsEnabled = si;
         btnPausarExp.Content = "Pausar";
-        RefrescarPlasma();      // el plasma pasa a «a tope» al exportar, y a «de fondo» al parar
         VigilarBloqueos(si);
-    }
-
-    /// <summary>
-    /// Los pulsos de luz de la capa. A 5 fps a propósito: van sobre un vídeo y toda la
-    /// máquina está codificando — es justo la animación que no puede costar nada.
-    /// </summary>
-    /// <summary>
-    /// El latido de las dos bandas laterales: la luz sube desde el canto y se retira.
-    ///
-    /// Van a 20 fps, no a 5 como antes. Con la caché puesta en cada banda —y no en el
-    /// grupo— animar la opacidad es mezclar un mapa de bits ya pintado, así que subir el
-    /// ritmo sale casi gratis; medido sobre la capa vacía, las dos bandas cuestan dos
-    /// décimas de punto de CPU. A 5 fps el latido se veía a saltos.
-    /// </summary>
-    private PlasmaGradiente? _plasma;
-    private bool _enPantalla, _ventanaActiva = true;
-
-    /// <summary>
-    /// Decide si el plasma debe estar encendido y con qué intensidad, y lo pone así. Es el
-    /// único sitio que toca el plasma: se llama cada vez que cambia algo que importa —cargar
-    /// o quitar vídeo, empezar/terminar de exportar, cambiar de pestaña, minimizar—.
-    ///
-    /// Se ve cuando NO hay vídeo (estado vacío, atenuado para que el texto se lea) o mientras
-    /// se exporta (a tope). Y solo si la página está a la vista y la ventana no está
-    /// minimizada: fuera de eso se congela, para no gastar batería moviendo algo que nadie
-    /// ve. El movimiento y el respiro los lleva el plasma en su hilo de fondo; aquí solo se
-    /// funde la opacidad de la imagen.
-    /// </summary>
-    private void RefrescarPlasma()
-    {
-        bool debe = (_fuente == null || _exportando) && _enPantalla && _ventanaActiva;
-
-        if (debe)
-        {
-            if (_plasma == null)
-            {
-                _plasma = new PlasmaGradiente();
-                plasma.Source = _plasma.Bitmap;
-            }
-            _plasma.Arrancar();                       // arranca o reanuda si estaba congelado
-            FundirPlasma(_exportando ? 1.0 : 0.58);   // en export a tope; de fondo, atenuado
-        }
-        else
-        {
-            FundirPlasma(0);
-            _plasma?.Pausar();     // se congela; no se tira, para reencender sin recrear el hilo
-        }
-    }
-
-    private void FundirPlasma(double tope)
-    {
-        if (Math.Abs(plasma.Opacity - tope) < 0.01 && plasma.Opacity == tope) return;
-        var f = new DoubleAnimation(tope, TimeSpan.FromSeconds(0.6))
-        { EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut } };
-        f.Completed += (_, _) => { plasma.BeginAnimation(UIElement.OpacityProperty, null); plasma.Opacity = tope; };
-        plasma.BeginAnimation(UIElement.OpacityProperty, f);
     }
 
     private void Deshacer()
@@ -1242,14 +1222,14 @@ public partial class RecortesView : UserControl
     /// —de eso se encarga WPF con Visibility.Collapsed—, pero SÍ seguiría trabajando: el reloj
     /// del cabezal late, los previsualizadores gotean fotogramas y, si dejaste el vídeo en
     /// marcha, sigue decodificando y sonando. Al ocultarse se para todo eso; al volver se
-    /// reanuda lo que toque. El plasma solo corre durante el export, así que se pausa/reanuda
-    /// según siga o no exportándose.
+    /// reanuda lo que toque.
     /// </summary>
     public void EnPantalla(bool visible)
     {
-        _enPantalla = visible;
         if (visible)
         {
+            RegistrarAceleracion();
+            VigilanciaContinua(true);
             // Siempre, no solo si ya hay vídeo: si entras a la página y cargas uno después,
             // el reloj tiene que estar ya corriendo. Su tick se ignora solo cuando no hay
             // vídeo, así que dejarlo activo no cuesta nada.
@@ -1257,6 +1237,7 @@ public partial class RecortesView : UserControl
         }
         else
         {
+            VigilanciaContinua(false);
             _reloj.Stop();
             _esperaPrevia.Stop();
             _esperaPista.Stop();
@@ -1270,7 +1251,6 @@ public partial class RecortesView : UserControl
                 _pausado = true;
             }
         }
-        RefrescarPlasma();   // enciende el plasma al entrar en vacío; lo congela al salir
     }
 
     private void Saltar(double s)
@@ -1378,7 +1358,6 @@ public partial class RecortesView : UserControl
         _atras.Clear();
         _adelante.Clear();
         PintarPista();
-        RefrescarPlasma();   // se vuelve a estado vacío: el plasma de fondo reaparece
         return true;
     }
 
@@ -1503,6 +1482,16 @@ public partial class RecortesView : UserControl
                 // al terminar; durante la codificación el hilo va limpio, p99 = 31 ms).
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, () =>
                 {
+                    // CLAVE: entre que termina el export y salta este callback (que es de
+                    // baja prioridad), el usuario puede haber cargado OTRO vídeo —el caso de
+                    // «Partir en dos» de otro fichero justo después de exportar—. Sin esta
+                    // guarda, reabríamos el vídeo VIEJO encima del nuevo durante su carga y
+                    // la partición salía sobre el material equivocado. Solo reabrimos si el
+                    // vídeo actual sigue siendo el que se acaba de exportar.
+                    if (_exportando) return;
+                    if (_fuente == null ||
+                        !string.Equals(_fuente.Path, rutaOriginal, StringComparison.OrdinalIgnoreCase))
+                        return;
                     video.Source = fuente;      // vuelve la previsualización
                     video.Play();
                     video.Pause();
