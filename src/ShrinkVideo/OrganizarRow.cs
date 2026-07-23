@@ -449,6 +449,10 @@ public sealed class OrganizarRow : INotifyPropertyChanged
         Res.Hint = ReindexHint.Override;
         Res.Score = 1.0;
         Res.Confianza = ReindexConfianza.Alta;
+        // Elegir un episodio a mano MANDA sobre la detección de «dos episodios»: el usuario ha
+        // decidido que es este, así que deja de recomendarse partir (si no, la fila seguiría en
+        // «Partir en 2» ignorando la elección). Es lo que permite corregir un falso positivo.
+        Res.TraeDosEpisodios = false;
         Res.Estado = ep.Especial ? ReindexEstado.Especial : ReindexEstado.Corregido;
         Res.Motivo = seg == null
             ? $"Lo elegiste tú: episodio {ep.Num}"
