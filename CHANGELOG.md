@@ -56,13 +56,18 @@ es un acuerdo de buena voluntad: está verificado.
   reproductor costaba 100-200 ms del hilo de interfaz justo encima del desmontaje de la capa
   de aviso — era el único bloqueo medible de toda la exportación (durante la codificación el
   hilo va limpio). Ahora se reabre un instante después, cuando la interfaz está ociosa.
-- **Medidor de fluidez durante la exportación.** «La app va a tirones al exportar» no se pudo
-  reproducir en el banco ni reproduciendo el arrastre de la ventana (arrastrar sin exportar y
-  arrastrar exportando dan lo mismo, y el encoder por hardware sale incluso más fluido que el
-  de software). Así que la app mide en tu máquina los dos hilos que pueden causar un tirón —la
-  entrada y el render— y, si de verdad hubo tirones, lo anota en el Registro con el número. Si
-  no sale nada y aun así lo notaste, el freno viene de fuera del proceso (el grabador de
-  pantalla, que también codifica por GPU; la memoria; el compositor de Windows).
+- **Menos tirones al arrastrar la ventana mientras exportas.** El aviso de exportación tenía
+  dos franjas de luz que LATÍAN sin parar. Medido con un export de verdad (1080p, exportando
+  el vídeo entero mientras se arrastra la ventana), ese latido metía microcortes en la imagen
+  —peor cuanto más pesado el vídeo—, porque las animaciones de WPF laten en el mismo hilo que
+  el arrastre necesita, y el codificador ya deja la GPU corta. Ahora las franjas ENTRAN una
+  vez con un fundido y se quedan quietas: mismo aspecto, sin animación compitiendo. Medido,
+  el arrastre exportando pasa a ir como en reposo.
+- **Medidor de fluidez durante la exportación.** Por si algún tirón se escapa: la app mide en
+  tu máquina los dos hilos que pueden causarlo —la entrada y el render— y, si de verdad hubo
+  tela, lo anota en el Registro con el número. Si no sale nada y aun así lo notaste, el freno
+  viene de fuera del proceso (el grabador de pantalla, que también codifica por GPU; la
+  memoria llena; el compositor de Windows).
 - **Las tarjetas de catálogo se refrescan al volver a la app:** si borras o mueves el JSON
   desde el Explorador, la tarjeta desaparece al volver, sin reiniciar.
 - **La barra de «Descargando de la nube» ahora avanza de verdad.** OneDrive suele traer el

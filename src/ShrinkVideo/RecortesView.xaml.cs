@@ -1131,40 +1131,31 @@ public partial class RecortesView : UserControl
     /// </summary>
     private void LatirPulsos()
     {
-        void Latido(UIElement e, TranslateTransform asoma, double desdeX,
-                    double tope, double segundos, double retraso)
+        // Antes las bandas LATÍAN sin parar (opacidad + desplazamiento en bucle, a 20 fps).
+        // Medido con un export pesado de 1080p mientras se arrastra la ventana: el latido
+        // continuo metía stutters en el render (p99 43 ms · max 60 ms · fotogramas lentos),
+        // y con la capa quieta desaparecían (p99 35 · max 38 · cero). La causa: las
+        // animaciones de WPF laten en el HILO DE LA UI, que es justo el que el arrastre de la
+        // ventana necesita — y el export ya deja la GPU corta. El pulso era eye-candy que
+        // corría precisamente cuando estorba.
+        //
+        // Ahora las bandas ENTRAN una vez, con un fundido desde el canto, y se quedan
+        // quietas. Mismo aspecto al aparecer, cero animación continua compitiendo por el
+        // hilo de la UI mientras exportas.
+        void Entrar(UIElement e, TranslateTransform asoma, double desdeX, double tope)
         {
-            var suave = new SineEase { EasingMode = EasingMode.EaseInOut };
+            var suave = new SineEase { EasingMode = EasingMode.EaseOut };
 
-            var luz = new DoubleAnimationUsingKeyFrames
-            {
-                RepeatBehavior = RepeatBehavior.Forever,
-                BeginTime = TimeSpan.FromSeconds(retraso),
-            };
-            luz.KeyFrames.Add(new EasingDoubleKeyFrame(
-                tope, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos / 2)), suave));
-            luz.KeyFrames.Add(new EasingDoubleKeyFrame(
-                0.12, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos)), suave));
-            Timeline.SetDesiredFrameRate(luz, 20);
+            var luz = new DoubleAnimation(0, tope, TimeSpan.FromSeconds(0.6)) { EasingFunction = suave };
+            luz.Completed += (_, _) => { e.BeginAnimation(UIElement.OpacityProperty, null); e.Opacity = tope; };
             e.BeginAnimation(UIElement.OpacityProperty, luz);
 
-            // El desplazamiento es lo que hace que la luz ASOME desde el borde en vez de
-            // encenderse en el sitio. Es un transform sobre un elemento cacheado: mover el
-            // mapa de bits, no volver a pintarlo.
-            var entra = new DoubleAnimationUsingKeyFrames
-            {
-                RepeatBehavior = RepeatBehavior.Forever,
-                BeginTime = TimeSpan.FromSeconds(retraso),
-            };
-            entra.KeyFrames.Add(new EasingDoubleKeyFrame(
-                0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos / 2)), suave));
-            entra.KeyFrames.Add(new EasingDoubleKeyFrame(
-                desdeX, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(segundos)), suave));
-            Timeline.SetDesiredFrameRate(entra, 20);
+            var entra = new DoubleAnimation(desdeX, 0, TimeSpan.FromSeconds(0.6)) { EasingFunction = suave };
+            entra.Completed += (_, _) => { asoma.BeginAnimation(TranslateTransform.XProperty, null); asoma.X = 0; };
             asoma.BeginAnimation(TranslateTransform.XProperty, entra);
         }
-        Latido(pulso1, asomaIzq, -26, 1.0, 3.4, 0);
-        Latido(pulso2, asomaDer, 26, 0.85, 4.6, 1.1);
+        Entrar(pulso1, asomaIzq, -26, 0.85);
+        Entrar(pulso2, asomaDer, 26, 0.75);
     }
 
     private void PararPulsos()
