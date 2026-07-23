@@ -15,6 +15,26 @@ public static class NubeLocal
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool PonerAtributos(string ruta, int atributos);
 
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode,
+               EntryPoint = "GetCompressedFileSizeW")]
+    private static extern uint TamañoEnDisco(string ruta, out uint altos);
+
+    /// <summary>
+    /// Bytes que hay YA en disco de un fichero. Para un marcador de nube a medio hidratar
+    /// esto crece según baja el contenido — es lo que enseña «tamaño en disco» del Explorador
+    /// —, mientras que el tamaño lógico es siempre el total. Devuelve -1 si no se puede saber.
+    /// </summary>
+    private static long BytesEnDisco(string ruta)
+    {
+        try
+        {
+            uint bajos = TamañoEnDisco(ruta, out uint altos);
+            if (bajos == 0xFFFFFFFF && Marshal.GetLastWin32Error() != 0) return -1;
+            return ((long)altos << 32) | bajos;
+        }
+        catch { return -1; }
+    }
+
     /// <summary>
     /// Pide al motor de sincronización que vuelva a dejar el fichero solo en la nube, como
     /// estaba. Se usa después de mirar un vídeo para identificarlo: verlo medio minuto no
@@ -60,19 +80,33 @@ public static class NubeLocal
                                             CancellationToken ct)
     {
         long total = new FileInfo(ruta).Length;
-        await Task.Run(() =>
+
+        // La lectura de punta a punta es lo que OBLIGA al proveedor a traer el fichero, pero
+        // OneDrive suele hidratarlo entero en el primer Read: contar bytes leídos deja la
+        // barra clavada en 0 y luego la salta a 100. El progreso REAL sale de los bytes que
+        // ya hay en disco, que se sondean en paralelo mientras la lectura está bloqueada.
+        var lectura = Task.Run(() =>
         {
             using var s = new FileStream(ruta, FileMode.Open, FileAccess.Read, FileShare.Read,
                                          1 << 20, FileOptions.SequentialScan);
             var buf = new byte[1 << 20];
-            long leido = 0;
-            int n;
-            while ((n = s.Read(buf, 0, buf.Length)) > 0)
-            {
-                ct.ThrowIfCancellationRequested();
-                leido += n;
-                progreso?.Report(total > 0 ? (double)leido / total : 0);
-            }
+            while (s.Read(buf, 0, buf.Length) > 0) ct.ThrowIfCancellationRequested();
         }, ct);
+
+        while (!lectura.IsCompleted)
+        {
+            var cumplida = await Task.WhenAny(lectura, Task.Delay(250, CancellationToken.None));
+            if (cumplida == lectura) break;
+            if (progreso != null && total > 0)
+            {
+                long enDisco = BytesEnDisco(ruta);
+                // Solo se informa si de verdad va por debajo del total: si el sondeo no sirve
+                // en esta máquina, la barra se queda como estaba en vez de saltar a 100 en falso.
+                if (enDisco > 0 && enDisco < total) progreso.Report((double)enDisco / total);
+            }
+        }
+
+        await lectura;             // propaga cancelación o error de la lectura
+        progreso?.Report(1);       // al terminar, la descarga está completa por definición
     }
 }

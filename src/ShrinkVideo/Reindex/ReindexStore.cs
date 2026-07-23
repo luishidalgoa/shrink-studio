@@ -18,27 +18,30 @@ public sealed class CatalogoGuardado
     public string OrigenRuta { get; init; } = "";
     public string Importado { get; init; } = "";
 
-    /// <summary>false = el JSON referenciado ya no está donde estaba (movido o borrado).</summary>
-    public bool Disponible { get; init; } = true;
-
     /// <summary>La carpeta donde vive el fichero, para verla en la tarjeta y poder abrirla.</summary>
     public string Carpeta => Path.GetDirectoryName(Ruta) ?? "";
+
+    /// <summary>
+    /// Es una copia interna de una versión vieja (su original ya no consta). Quitarla SÍ borra
+    /// el fichero — es de la app, no del usuario —, para que la migración no la resucite.
+    /// </summary>
+    public bool EsCopiaInterna =>
+        Ruta.StartsWith(ReindexStore.DirCatalogos, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Solo el nombre del fichero de origen, para la tarjeta.</summary>
     public string Origen => OrigenRuta.Length == 0 ? "" : Path.GetFileName(OrigenRuta);
 
     /// <summary>
     /// Dónde vive el fichero que la app lee. Ya no hay copia: se referencia el original en
-    /// su sitio, así que editarlo se nota solo y esta línea es la verdad completa.
+    /// su sitio, así que editarlo se nota solo. Un catálogo cuyo fichero desaparece se PODA
+    /// del listado, así que si esta tarjeta se ve, su fichero está.
     /// </summary>
-    public string Procedencia => !Disponible
-        ? $"⚠ el fichero ya no está en {Carpeta} — muévelo de vuelta o vuelve a importarlo"
-        : $"en {Carpeta}" + (Importado.Length > 0 ? $" · añadido el {Importado}" : "");
+    public string Procedencia =>
+        $"en {Carpeta}" + (Importado.Length > 0 ? $" · añadido el {Importado}" : "");
 
     /// <summary>Para el globo: la ruta completa, que en la línea de la tarjeta va recortada.</summary>
-    public string ProcedenciaDetalle => Disponible
-        ? $"La app lee este fichero directamente (sin copia):\n{Ruta}\n\nClic derecho para abrir su ubicación."
-        : $"Estaba en:\n{Ruta}\n\nSi lo has movido, vuelve a importarlo desde su sitio nuevo.";
+    public string ProcedenciaDetalle =>
+        $"La app lee este fichero directamente (sin copia):\n{Ruta}\n\nClic derecho para abrir su ubicación.";
 
     /// <summary>
     /// Lo que accesibilidad lee de este catálogo. Sin esto, un lector de pantalla anuncia el
@@ -148,23 +151,22 @@ public static class ReindexStore
     {
         MigrarCopiasLegadas();
 
+        var reg = LeerMapa(RutaCatalogos);
+        var vivos = new Dictionary<string, string>(reg.Count);
         var lista = new List<CatalogoGuardado>();
-        foreach (var (ruta, fecha) in LeerMapa(RutaCatalogos))
+        foreach (var (ruta, fecha) in reg)
         {
-            if (!File.Exists(ruta))
-            {
-                lista.Add(new CatalogoGuardado
-                {
-                    Ruta = ruta,
-                    Serie = Path.GetFileNameWithoutExtension(ruta).Replace(".reindex", ""),
-                    Importado = fecha,
-                    Disponible = false,
-                });
-                continue;
-            }
+            // Fichero que ya no está = referencia muerta: se PODA del registro y no se
+            // muestra. Enseñar una tarjeta que apunta a algo inexistente solo confunde —
+            // que desaparezca es lo que el usuario espera.
+            if (!File.Exists(ruta)) continue;
+
+            vivos[ruta] = fecha;   // existe: se conserva el registro
             try { lista.Add(Describir(ruta, fecha, ReindexCatalog.Load(ruta))); }
-            catch { /* un catálogo corrupto no puede tumbar la lista entera */ }
+            catch { /* está pero el JSON está roto: se conserva el registro, se omite de la lista */ }
         }
+        if (vivos.Count != reg.Count) EscribirMapa(RutaCatalogos, vivos);
+
         return lista.OrderBy(c => c.Serie, StringComparer.CurrentCultureIgnoreCase).ToList();
     }
 
@@ -245,6 +247,17 @@ public static class ReindexStore
         var reg = LeerMapa(RutaCatalogos);
         if (!reg.Remove(ruta)) return false;
         EscribirMapa(RutaCatalogos, reg);
+
+        // Si lo referenciado es una copia interna de una versión vieja (su original ya no
+        // existía), hay que BORRAR el fichero: si solo se quitara del registro, la migración
+        // lo volvería a registrar en el siguiente listado y el catálogo reaparecería. El JSON
+        // del usuario, que vive FUERA de esta carpeta, no se toca jamás.
+        if (ruta.StartsWith(DirCatalogos, StringComparison.OrdinalIgnoreCase))
+        {
+            try { if (File.Exists(ruta)) File.Delete(ruta); } catch { /* si no se puede, reaparecerá; no es pérdida de datos del usuario */ }
+            var proc = LeerMapa(RutaProcedencia);
+            if (proc.Remove(Path.GetFileName(ruta))) EscribirMapa(RutaProcedencia, proc);
+        }
 
         // Si era el elegido, dejarlo apuntado seria arrancar señalando a algo que ya no esta
         if (string.Equals(CargarUltimoCatalogo(), ruta, StringComparison.OrdinalIgnoreCase))

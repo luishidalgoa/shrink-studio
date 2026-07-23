@@ -35,9 +35,10 @@ es un acuerdo de buena voluntad: está verificado.
   tu JSON en su sitio — si lo editas, cuenta al momento; ya no existe la copia interna que
   se quedaba vieja en silencio. La tarjeta enseña **la ruta del fichero** (pulsable: abre la
   carpeta con él seleccionado) y el clic derecho ofrece abrir la ubicación o copiar la ruta.
-  Si mueves o borras el JSON, la tarjeta **lo dice** en vez de seguir mostrando datos viejos.
-  Las copias de versiones anteriores se migran solas: si su original sigue existiendo se
-  referencia ese; si no, la copia queda registrada con su ruta real a la vista.
+  Si mueves o borras el JSON, el catálogo **desaparece del programa** (no queda una tarjeta
+  rota apuntando a un fichero que ya no está). «Quitar» de una copia interna de una versión
+  anterior sí borra esa copia, para que no reaparezca al refrescar. Tu fichero original nunca
+  se toca.
 - **«Simular» pasa a llamarse «Analizar».** Analizar la carpeta es lo que hace; «simular»
   sugería un ensayo de mentira.
 
@@ -51,6 +52,9 @@ es un acuerdo de buena voluntad: está verificado.
   ficheros en el disco: si la carpeta ya tenía un fichero del mismo nombre (de un intento
   anterior), el motor saca la salida con sufijo y la comprobación buscaba el nombre sin él.
   Ahora se cuenta lo que el motor dice que escribió, comprobado en disco.
+- **La barra de «Descargando de la nube» ahora avanza de verdad.** OneDrive suele traer el
+  fichero entero de una vez, así que contar lo leído dejaba la barra a cero hasta el final;
+  ahora se mide por los bytes que ya hay en disco, que crecen según baja.
 
 ## [0.14.4] - 2026-07-23
 

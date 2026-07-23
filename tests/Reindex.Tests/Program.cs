@@ -790,7 +790,6 @@ public static class Program
             // La app REFERENCIA el original en su sitio, no lo copia. Con copia, editar el
             // original dejaba a la app trabajando con una versión vieja sin forma de notarlo.
             Eq(origen, guardado.Ruta, "la ruta ES la del original: sin copia");
-            Assert(guardado.Disponible, "el original está donde se dijo");
             Eq(0, Directory.Exists(ReindexStore.DirCatalogos)
                     ? Directory.GetFiles(ReindexStore.DirCatalogos).Length : 0,
                 "no se dejó ninguna copia en la carpeta de la app");
@@ -800,14 +799,17 @@ public static class Program
                 System.Text.Encoding.UTF8);
             Eq(6, ReindexStore.ListarCatalogos()[0].Episodios, "relee el original en cada listado");
 
-            // Mover el original NO lo hace desaparecer en silencio: la tarjeta lo dice
+            // Si el fichero enlazado ya no está, el catálogo SE PODA: no se muestra una
+            // tarjeta rota que apunta a algo que no existe. La referencia muerta se borra del
+            // registro para que no reaparezca.
             var movido = Path.Combine(temporal, "entrada-movida.json");
             File.Move(origen, movido);
-            var perdida = ReindexStore.ListarCatalogos();
-            Eq(1, perdida.Count, "el catálogo movido sigue listado — desaparecer sin decir nada sería peor");
-            Assert(!perdida[0].Disponible, "pero avisa de que el fichero ya no está donde estaba");
+            Eq(0, ReindexStore.ListarCatalogos().Count, "un catálogo cuyo fichero ya no está se poda de la lista");
             File.Move(movido, origen);
-            Assert(ReindexStore.ListarCatalogos()[0].Disponible, "al volver el fichero, vuelve a estar disponible");
+            Eq(0, ReindexStore.ListarCatalogos().Count, "y al volver el fichero NO reaparece: su registro ya se podó");
+
+            // Se vuelve a registrar para lo que sigue (ya no está en el registro tras podarse)
+            guardado = ReindexStore.ImportarCatalogo(origen);
 
             // — la última serie elegida sobrevive al cierre —
             Eq(null, ReindexStore.CargarUltimoCatalogo(), "de entrada no hay ninguna elegida");
@@ -842,6 +844,21 @@ public static class Program
             Eq(origen, migrados[0].Ruta, "migrada a referencia: apunta al original");
             Assert(!File.Exists(copiaVieja), "y la copia interna se retiró");
             Assert(ReindexStore.BorrarCatalogo(origen), "se limpia el registro para lo que sigue");
+
+            // — quitar una copia interna HUÉRFANA (su original ya no existe) la borra de
+            //   verdad: si solo se quitara del registro, la migración la resucitaría en el
+            //   siguiente listado. Es justo el bug que reportó el usuario. —
+            Directory.CreateDirectory(ReindexStore.DirCatalogos);
+            var huerfana = Path.Combine(ReindexStore.DirCatalogos, "Huérfana.reindex.json");
+            File.Copy(origen, huerfana);   // sin entrada en procedencia: no hay original que referenciar
+            var conHuerfana = ReindexStore.ListarCatalogos();
+            Eq(1, conHuerfana.Count, "la copia huérfana se registra a sí misma");
+            Eq(huerfana, conHuerfana[0].Ruta, "y su ruta es la de la copia interna");
+            Assert(conHuerfana[0].EsCopiaInterna, "la tarjeta sabe que es una copia interna");
+
+            Assert(ReindexStore.BorrarCatalogo(huerfana), "se quita");
+            Assert(!File.Exists(huerfana), "y el fichero de la copia interna SÍ se borra");
+            Eq(0, ReindexStore.ListarCatalogos().Count, "no reaparece en el siguiente listado");
 
             // — memoria de decisiones —
             Eq(0, ReindexStore.CargarDecisiones().Count, "sin decisiones al principio");
