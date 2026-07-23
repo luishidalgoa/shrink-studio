@@ -30,7 +30,10 @@ public sealed class PlasmaGradiente : IDisposable
 {
     private const int Ancho = 160, Alto = 90;   // 16:9 diminuto; se escala borroso a pantalla
     private const int Iteraciones = 32;          // el shader usa 40; 32 es idéntico a la vista y más barato
-    private const double Fps = 14;               // el plasma se mueve lento: 14 fps no se distingue de 60
+    // 30 fps, no 14: a 14 se movía a saltos y se leía como «lento» aunque no ralentizara nada.
+    // Sigue siendo barato (160×90 en un hilo de fondo), así que la fluidez sale gratis.
+    private const double Fps = 30;
+    private const double Velocidad = 1.25;       // un pelín más vivo que el original, como pidió el usuario
 
     /// <summary>El mapa de bits que pinta la interfaz. Se escala a la capa entera.</summary>
     public WriteableBitmap Bitmap { get; }
@@ -88,7 +91,7 @@ public sealed class PlasmaGradiente : IDisposable
             double ahora = reloj.Elapsed.TotalSeconds;
             double dt = Math.Min(0.1, ahora - ultimo);
             ultimo = ahora;
-            t += dt;
+            t += dt * Velocidad;
 
             // La intensidad busca un objetivo nuevo cada 2–6 s y se acerca suavemente
             if (ahora >= _cambioEn)

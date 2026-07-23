@@ -36,6 +36,10 @@ es un acuerdo de buena voluntad: está verificado.
   empezar a cortarlo» se muestra sobre el mismo plasma en movimiento (atenuado para que el
   texto se lea). Mismo motor barato de siempre, y se **congela** si minimizas la ventana o
   cambias de pestaña, para no gastar batería moviendo algo que nadie está mirando.
+- **El plasma se mueve más suave y ya no se congela al arrastrar la ventana.** Iba a 14
+  fotogramas por segundo, que se veía a saltos y parecía lento; ahora va a 30 y fluye. Y
+  arrastrar la ventana ya no lo congela: se comprobó que dejarlo correr no mete tirones (sigue
+  yendo como en reposo), así que congelarlo solo se veía peor.
 
 ## [0.14.5] - 2026-07-23
 

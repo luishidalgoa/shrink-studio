@@ -246,14 +246,15 @@ public partial class RecortesView : UserControl
         // vista previa: es el único momento en que su goteo de fotogramas podría competir
         // por el hilo de la UI con el bucle modal de mover. Se engancha a los mensajes de
         // Windows que marcan el principio y el fin de ese bucle.
+        // El plasma ya NO se congela al arrastrar la ventana. Se probó que no hace falta: al
+        // vivir en un hilo de fondo y volcar a la interfaz con prioridad Background, el
+        // volcado cede solo al bucle de mover, así que la animación sigue fluyendo sin meter
+        // tirones (medido: arrastrar exportando va como en reposo). Congelarla se veía peor
+        // que dejarla correr, que es lo que el usuario reportó.
+        //
+        // Sí se congela al MINIMIZAR: ahí nadie la mira, y así no gasta batería moviéndose.
         Loaded += (_, _) =>
         {
-            if (PresentationSource.FromVisual(this) is System.Windows.Interop.HwndSource fuente)
-                fuente.AddHook(GanchoVentana);
-
-            // Minimizar = nadie mira: se congela el plasma para no gastar batería moviéndolo.
-            // Al restaurar, vuelve. (Perder el foco pero seguir visible NO lo congela: ahí sí
-            // se ve.)
             if (Window.GetWindow(this) is { } w)
             {
                 w.StateChanged += (_, _) =>
@@ -264,17 +265,6 @@ public partial class RecortesView : UserControl
                 _ventanaActiva = w.WindowState != WindowState.Minimized;
             }
         };
-    }
-
-    private const int WM_ENTERSIZEMOVE = 0x0231, WM_EXITSIZEMOVE = 0x0232;
-
-    private IntPtr GanchoVentana(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool manejado)
-    {
-        // Congela el plasma mientras se arrastra o redimensiona la ventana (bucle modal de
-        // mover); al soltar, se reanuda si sigue habiendo motivo para verlo.
-        if (msg == WM_ENTERSIZEMOVE) _plasma?.Pausar();
-        else if (msg == WM_EXITSIZEMOVE) RefrescarPlasma();
-        return IntPtr.Zero;
     }
 
     /// <summary>
