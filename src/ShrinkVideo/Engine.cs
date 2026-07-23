@@ -834,6 +834,10 @@ public sealed class Engine
         // no poder apartarlo no es motivo para no codificar.
         try { proc.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }
 
+        // La afinidad de proceso solo existe en Windows y Linux; en macOS ni se intenta (y
+        // así el analizador CA1416 no protesta al compilar la versión de macOS del CLI).
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux()) return;
+
         try
         {
             int cores = Environment.ProcessorCount;
