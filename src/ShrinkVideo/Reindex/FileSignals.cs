@@ -155,10 +155,12 @@ public static partial class SignalExtractor
         // título: hay catálogos que los usan («Cuido de mamá (LA)[30]»), y entonces el
         // nombre que la propia app escribía se releía como el episodio 30. Renombrar y
         // volver a simular tiene que dar lo mismo, o los datos se degradan solos.
+        int? temporadaNombre = null;   // la que declara el propio nombre en «S2012E455»
         var mSE = RxSxxExx().Match(resto);
         if (mSE.Success)
         {
             indice = int.Parse(mSE.Groups[2].Value);
+            if (int.TryParse(mSE.Groups[1].Value, out var tNom)) temporadaNombre = tNom;
             if (mSE.Groups[3].Success) subSegmento = mSE.Groups[3].Value.ToLowerInvariant();
             resto = TrasElMarcador(resto, mSE.Index, mSE.Length);
         }
@@ -192,8 +194,12 @@ public static partial class SignalExtractor
             }
         }
 
-        // 4. temporada de la carpeta contenedora
-        int? temporada = TemporadaDeCarpeta(carpeta);
+        // 4. temporada: manda la de la carpeta (así está organizada la biblioteca), pero si la
+        //    carpeta no la dice —un fichero en una subcarpeta de trabajo tipo «Renombrar»— se
+        //    usa la que trae el propio nombre en «S2012E455». Sin esto, un fichero perfecto
+        //    perdía su temporada fuera de su carpeta y se confundía con un REMAKE del mismo
+        //    título en otro año (caso «El aro de la gratitud»: 574 de 2020 tomado por el 88 de 2007).
+        int? temporada = TemporadaDeCarpeta(carpeta) ?? temporadaNombre;
 
         // 5. lo que queda es el título; los trozos si venía multi-segmento
         var titulo = LimpiarTitulo(resto);
