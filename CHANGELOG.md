@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-07-23
+
 ### Corregido
 
 - **Un fichero con dos episodios distintos ahora recomienda partirlo, no elegir uno.** Cuando
