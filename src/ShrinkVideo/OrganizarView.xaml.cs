@@ -250,18 +250,8 @@ public partial class OrganizarView : UserControl
 
     private void OnUsarCatalogo(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement fe || fe.Tag is not string ruta) return;
-        var cat = _catalogos.FirstOrDefault(c => c.Ruta == ruta);
-        // Elegir un catálogo cuyo fichero ya no está solo puede acabar en un aviso de error
-        // al leerlo: mejor decir el problema real, que es que el fichero se movió.
-        if (cat is { Disponible: false })
-        {
-            Aviso($"El fichero de este catálogo ya no está en:{Environment.NewLine}{cat.Ruta}" +
-                  $"{Environment.NewLine}{Environment.NewLine}" +
-                  "Si lo has movido, vuelve a importarlo desde su sitio nuevo.");
-            return;
-        }
-        ElegirCatalogo(cat);
+        if (sender is FrameworkElement fe && fe.Tag is string ruta)
+            ElegirCatalogo(_catalogos.FirstOrDefault(c => c.Ruta == ruta));
     }
 
     /// <summary>Abre la carpeta del JSON del catálogo con el fichero seleccionado.</summary>
@@ -289,9 +279,14 @@ public partial class OrganizarView : UserControl
         var cat = _catalogos.FirstOrDefault(c => c.Ruta == ruta);
         if (cat == null) return;
 
-        var deDonde = cat.OrigenRuta.Length > 0
-            ? $"\n\nSe importó de:\n{cat.OrigenRuta}\n\nEse fichero NO se borra: podrás volver a importarlo."
-            : "\n\nNo consta de qué fichero se importó, así que para recuperarlo tendrás que buscarlo tú.";
+        var nl = Environment.NewLine;
+        // La copia interna SÍ se borra (es de la app); el JSON del usuario, nunca. El aviso
+        // dice la verdad de cada caso — antes prometía «NO se borra» y con las copias legadas
+        // eso era mentira.
+        var deDonde = cat.EsCopiaInterna
+            ? $"{nl}{nl}Es una copia interna de la app (de una versión anterior):{nl}{cat.Ruta}" +
+              $"{nl}{nl}Se borrará esa copia. Si aún tienes el JSON original, podrás volver a importarlo."
+            : $"{nl}{nl}La app dejará de usarlo. Tu fichero NO se toca:{nl}{cat.Ruta}";
 
         if (!DialogWindow.Confirmar(Window.GetWindow(this), "Quitar catálogo",
                 $"¿Quitar «{cat.Serie}» de la app?{deDonde}")) return;
