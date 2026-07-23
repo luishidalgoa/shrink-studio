@@ -1036,13 +1036,19 @@ public partial class RecortesView : UserControl
     }
 
     /// <summary>La cara de «se está exportando»: la capa sobre el vídeo y los botones.</summary>
-    // ── chivato de bloqueos ──
-    // Si durante una exportación el hilo de interfaz se queda parado más de 200 ms, se
-    // anota en el Registro. Existe porque «la app va a tirones» es real para quien lo ve e
-    // invisible en un banco: con esto, la próxima vez el Registro dirá si el bloqueo es
-    // nuestro (saldrán líneas) o del sistema/GPU (no saldrá ninguna y habrá que mirar fuera).
+    // ── chivato de fluidez ──
+    // «La app va a tirones al exportar» es real para quien lo ve e invisible en un banco: aquí
+    // no se reprodujo nunca (arrastrar sin exportar y arrastrar exportando dan lo MISMO). Así
+    // que se mide en la máquina de verdad, en los DOS hilos que pueden causar un tirón:
+    //   · entrada (Dispatcher): si se para >200 ms, se anota al momento.
+    //   · render (CompositionTarget): se acumulan los fotogramas y al terminar se resume qué
+    //     tan fluido fue. Un tirón que no salga en ninguno de los dos es de FUERA del proceso
+    //     (grabador de pantalla, memoria, DWM), y ahí la pista está fuera de la app.
     private DispatcherTimer? _vigia;
     private readonly System.Diagnostics.Stopwatch _vigiaCrono = new();
+    private readonly System.Diagnostics.Stopwatch _marcoCrono = new();
+    private readonly List<double> _marcos = new();
+    private bool _midiendoRender;
 
     private void VigilarBloqueos(bool si)
     {
@@ -1051,8 +1057,42 @@ public partial class RecortesView : UserControl
             _vigia ??= CrearVigia();
             _vigiaCrono.Restart();
             _vigia.Start();
+            _marcos.Clear();
+            _marcoCrono.Restart();
+            _midiendoRender = true;
+            CompositionTarget.Rendering += AlPintar;
         }
-        else _vigia?.Stop();
+        else
+        {
+            _vigia?.Stop();
+            if (_midiendoRender)
+            {
+                _midiendoRender = false;
+                CompositionTarget.Rendering -= AlPintar;
+                ResumirRender();
+            }
+        }
+    }
+
+    private void AlPintar(object? s, EventArgs e)
+    {
+        if (!_midiendoRender) return;
+        _marcos.Add(_marcoCrono.Elapsed.TotalMilliseconds);
+        _marcoCrono.Restart();
+    }
+
+    private void ResumirRender()
+    {
+        if (_marcos.Count < 30) return;   // muy corto para decir nada
+        _marcos.Sort();
+        double P(double q) => _marcos[Math.Min(_marcos.Count - 1, (int)(_marcos.Count * q))];
+        int lentos = _marcos.Count(x => x > 33.4);   // por debajo de 30 fps
+        double pct = 100.0 * lentos / _marcos.Count;
+        // Solo se anota si de verdad hubo tela: si fue fluido, no se ensucia el Registro.
+        if (pct >= 15 || P(.99) > 80)
+            Log?.Invoke($"Recortes: fluidez durante la exportación — fotograma mediano {P(.5):0} ms, " +
+                        $"p99 {P(.99):0} ms, {pct:0}% por debajo de 30 fps. " +
+                        "Si lo notaste a tirones y este número es bueno, el freno viene de fuera de la app.");
     }
 
     private DispatcherTimer CrearVigia()
@@ -1061,7 +1101,7 @@ public partial class RecortesView : UserControl
         t.Tick += (_, _) =>
         {
             var gap = _vigiaCrono.ElapsedMilliseconds;
-            if (gap > 200) Log?.Invoke($"Recortes: la interfaz estuvo bloqueada {gap} ms durante la exportación.");
+            if (gap > 200) Log?.Invoke($"Recortes: la entrada estuvo bloqueada {gap} ms durante la exportación.");
             _vigiaCrono.Restart();
         };
         return t;
