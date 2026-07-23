@@ -80,6 +80,8 @@ public partial class RecortesView : UserControl
     private bool _exportando;
     private string? _tempMiniaturas;
     private bool _partirAlSaberDuracion;
+    /// <summary>Cancela la descarga de un vídeo que estaba solo en la nube (Esc).</summary>
+    private CancellationTokenSource? _cancelaDescarga;
 
     // ── ampliación de la línea de tiempo ──
     private const double ZoomMin = 1, ZoomMax = 40;
@@ -142,6 +144,8 @@ public partial class RecortesView : UserControl
 
         PreviewKeyDown += (_, e) =>
         {
+            if (e.Key == Key.Escape && _cancelaDescarga != null)
+            { _cancelaDescarga.Cancel(); e.Handled = true; return; }
             if (_fuente == null) return;
             // Escribiendo el nombre de un tramo las teclas son letras, no atajos. Sin esto,
             // en ese campo no se podía ni poner un espacio ni escribir una «c»: se los comía
@@ -368,6 +372,44 @@ public partial class RecortesView : UserControl
         _partirAlSaberDuracion = partirPorLaMitad;
 
         var fi = new FileInfo(ruta);
+
+        // Un vídeo que está solo en la nube se baja ENTERO antes de abrir nada. Trabajar
+        // sobre el marcador a medias era la causa de dos males a la vez: las miniaturas y
+        // la codificación iban a velocidad de red (la app parecía ahogada), y la
+        // comprobación de «¿está libre?» del motor tropezaba con la propia descarga — el
+        // export decía «SALTADO: Descargando» una y otra vez. Va ANTES de tocar ningún
+        // estado: cancelar con Esc deja el proyecto anterior como estaba.
+        if (NubeLocal.EsMarcador(ruta))
+        {
+            Ocupado(true, "Descargando de la nube…");
+            barCarga.IsIndeterminate = false;
+            lblCargaDet.Text = $"{Humano(fi.Length)} · Esc para cancelar";
+            _cancelaDescarga = new CancellationTokenSource();
+            try
+            {
+                var avance = new Progress<double>(pr =>
+                {
+                    barCarga.Value = pr;
+                    lblCarga.Text = $"Descargando de la nube… {pr * 100:0} %";
+                });
+                await NubeLocal.DescargarAsync(ruta, avance, _cancelaDescarga.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                Ocupado(false);
+                Log?.Invoke("Recortes: descarga cancelada; el vídeo sigue en la nube.");
+                return;
+            }
+            catch (Exception ex)
+            {
+                Ocupado(false);
+                Log?.Invoke($"Recortes: no se pudo descargar «{fi.Name}»: {ex.Message}");
+                return;
+            }
+            finally { _cancelaDescarga = null; }
+            fi.Refresh();
+            Log?.Invoke($"Recortes: «{fi.Name}» descargado ({Humano(fi.Length)}).");
+        }
         _fuente = new VideoRow { Path = ruta, Bytes = fi.Length };
         lblVideo.Text = fi.Name;
         lblVideoDet.Text = "Analizando…";
@@ -566,6 +608,7 @@ public partial class RecortesView : UserControl
     /// </summary>
     private async Task SacarPreviaAsync()
     {
+        if (_exportando) return;   // ídem: nada de ffmpegs de miniaturas durante el export
         if (_sacandoPrevia || _fuente == null) return;
         int hueco = SiguienteHueco();
         if (hueco < 0) return;
@@ -928,6 +971,7 @@ public partial class RecortesView : UserControl
     /// </summary>
     private void TenderFotogramas()
     {
+        if (_exportando) return;   // no robarle lecturas al fichero que se está codificando
         capaFotogramas.Children.Clear();
         _celdas.Clear();
         _colaFondo.Clear();
@@ -1225,6 +1269,11 @@ public partial class RecortesView : UserControl
         btnExportar.IsEnabled = false;
         btnCortar.IsEnabled = false;
         PintarExportando(true);
+        // Las miniaturas se paran: leerían el mismo fichero que se está codificando, y con
+        // uno recién bajado de la nube ese goteo de ffmpegs era parte de la lentitud.
+        _esperaPrevia.Stop();
+        _esperaPista.Stop();
+        _colaFondo.Clear();
         var rep = new Reportero(this);
         var hechos = new List<string>();
         var fallidos = new List<string>();
@@ -1233,6 +1282,16 @@ public partial class RecortesView : UserControl
 
         try
         {
+            // Cinturón y tirantes: si el sistema volvió a dejar el vídeo solo en la nube
+            // («liberar espacio») desde que se cargó, se baja ahora, con progreso visible.
+            // Codificar leyendo de la red parece la app colgada.
+            if (NubeLocal.EsMarcador(_fuente.Path))
+            {
+                var avance = new Progress<double>(pr =>
+                    lblProgreso.Text = $"Descargando de la nube… {pr * 100:0} %");
+                await NubeLocal.DescargarAsync(_fuente.Path, avance, _cancelar.Token);
+            }
+
             foreach (var t in _tramos.ToList())
             {
                 n++;

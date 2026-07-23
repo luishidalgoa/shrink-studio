@@ -370,8 +370,14 @@ public sealed class Engine
     {
         foreach (var ext in new[] { ".part", ".crdownload", ".!ut", ".downloading", ".tmp", "!qB" })
             if (File.Exists(path + ext)) return true;
-        try { using var s = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None); }
-        catch { return true; }   // bloqueado por el gestor de descargas
+        // FileShare.Read, NO FileShare.None: lo que delata una descarga a medias es que
+        // alguien lo tenga abierto para ESCRIBIR. La apertura exclusiva también fallaba con
+        // cualquier LECTOR — OneDrive hidratando, el indexador, o el propio reproductor de
+        // Recortes, que suelta el fichero con retraso — y en Recortes eso montaba un bucle:
+        // salto por «descargando», el finally reabría el vídeo, y el siguiente intento
+        // volvía a encontrarlo cogido. Solo se salía reiniciando la app.
+        try { using var s = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read); }
+        catch { return true; }   // retenido por un ESCRITOR: eso sí es una descarga en curso
         return false;
     }
 
