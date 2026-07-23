@@ -122,10 +122,10 @@
                 Padding="9,4" Margin="0,0,10,0" Content="← Volver"
                 ToolTip="Descartar esta simulación y volver a la pantalla de inicio"/>
         <ToggleButton x:Name="chipLimpios" Style="{StaticResource FiltroChip}">
-          <TextBlock><Run Text="●" Foreground="#86D8A6"/><Run x:Name="runLimpios" Text=" 0 limpios"/></TextBlock>
+          <TextBlock><Run Text="●" Foreground="#86D8A6"/><Run x:Name="runLimpios" Text=" 0 correctos"/></TextBlock>
         </ToggleButton>
         <ToggleButton x:Name="chipCorregidos" Style="{StaticResource FiltroChip}">
-          <TextBlock><Run Text="↻" Foreground="#86D8A6"/><Run x:Name="runCorregidos" Text=" 0 corregidos"/></TextBlock>
+          <TextBlock><Run Text="↻" Foreground="#86D8A6"/><Run x:Name="runCorregidos" Text=" 0 con cambios"/></TextBlock>
         </ToggleButton>
         <ToggleButton x:Name="chipEspeciales" Style="{StaticResource FiltroChip}">
           <TextBlock><Run Text="▲" Foreground="#E3C36B"/><Run x:Name="runEspeciales" Text=" 0 especiales"/></TextBlock>
@@ -539,7 +539,7 @@
                       Visibility="{Binding TieneDetalle, Converter={StaticResource B2V}}">
                 <StackPanel>
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                    <TextBlock Text="RESOLVER CONFLICTO" FontSize="11" FontWeight="Medium"
+                    <TextBlock Text="{Binding TituloDetalle}" FontSize="11" FontWeight="Medium"
                                Foreground="{StaticResource Accent400}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding Original}" FontSize="12.5" Foreground="{StaticResource Text}"
                                Margin="12,0,0,0" VerticalAlignment="Center"/>
@@ -551,7 +551,10 @@
                   <!-- Se listan los Candidatos de la fila, no las alternativas del motor: esa
                        lista incluye al elegido, que antes no se enseñaba y hacía que las dos
                        opciones ofrecidas parecieran las dos equivocadas. -->
-                  <ItemsControl ItemsSource="{Binding Candidatos}">
+                  <!-- El selector de candidatos se esconde cuando el fichero trae dos
+                       episodios: elegir uno es precisamente el error. En su lugar manda el
+                       botón «Partirlo en dos…» de abajo. -->
+                  <ItemsControl ItemsSource="{Binding Candidatos}" Visibility="{Binding VerSelector}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
@@ -609,7 +612,8 @@
 
                   <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                     <CheckBox x:Name="chkRecordar" Content="Recordar esta decisión para este fichero"
-                              Foreground="{StaticResource Neutral400}" FontSize="12" VerticalAlignment="Center"/>
+                              Foreground="{StaticResource Neutral400}" FontSize="12" VerticalAlignment="Center"
+                              Visibility="{Binding VerSelector}"/>
                     <!-- Un fichero con dos episodios dentro no se arregla eligiendo número:
                          hay que partirlo. Por eso este botón va el PRIMERO y destacado
                          cuando toca — es la única salida real, no una alternativa más. -->
@@ -618,7 +622,8 @@
                             Visibility="{Binding VerRecortar}"
                             ToolTip="Lo abre en Recortes con un corte ya puesto, listo para ajustarlo"/>
                     <Button Content="Elegir otro episodio…" Style="{StaticResource BtnGhost}" FontSize="12"
-                            Margin="16,0,0,0" Click="OnElegirAMano"/>
+                            Margin="16,0,0,0" Click="OnElegirAMano"
+                            Visibility="{Binding VerSelector}"/>
                     <Button Content="Dejarlo como está" Style="{StaticResource BtnGhost}" FontSize="12"
                             Margin="8,0,0,0" Click="OnDejarComoEsta"/>
                   </StackPanel>

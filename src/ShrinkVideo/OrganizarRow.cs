@@ -144,7 +144,7 @@ public sealed class OrganizarRow : INotifyPropertyChanged
             // La casilla de aplicar se enseña según esto: al resolver un conflicto la fila
             // pasa a estar lista y su casilla tiene que aparecer en ese momento.
             nameof(ListoParaAplicar), nameof(EstadoTooltip),
-            nameof(RecomiendaRecortar), nameof(VerRecortar),
+            nameof(RecomiendaRecortar), nameof(VerRecortar), nameof(TituloDetalle), nameof(VerSelector),
         }) N(p);
     }
 
@@ -154,23 +154,45 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     /// Palabra + glifo + color. El glifo y la palabra van SIEMPRE: con daltonismo, o en una
     /// captura en blanco y negro, el color por sí solo no dice nada.
     /// </summary>
-    public string EstadoTexto => Aplicado ? "Hecho" : Res.Estado switch
+    public string EstadoTexto
     {
-        ReindexEstado.Limpio => "Limpio",
-        ReindexEstado.Corregido => "Corregido",
-        ReindexEstado.Especial => "Especial",
-        ReindexEstado.Conflicto => "Conflicto",
-        _ => "Error",
-    };
+        get
+        {
+            if (Aplicado) return "Hecho";
+            // «Partir» manda sobre el estado: un fichero con dos episodios no es un renombrado
+            // pendiente, es un corte. Decirle «Con cambios» invitaría justo al error de
+            // ponerle un nombre y perder la otra historia.
+            if (RecomiendaRecortar) return "Partir en 2";
+            return Res.Estado switch
+            {
+                // «Correcto», no «Limpio»: el nombre ya está bien, no es que se haya limpiado.
+                ReindexEstado.Limpio => "Correcto",
+                // «Con cambios», no «Corregido»: aún no se ha corregido nada — hay un cambio
+                // propuesto que espera a que lo apliques.
+                ReindexEstado.Corregido => "Con cambios",
+                ReindexEstado.Especial => "Especial",
+                ReindexEstado.Conflicto => "Conflicto",
+                _ => "Error",
+            };
+        }
+    }
 
-    public string EstadoGlifo => Aplicado ? "✓" : Res.Estado switch
+    public string EstadoGlifo
     {
-        ReindexEstado.Limpio => "●",
-        ReindexEstado.Corregido => "↻",
-        ReindexEstado.Especial => "▲",
-        ReindexEstado.Conflicto => "◆",
-        _ => "✕",
-    };
+        get
+        {
+            if (Aplicado) return "✓";
+            if (RecomiendaRecortar) return "✂";
+            return Res.Estado switch
+            {
+                ReindexEstado.Limpio => "●",
+                ReindexEstado.Corregido => "↻",
+                ReindexEstado.Especial => "▲",
+                ReindexEstado.Conflicto => "◆",
+                _ => "✕",
+            };
+        }
+    }
 
     /// <summary>
     /// El color sale de la CONFIANZA, no del estado. Así el reparto queda limpio: la palabra
@@ -391,6 +413,18 @@ public sealed class OrganizarRow : INotifyPropertyChanged
     /// </summary>
     public bool RecomiendaRecortar => !Aplicado && Res.TraeDosEpisodios;
     public Visibility VerRecortar => RecomiendaRecortar ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Cabecera del panel: cuando trae dos episodios, «partir» manda sobre «resolver».</summary>
+    public string TituloDetalle => RecomiendaRecortar
+        ? "DOS EPISODIOS EN UN MISMO FICHERO"
+        : "RESOLVER CONFLICTO";
+
+    /// <summary>
+    /// El selector de «elige un episodio» se esconde cuando la respuesta es partir: ofrecer
+    /// E588 o E589 es justo empujar al error que el usuario reportó — ponerle un número a un
+    /// fichero que trae dos y perder el otro.
+    /// </summary>
+    public Visibility VerSelector => RecomiendaRecortar ? Visibility.Collapsed : Visibility.Visible;
 
     // Ni pendiente ni por despachar: no hay nada que hacerle.
     public bool EsDuda => !Aplicado && !SinCambios && Res.EsDuda;

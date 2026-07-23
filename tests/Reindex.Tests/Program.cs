@@ -1111,7 +1111,9 @@ public static class Program
             { "num": 615, "temporada": 2020, "titulos": { "es": ["El robot pruebarreacciones"] } },
             { "num": 662, "temporada": 2021, "titulos": { "es": ["A por la marca perfecta", "El escaparate para recoger"] } },
             { "num": 364, "temporada": 2014, "titulos": { "es": ["El gorro de la suerte", "El cazamariposas"] } },
-            { "num": 2,   "temporada": 2005, "titulos": { "es": ["El gorro de la suerte"] } }
+            { "num": 2,   "temporada": 2005, "titulos": { "es": ["El gorro de la suerte"] } },
+            { "num": 588, "temporada": 2020, "titulos": { "es": ["La lanza de la consideración que va directa al corazón"] } },
+            { "num": 589, "temporada": 2020, "titulos": { "es": ["Cuidado con los estornudos"] } }
           ]
         }
         """);
@@ -1140,6 +1142,22 @@ public static class Program
         Eq(364, remake.Episodio?.Num, "el remake se identifica igual");
         Eq(ReindexConfianza.Alta, remake.Confianza, "y sigue siendo automático: no hay nada que decidir");
         Eq(false, remake.TraeDosEpisodios, "y NO se le ofrece partirlo: no hay nada que partir");
+
+        // El caso que reportó el usuario: el número del fichero (1302) no existe en el
+        // catálogo, así que la identificación cae al título — y las dos historias casan al
+        // 100 % con DOS episodios distintos (588 y 589). La app lo tomaba por un empate de
+        // «elige uno» (confianza Revisar) y, por ir a Revisar, el detector de dos episodios
+        // lo saltaba. No se puede elegir uno: hay que partir.
+        var empate = ReindexEngine.Resolve(new[] {
+            SignalExtractor.Extract(
+                F("1302 La lanza de la consideración que va directa al corazón ┃ Cuidado con los estornudos.mkv"),
+                "Season 2020"),
+        }, cat)[0];
+        Eq(true, empate.Confianza != ReindexConfianza.Alta, "un empate de dos historias no se aplica solo");
+        Eq(true, empate.TraeDosEpisodios,
+            "aunque el empate lo deje en Revisar, sigue siendo un fichero de dos episodios → partir");
+        Eq(true, (empate.Motivo ?? "").Contains("588") && (empate.Motivo ?? "").Contains("589"),
+            "y el motivo nombra los dos episodios, no ofrece elegir uno");
     }
 
     // ─────────────── La app tiene que saber leer lo que ella misma escribe ───────────────

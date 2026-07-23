@@ -741,8 +741,8 @@ public partial class OrganizarView : UserControl
         int conflictos = _filas.Count(f => f.EstadoVisible == ReindexEstado.Conflicto);
         int errores = _filas.Count(f => f.EstadoVisible == ReindexEstado.Error);
 
-        runLimpios.Text = $" {limpios} limpios";
-        runCorregidos.Text = $" {corregidos} corregidos";
+        runLimpios.Text = $" {limpios} correctos";
+        runCorregidos.Text = $" {corregidos} con cambios";
         runEspeciales.Text = $" {especiales} especiales";
         runConflictos.Text = $" {conflictos} conflictos";
         runErrores.Text = $" {errores} errores";
