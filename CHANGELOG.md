@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.14.5] - 2026-07-23
+
 ### Cambiado
 
 - **Los catálogos ya no se copian: se leen de donde están.** Al importar, la app referencia
