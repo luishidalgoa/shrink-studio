@@ -18,23 +18,27 @@ public sealed class CatalogoGuardado
     public string OrigenRuta { get; init; } = "";
     public string Importado { get; init; } = "";
 
+    /// <summary>false = el JSON referenciado ya no está donde estaba (movido o borrado).</summary>
+    public bool Disponible { get; init; } = true;
+
+    /// <summary>La carpeta donde vive el fichero, para verla en la tarjeta y poder abrirla.</summary>
+    public string Carpeta => Path.GetDirectoryName(Ruta) ?? "";
+
     /// <summary>Solo el nombre del fichero de origen, para la tarjeta.</summary>
     public string Origen => OrigenRuta.Length == 0 ? "" : Path.GetFileName(OrigenRuta);
 
-    /// <summary>«desde entrada.json · 21/07/2026».</summary>
-    public string Procedencia => Origen.Length == 0
-        // Los importados antes de que esto existiera no tienen de dónde sacarlo. Decir solo
-        // «origen desconocido» deja al usuario igual que estaba: mejor decirle qué hacer.
-        ? "no consta de dónde se importó — vuelve a importarlo y quedará registrado"
-        : $"desde {Origen}" + (Importado.Length > 0 ? $" · {Importado}" : "");
-
     /// <summary>
-    /// Para el globo: la ruta de origen completa y, si no consta, al menos dónde está la copia
-    /// que la app usa de verdad. Siempre hay algo concreto que enseñar.
+    /// Dónde vive el fichero que la app lee. Ya no hay copia: se referencia el original en
+    /// su sitio, así que editarlo se nota solo y esta línea es la verdad completa.
     /// </summary>
-    public string ProcedenciaDetalle => OrigenRuta.Length > 0
-        ? $"Importado de:\n{OrigenRuta}"
-        : $"No consta el origen. La copia que usa la app está en:\n{Ruta}";
+    public string Procedencia => !Disponible
+        ? $"⚠ el fichero ya no está en {Carpeta} — muévelo de vuelta o vuelve a importarlo"
+        : $"en {Carpeta}" + (Importado.Length > 0 ? $" · añadido el {Importado}" : "");
+
+    /// <summary>Para el globo: la ruta completa, que en la línea de la tarjeta va recortada.</summary>
+    public string ProcedenciaDetalle => Disponible
+        ? $"La app lee este fichero directamente (sin copia):\n{Ruta}\n\nClic derecho para abrir su ubicación."
+        : $"Estaba en:\n{Ruta}\n\nSi lo has movido, vuelve a importarlo desde su sitio nuevo.";
 
     /// <summary>
     /// Lo que accesibilidad lee de este catálogo. Sin esto, un lector de pantalla anuncia el
@@ -107,8 +111,14 @@ public static class ReindexStore
     public static string DirLotes => Path.Combine(Raiz, "lotes");
     public static string RutaDecisiones => Path.Combine(Raiz, "decisiones.json");
 
-    /// <summary>De qué fichero salió cada catálogo. Clave = nombre del fichero guardado.</summary>
+    /// <summary>De qué fichero salió cada copia LEGADA. Clave = nombre del fichero copiado.</summary>
     public static string RutaProcedencia => Path.Combine(Raiz, "procedencia.json");
+
+    /// <summary>
+    /// El registro de catálogos: ruta del JSON del usuario → fecha de alta. La app ya no
+    /// copia el catálogo — lo lee de donde está, así que editarlo cuenta siempre.
+    /// </summary>
+    public static string RutaCatalogos => Path.Combine(Raiz, "catalogos.json");
 
     /// <summary>Qué serie estaba elegida al cerrar.</summary>
     public static string RutaPreferencias => Path.Combine(Raiz, "organizar.json");
@@ -124,70 +134,117 @@ public static class ReindexStore
 
     // ─────────────────────────── catálogos ───────────────────────────
 
-    /// <summary>Los catálogos importados, ya validados. Los ilegibles se omiten en silencio.</summary>
+    /// <summary>
+    /// Los catálogos registrados. La app REFERENCIA el JSON del usuario en su sitio — no hay
+    /// copia, así que editarlo cuenta siempre. Si el fichero ya no está donde estaba, la
+    /// tarjeta sale igualmente con el aviso puesto: desaparecer en silencio dejaría al
+    /// usuario creyendo que la app «perdió» su catálogo.
+    ///
+    /// Las copias de versiones anteriores se migran aquí solas: si su fichero de origen
+    /// sigue existiendo se registra ese y la copia interna se retira; si no, la copia se
+    /// registra a sí misma (es lo único que hay) y al menos su ruta queda a la vista.
+    /// </summary>
     public static List<CatalogoGuardado> ListarCatalogos()
     {
-        var lista = new List<CatalogoGuardado>();
-        if (!Directory.Exists(DirCatalogos)) return lista;
+        MigrarCopiasLegadas();
 
-        foreach (var ruta in Directory.EnumerateFiles(DirCatalogos, "*.json"))
+        var lista = new List<CatalogoGuardado>();
+        foreach (var (ruta, fecha) in LeerMapa(RutaCatalogos))
         {
-            try { lista.Add(Describir(ruta, ReindexCatalog.Load(ruta))); }
+            if (!File.Exists(ruta))
+            {
+                lista.Add(new CatalogoGuardado
+                {
+                    Ruta = ruta,
+                    Serie = Path.GetFileNameWithoutExtension(ruta).Replace(".reindex", ""),
+                    Importado = fecha,
+                    Disponible = false,
+                });
+                continue;
+            }
+            try { lista.Add(Describir(ruta, fecha, ReindexCatalog.Load(ruta))); }
             catch { /* un catálogo corrupto no puede tumbar la lista entera */ }
         }
         return lista.OrderBy(c => c.Serie, StringComparer.CurrentCultureIgnoreCase).ToList();
     }
 
-    private static CatalogoGuardado Describir(string ruta, ReindexCatalog cat)
+    private static void MigrarCopiasLegadas()
     {
-        var proc = LeerMapa(RutaProcedencia);
-        proc.TryGetValue(Path.GetFileName(ruta), out var origen);
-        var trozos = (origen ?? "").Split('|');
+        if (!Directory.Exists(DirCatalogos)) return;
 
-        return new CatalogoGuardado
+        var reg = LeerMapa(RutaCatalogos);
+        var proc = LeerMapa(RutaProcedencia);
+        bool cambio = false;
+
+        foreach (var copia in Directory.GetFiles(DirCatalogos, "*.json"))
         {
-            Ruta = ruta,
-            OrigenRuta = trozos.Length > 0 ? trozos[0] : "",
-            Importado = trozos.Length > 1 ? trozos[1] : "",
-            Serie = cat.Serie,
-            Episodios = cat.Episodios.Count,
-            Especiales = cat.Especiales.Count,
-            ConVariosSegmentos = cat.Episodios.Count(e => e.TitulosSalida.Count > 1),
-            Advertencias = cat.Advertencias,
-        };
+            proc.TryGetValue(Path.GetFileName(copia), out var origenCrudo);
+            var origen = (origenCrudo ?? "").Split('|')[0];
+
+            if (origen.Length > 0 && File.Exists(origen))
+            {
+                // El original sigue ahí: se referencia ese y la copia interna sobra.
+                if (!reg.ContainsKey(origen)) reg[origen] = DateTime.Now.ToString("dd/MM/yyyy");
+                try { File.Delete(copia); } catch { /* si no se puede, quedará duplicado visible */ }
+                proc.Remove(Path.GetFileName(copia));
+            }
+            else if (!reg.ContainsKey(copia))
+            {
+                // No hay original que referenciar: la copia ES el catálogo. Se registra con
+                // su ruta real, que por fin queda a la vista en la tarjeta.
+                reg[copia] = DateTime.Now.ToString("dd/MM/yyyy");
+            }
+            else continue;
+            cambio = true;
+        }
+
+        if (cambio)
+        {
+            EscribirMapa(RutaCatalogos, reg);
+            EscribirMapa(RutaProcedencia, proc);
+        }
     }
 
+    private static CatalogoGuardado Describir(string ruta, string fecha, ReindexCatalog cat) => new()
+    {
+        Ruta = ruta,
+        OrigenRuta = ruta,
+        Importado = fecha,
+        Serie = cat.Serie,
+        Episodios = cat.Episodios.Count,
+        Especiales = cat.Especiales.Count,
+        ConVariosSegmentos = cat.Episodios.Count(e => e.TitulosSalida.Count > 1),
+        Advertencias = cat.Advertencias,
+    };
+
     /// <summary>
-    /// Importa un catálogo: lo VALIDA antes de copiarlo, para no dejar basura en la carpeta.
+    /// Registra un catálogo: lo VALIDA y lo referencia donde está. No se copia nada — el
+    /// fichero es del usuario y se lee de su sitio, así que editarlo cuenta siempre.
     /// Lanza <see cref="ReindexCatalogException"/> si el JSON no sirve.
     /// </summary>
     public static CatalogoGuardado ImportarCatalogo(string rutaOrigen)
     {
-        var cat = ReindexCatalog.Load(rutaOrigen);   // si no vale, aquí revienta y no copiamos nada
+        var cat = ReindexCatalog.Load(rutaOrigen);   // si no vale, aquí revienta y no se registra
 
-        Directory.CreateDirectory(DirCatalogos);
-        var destino = Path.Combine(DirCatalogos, NombreSeguro(cat.Serie) + ".reindex.json");
-        File.Copy(rutaOrigen, destino, overwrite: true);
+        var completa = Path.GetFullPath(rutaOrigen);
+        var fecha = DateTime.Now.ToString("dd/MM/yyyy");
+        var reg = LeerMapa(RutaCatalogos);
+        reg[completa] = fecha;
+        EscribirMapa(RutaCatalogos, reg);
 
-        var proc = LeerMapa(RutaProcedencia);
-        proc[Path.GetFileName(destino)] = $"{Path.GetFullPath(rutaOrigen)}|{DateTime.Now:dd/MM/yyyy}";
-        EscribirMapa(RutaProcedencia, proc);
-
-        return Describir(destino, cat);
+        return Describir(completa, fecha, cat);
     }
 
     /// <summary>
-    /// Quita un catálogo de la app. Solo borra LA COPIA: el JSON del que se importó es del
-    /// usuario y no se toca nunca.
+    /// Quita un catálogo de la app: solo se olvida el REGISTRO. El fichero JSON es del
+    /// usuario y no se toca nunca — ya no existe la copia interna que antes se borraba.
     /// </summary>
     /// <returns>false si ya no estaba.</returns>
     public static bool BorrarCatalogo(string ruta)
     {
-        if (!File.Exists(ruta)) return false;
-        File.Delete(ruta);
-
-        var proc = LeerMapa(RutaProcedencia);
-        if (proc.Remove(Path.GetFileName(ruta))) EscribirMapa(RutaProcedencia, proc);
+        var reg = LeerMapa(RutaCatalogos);
+        if (!reg.Remove(ruta)) return false;
+        EscribirMapa(RutaCatalogos, reg);
 
         // Si era el elegido, dejarlo apuntado seria arrancar señalando a algo que ya no esta
         if (string.Equals(CargarUltimoCatalogo(), ruta, StringComparison.OrdinalIgnoreCase))

@@ -120,7 +120,7 @@
              volver a la pantalla limpia salvo cambiar de página y regresar. -->
         <Button x:Name="btnVolver" Style="{StaticResource BtnSecondary}" FontSize="11.5"
                 Padding="9,4" Margin="0,0,10,0" Content="← Volver"
-                ToolTip="Descartar esta simulación y volver a la pantalla de inicio"/>
+                ToolTip="Descartar este análisis y volver a la pantalla de inicio"/>
         <ToggleButton x:Name="chipLimpios" Style="{StaticResource FiltroChip}">
           <TextBlock><Run Text="●" Foreground="#86D8A6"/><Run x:Name="runLimpios" Text=" 0 correctos"/></TextBlock>
         </ToggleButton>
@@ -207,6 +207,16 @@
                          son lo que evita que el usuario confíe de más en el resultado. -->
                     <Border Style="{StaticResource OrgCard}" Background="{Binding Fondo}"
                             BorderBrush="{Binding Borde}">
+                      <!-- El clic derecho lleva AL FICHERO: la app ya no guarda copia, así
+                           que ver dónde vive y poder saltar ahí es parte del trato. -->
+                      <Border.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Abrir la ubicación del fichero"
+                                    Click="OnUbicacionCatalogo" Tag="{Binding Cat.Ruta}"/>
+                          <MenuItem Header="Copiar la ruta"
+                                    Click="OnCopiarRutaCatalogo" Tag="{Binding Cat.Ruta}"/>
+                        </ContextMenu>
+                      </Border.ContextMenu>
                       <StackPanel>
                         <Grid Margin="0,0,0,6">
                           <Grid.ColumnDefinitions>
@@ -250,12 +260,15 @@
                           </StackPanel>
                         </Grid>
 
-                        <!-- De qué fichero salió y cuándo. La app trabaja con una COPIA: sin esto
-                             no hay forma de notar que el original se ha editado desde entonces y
-                             que lo que estás usando se ha quedado viejo. -->
-                        <TextBlock Text="{Binding Cat.Procedencia}" Style="{StaticResource OrgMuted}"
-                                   FontSize="11" Margin="0,0,0,6" TextTrimming="CharacterEllipsis"
-                                   ToolTip="{Binding Cat.ProcedenciaDetalle}"/>
+                        <!-- Dónde vive el JSON que la app lee (ya no hay copia). Es un botón:
+                             pulsar abre la carpeta con el fichero seleccionado. -->
+                        <Button Style="{StaticResource BtnGhostMuted}" Padding="0" Margin="0,0,0,6"
+                                HorizontalAlignment="Left" HorizontalContentAlignment="Left"
+                                Click="OnUbicacionCatalogo" Tag="{Binding Cat.Ruta}"
+                                ToolTip="{Binding Cat.ProcedenciaDetalle}">
+                          <TextBlock Text="{Binding Cat.Procedencia}" Style="{StaticResource OrgMuted}"
+                                     FontSize="11" TextTrimming="CharacterEllipsis"/>
+                        </Button>
                         <ItemsControl ItemsSource="{Binding Cat.Advertencias}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -290,7 +303,7 @@
                 <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Neutral500}" FontSize="12"
                            Margin="0,10,0,0" LineHeight="18">
                   Es un archivo JSON con el esquema <Run FontFamily="{StaticResource FontMono}">reindex/1.0</Run>.
-                  Sin catálogo no hay nada con lo que comparar, así que la simulación queda deshabilitada.
+                  Sin catálogo no hay nada con lo que comparar, así que el análisis queda deshabilitado.
                 </TextBlock>
                 <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Neutral500}" FontSize="12"
                            Margin="0,10,0,0" LineHeight="18">
@@ -360,7 +373,7 @@
                      pulsar «Simular» sin miedo. -->
                 <TextBlock Margin="0,10,0,0" FontSize="12" Foreground="{StaticResource Neutral500}"
                            TextAlignment="Center" TextWrapping="Wrap" LineHeight="18">
-                  Nada se renombra sin tu aprobación: <Run FontWeight="Medium" Foreground="{StaticResource Neutral400}">Simular</Run>
+                  Nada se renombra sin tu aprobación: <Run FontWeight="Medium" Foreground="{StaticResource Neutral400}">Analizar</Run>
                   solo lee los nombres y propone. Después revisas y aplicas.
                 </TextBlock>
                 <Button x:Name="btnSimularGrande" Style="{StaticResource BtnPrimary}" Margin="0,18,0,0"
@@ -372,7 +385,7 @@
                         <Path Data="M10.5 10.5L14 14" Stroke="#968AE0" StrokeThickness="1.5" StrokeStartLineCap="Round"/>
                       </Canvas>
                     </Viewbox>
-                    <TextBlock Text="Simular identificación" VerticalAlignment="Center"/>
+                    <TextBlock Text="Analizar la carpeta" VerticalAlignment="Center"/>
                   </StackPanel>
                 </Button>
               </StackPanel>
@@ -648,7 +661,7 @@
                 <Path Data="M10.5 10.5L14 14" Stroke="#968AE0" StrokeThickness="1.5" StrokeStartLineCap="Round"/>
               </Canvas>
             </Viewbox>
-            <TextBlock Text="Simular" VerticalAlignment="Center"/>
+            <TextBlock Text="Analizar" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
 

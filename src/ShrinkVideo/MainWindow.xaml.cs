@@ -960,7 +960,11 @@ public partial class MainWindow : Window
         var ok = new List<FileResult>();
         try
         {
-            var results = await _engine.CompressAsync(sel, opt, reporter, _cts.Token);
+            // Task.Run: los trozos síncronos del motor (candados, sondeos, espacio) no
+            // deben correr en el hilo de interfaz — sobre OneDrive son viajes de red y la
+            // ventana se movía a tirones con la CPU libre.
+            var tok = _cts.Token;
+            var results = await Task.Run(() => _engine.CompressAsync(sel, opt, reporter, tok), tok);
             ok = results.Where(r => r.OutBytes != null).ToList();
             if (ok.Count > 0)
             {
