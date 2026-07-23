@@ -168,7 +168,12 @@ public partial class RecortesView : UserControl
             Duracion(video.NaturalDuration.TimeSpan.TotalSeconds);
         };
         video.MediaFailed += (_, _) =>
+        {
+            // No se puede previsualizar (pero sí cortar): se dice, en la pastilla, encima del
+            // plasma. El plasma sigue de fondo porque no hay imagen de vídeo que enseñar.
             lblSinVideo.Text = "Este vídeo no se puede previsualizar aquí, pero sí cortarlo.";
+            chipSinVideo.Visibility = Visibility.Visible;
+        };
 
         _reloj = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _reloj.Tick += (_, _) =>
@@ -245,6 +250,19 @@ public partial class RecortesView : UserControl
         {
             if (PresentationSource.FromVisual(this) is System.Windows.Interop.HwndSource fuente)
                 fuente.AddHook(GanchoVentana);
+
+            // Minimizar = nadie mira: se congela el plasma para no gastar batería moviéndolo.
+            // Al restaurar, vuelve. (Perder el foco pero seguir visible NO lo congela: ahí sí
+            // se ve.)
+            if (Window.GetWindow(this) is { } w)
+            {
+                w.StateChanged += (_, _) =>
+                {
+                    _ventanaActiva = w.WindowState != WindowState.Minimized;
+                    RefrescarPlasma();
+                };
+                _ventanaActiva = w.WindowState != WindowState.Minimized;
+            }
         };
     }
 
@@ -252,8 +270,10 @@ public partial class RecortesView : UserControl
 
     private IntPtr GanchoVentana(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool manejado)
     {
+        // Congela el plasma mientras se arrastra o redimensiona la ventana (bucle modal de
+        // mover); al soltar, se reanuda si sigue habiendo motivo para verlo.
         if (msg == WM_ENTERSIZEMOVE) _plasma?.Pausar();
-        else if (msg == WM_EXITSIZEMOVE && _exportando) _plasma?.Reanudar();
+        else if (msg == WM_EXITSIZEMOVE) RefrescarPlasma();
         return IntPtr.Zero;
     }
 
@@ -432,7 +452,8 @@ public partial class RecortesView : UserControl
         _fuente = new VideoRow { Path = ruta, Bytes = fi.Length };
         lblVideo.Text = fi.Name;
         lblVideoDet.Text = "Analizando…";
-        lblSinVideo.Visibility = Visibility.Collapsed;
+        chipSinVideo.Visibility = Visibility.Collapsed;
+        RefrescarPlasma();   // hay vídeo: el plasma de fondo se apaga (el vídeo toma el sitio)
         _tramos.Clear();
         _duracion = 0;            // la del vídeo anterior no vale, y sin esto no se recalcula
         LiberarMiniaturas();      // los fotogramas del vídeo anterior no valen para este
@@ -1132,7 +1153,7 @@ public partial class RecortesView : UserControl
         btnPausarExp.Visibility = btnDetenerExp.Visibility = si ? Visibility.Visible : Visibility.Collapsed;
         btnPausarExp.IsEnabled = btnDetenerExp.IsEnabled = si;
         btnPausarExp.Content = "Pausar";
-        if (si) LatirPulsos(); else PararPulsos();
+        RefrescarPlasma();      // el plasma pasa a «a tope» al exportar, y a «de fondo» al parar
         VigilarBloqueos(si);
     }
 
@@ -1149,32 +1170,47 @@ public partial class RecortesView : UserControl
     /// décimas de punto de CPU. A 5 fps el latido se veía a saltos.
     /// </summary>
     private PlasmaGradiente? _plasma;
+    private bool _enPantalla, _ventanaActiva = true;
 
     /// <summary>
-    /// Enciende el gradiente de plasma. El movimiento y el respiro de la intensidad los lleva
-    /// el propio plasma en su hilo de fondo; aquí solo se hace el FUNDIDO de entrada de la
-    /// imagen (una animación de 0,6 s que corre una vez y para — no un latido continuo).
+    /// Decide si el plasma debe estar encendido y con qué intensidad, y lo pone así. Es el
+    /// único sitio que toca el plasma: se llama cada vez que cambia algo que importa —cargar
+    /// o quitar vídeo, empezar/terminar de exportar, cambiar de pestaña, minimizar—.
+    ///
+    /// Se ve cuando NO hay vídeo (estado vacío, atenuado para que el texto se lea) o mientras
+    /// se exporta (a tope). Y solo si la página está a la vista y la ventana no está
+    /// minimizada: fuera de eso se congela, para no gastar batería moviendo algo que nadie
+    /// ve. El movimiento y el respiro los lleva el plasma en su hilo de fondo; aquí solo se
+    /// funde la opacidad de la imagen.
     /// </summary>
-    private void LatirPulsos()
+    private void RefrescarPlasma()
     {
-        if (_plasma == null)
-        {
-            _plasma = new PlasmaGradiente();
-            plasma.Source = _plasma.Bitmap;
-        }
-        _plasma.Arrancar();
+        bool debe = (_fuente == null || _exportando) && _enPantalla && _ventanaActiva;
 
-        var entra = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(0.6))
-        { EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut } };
-        entra.Completed += (_, _) => { plasma.BeginAnimation(UIElement.OpacityProperty, null); plasma.Opacity = 1; };
-        plasma.BeginAnimation(UIElement.OpacityProperty, entra);
+        if (debe)
+        {
+            if (_plasma == null)
+            {
+                _plasma = new PlasmaGradiente();
+                plasma.Source = _plasma.Bitmap;
+            }
+            _plasma.Arrancar();                       // arranca o reanuda si estaba congelado
+            FundirPlasma(_exportando ? 1.0 : 0.58);   // en export a tope; de fondo, atenuado
+        }
+        else
+        {
+            FundirPlasma(0);
+            _plasma?.Pausar();     // se congela; no se tira, para reencender sin recrear el hilo
+        }
     }
 
-    private void PararPulsos()
+    private void FundirPlasma(double tope)
     {
-        plasma.BeginAnimation(UIElement.OpacityProperty, null);
-        plasma.Opacity = 0;
-        _plasma?.Pausar();   // se congela; no se tira, para reencenderlo sin recrear el hilo
+        if (Math.Abs(plasma.Opacity - tope) < 0.01 && plasma.Opacity == tope) return;
+        var f = new DoubleAnimation(tope, TimeSpan.FromSeconds(0.6))
+        { EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut } };
+        f.Completed += (_, _) => { plasma.BeginAnimation(UIElement.OpacityProperty, null); plasma.Opacity = tope; };
+        plasma.BeginAnimation(UIElement.OpacityProperty, f);
     }
 
     private void Deshacer()
@@ -1221,20 +1257,19 @@ public partial class RecortesView : UserControl
     /// </summary>
     public void EnPantalla(bool visible)
     {
+        _enPantalla = visible;
         if (visible)
         {
             // Siempre, no solo si ya hay vídeo: si entras a la página y cargas uno después,
             // el reloj tiene que estar ya corriendo. Su tick se ignora solo cuando no hay
             // vídeo, así que dejarlo activo no cuesta nada.
             _reloj.Start();
-            if (_exportando) _plasma?.Reanudar();
         }
         else
         {
             _reloj.Stop();
             _esperaPrevia.Stop();
             _esperaPista.Stop();
-            _plasma?.Pausar();
             // Un vídeo reproduciéndose en un tab que ya no miras solo gasta: se pausa (y el
             // botón queda en «play», que es lo coherente al volver).
             if (!_pausado && _fuente != null)
@@ -1245,6 +1280,7 @@ public partial class RecortesView : UserControl
                 _pausado = true;
             }
         }
+        RefrescarPlasma();   // enciende el plasma al entrar en vacío; lo congela al salir
     }
 
     private void Saltar(double s)
@@ -1347,10 +1383,12 @@ public partial class RecortesView : UserControl
         LiberarMiniaturas();
         lblVideo.Text = "";
         lblVideoDet.Text = "";
-        lblSinVideo.Visibility = Visibility.Visible;
+        lblSinVideo.Text = "Elige un vídeo para empezar a cortarlo";
+        chipSinVideo.Visibility = Visibility.Visible;
         _atras.Clear();
         _adelante.Clear();
         PintarPista();
+        RefrescarPlasma();   // se vuelve a estado vacío: el plasma de fondo reaparece
         return true;
     }
 

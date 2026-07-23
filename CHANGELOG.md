@@ -29,6 +29,14 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Cambiado
+
+- **El gradiente de plasma también sale de fondo cuando Recortes está vacío.** Antes solo
+  aparecía al exportar; ahora, cuando no hay ningún vídeo cargado, el «Elige un vídeo para
+  empezar a cortarlo» se muestra sobre el mismo plasma en movimiento (atenuado para que el
+  texto se lea). Mismo motor barato de siempre, y se **congela** si minimizas la ventana o
+  cambias de pestaña, para no gastar batería moviendo algo que nadie está mirando.
+
 ## [0.14.5] - 2026-07-23
 
 ### Cambiado
