@@ -235,7 +235,26 @@ public partial class RecortesView : UserControl
             }
         };
         // Al salir de la página no se deja nada en memoria ni en disco temporal.
-        Unloaded += (_, _) => LiberarMiniaturas();
+        Unloaded += (_, _) => { LiberarMiniaturas(); _plasma?.Dispose(); _plasma = null; };
+
+        // El plasma se CONGELA mientras arrastras o redimensionas la ventana, como en la
+        // vista previa: es el único momento en que su goteo de fotogramas podría competir
+        // por el hilo de la UI con el bucle modal de mover. Se engancha a los mensajes de
+        // Windows que marcan el principio y el fin de ese bucle.
+        Loaded += (_, _) =>
+        {
+            if (PresentationSource.FromVisual(this) is System.Windows.Interop.HwndSource fuente)
+                fuente.AddHook(GanchoVentana);
+        };
+    }
+
+    private const int WM_ENTERSIZEMOVE = 0x0231, WM_EXITSIZEMOVE = 0x0232;
+
+    private IntPtr GanchoVentana(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool manejado)
+    {
+        if (msg == WM_ENTERSIZEMOVE) _plasma?.Pausar();
+        else if (msg == WM_EXITSIZEMOVE && _exportando) _plasma?.Reanudar();
+        return IntPtr.Zero;
     }
 
     /// <summary>
@@ -1129,42 +1148,33 @@ public partial class RecortesView : UserControl
     /// ritmo sale casi gratis; medido sobre la capa vacía, las dos bandas cuestan dos
     /// décimas de punto de CPU. A 5 fps el latido se veía a saltos.
     /// </summary>
+    private PlasmaGradiente? _plasma;
+
+    /// <summary>
+    /// Enciende el gradiente de plasma. El movimiento y el respiro de la intensidad los lleva
+    /// el propio plasma en su hilo de fondo; aquí solo se hace el FUNDIDO de entrada de la
+    /// imagen (una animación de 0,6 s que corre una vez y para — no un latido continuo).
+    /// </summary>
     private void LatirPulsos()
     {
-        // Antes las bandas LATÍAN sin parar (opacidad + desplazamiento en bucle, a 20 fps).
-        // Medido con un export pesado de 1080p mientras se arrastra la ventana: el latido
-        // continuo metía stutters en el render (p99 43 ms · max 60 ms · fotogramas lentos),
-        // y con la capa quieta desaparecían (p99 35 · max 38 · cero). La causa: las
-        // animaciones de WPF laten en el HILO DE LA UI, que es justo el que el arrastre de la
-        // ventana necesita — y el export ya deja la GPU corta. El pulso era eye-candy que
-        // corría precisamente cuando estorba.
-        //
-        // Ahora las bandas ENTRAN una vez, con un fundido desde el canto, y se quedan
-        // quietas. Mismo aspecto al aparecer, cero animación continua compitiendo por el
-        // hilo de la UI mientras exportas.
-        void Entrar(UIElement e, TranslateTransform asoma, double desdeX, double tope)
+        if (_plasma == null)
         {
-            var suave = new SineEase { EasingMode = EasingMode.EaseOut };
-
-            var luz = new DoubleAnimation(0, tope, TimeSpan.FromSeconds(0.6)) { EasingFunction = suave };
-            luz.Completed += (_, _) => { e.BeginAnimation(UIElement.OpacityProperty, null); e.Opacity = tope; };
-            e.BeginAnimation(UIElement.OpacityProperty, luz);
-
-            var entra = new DoubleAnimation(desdeX, 0, TimeSpan.FromSeconds(0.6)) { EasingFunction = suave };
-            entra.Completed += (_, _) => { asoma.BeginAnimation(TranslateTransform.XProperty, null); asoma.X = 0; };
-            asoma.BeginAnimation(TranslateTransform.XProperty, entra);
+            _plasma = new PlasmaGradiente();
+            plasma.Source = _plasma.Bitmap;
         }
-        Entrar(pulso1, asomaIzq, -26, 0.85);
-        Entrar(pulso2, asomaDer, 26, 0.75);
+        _plasma.Arrancar();
+
+        var entra = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(0.6))
+        { EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut } };
+        entra.Completed += (_, _) => { plasma.BeginAnimation(UIElement.OpacityProperty, null); plasma.Opacity = 1; };
+        plasma.BeginAnimation(UIElement.OpacityProperty, entra);
     }
 
     private void PararPulsos()
     {
-        pulso1.BeginAnimation(UIElement.OpacityProperty, null);
-        pulso2.BeginAnimation(UIElement.OpacityProperty, null);
-        asomaIzq.BeginAnimation(TranslateTransform.XProperty, null);
-        asomaDer.BeginAnimation(TranslateTransform.XProperty, null);
-        pulso1.Opacity = pulso2.Opacity = 0;
+        plasma.BeginAnimation(UIElement.OpacityProperty, null);
+        plasma.Opacity = 0;
+        _plasma?.Pausar();   // se congela; no se tira, para reencenderlo sin recrear el hilo
     }
 
     private void Deshacer()
