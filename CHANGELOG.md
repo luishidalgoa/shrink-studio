@@ -29,6 +29,16 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Recortes ya no se vuelve más lento cuanto más exportas.** Había una fuga de recursos: cada
+  vez que exportabas un tramo y cargabas otro vídeo, el proceso se quedaba con un puñado de
+  «handles» del sistema que nunca soltaba, y al repetir el ciclo muchas veces la app se iba
+  arrastrando. La causa era doble: el reproductor se cerraba con una llamada que en WPF filtra
+  handles a cada uso, y la exportación abría una tubería hacia ffmpeg que no hacía falta. Se
+  arreglaron las dos. Medido en la máquina, la fuga por ciclo baja de ~23 handles a ~5 (el
+  grueso, eliminado), y la exportación sigue produciendo exactamente los mismos ficheros.
+
 ## [0.14.7] - 2026-07-23
 
 ### Cambiado
