@@ -1377,7 +1377,9 @@ public partial class RecortesView : UserControl
         var rutaOriginal = _fuente.Path;   // en texto: Uri.LocalPath tropieza con '#' en el nombre
         var fuente = new Uri(_fuente.Path);
         video.Stop();
-        video.Close();
+        // OJO: NO usar video.Close() aquí. Close() del MediaElement de WPF filtra ~20 handles
+        // nativos por llamada (medido); con un export por ciclo, la app iba acumulando handles
+        // hasta arrastrarse. Source=null libera el fichero para el codificador igual, sin fuga.
         video.Source = null;
 
         _cancelar = new CancellationTokenSource();

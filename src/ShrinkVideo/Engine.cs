@@ -863,7 +863,10 @@ public sealed class Engine
         var psi = new ProcessStartInfo(Ffmpeg)
         {
             RedirectStandardError = true,
-            RedirectStandardOutput = true,
+            // stdout NO se redirige: el encode escribe al fichero de salida, no a stdout, así
+            // que ese pipe no se usa. Redirigirlo y leerlo en fire-and-forget dejaba un handle
+            // de tubería colgando por cada exportación — parte de la fuga de handles por ciclo.
+            RedirectStandardOutput = false,
             UseShellExecute = false,
             CreateNoWindow = true,
             StandardErrorEncoding = Encoding.UTF8,
@@ -897,7 +900,6 @@ public sealed class Engine
                     }
                 }
             });
-            _ = proc.StandardOutput.ReadToEndAsync();
 
             try
             {
