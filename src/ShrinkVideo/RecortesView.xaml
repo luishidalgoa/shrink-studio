@@ -104,10 +104,20 @@
           </Grid.RowDefinitions>
 
           <Grid Grid.Row="0" Background="Black">
+            <!-- Fondo de plasma. Se ve cuando NO hay vídeo (estado vacío) y también durante
+                 la exportación. Va detrás de todo: el vídeo, al cargarse, lo tapa. Lo
+                 enciende/apaga, lo atenúa y lo pausa el código (RefrescarPlasma); se congela
+                 si minimizas o cambias de pestaña, para no gastar batería en reposo. -->
+            <Image x:Name="plasma" Stretch="Fill" Opacity="0"
+                   RenderOptions.BitmapScalingMode="LowQuality"/>
             <MediaElement x:Name="video" LoadedBehavior="Manual" UnloadedBehavior="Stop" Stretch="Uniform"/>
-            <TextBlock x:Name="lblSinVideo" Text="Elige un vídeo para empezar a cortarlo"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12.5"
-                       Foreground="{StaticResource Neutral600}"/>
+            <!-- El texto del estado vacío va en una pastilla translúcida: así se lee igual de
+                 bien sobre el plasma que sobre negro. -->
+            <Border x:Name="chipSinVideo" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="#66101018" CornerRadius="8" Padding="14,7">
+              <TextBlock x:Name="lblSinVideo" Text="Elige un vídeo para empezar a cortarlo"
+                         FontSize="12.5" Foreground="{StaticResource Neutral300}"/>
+            </Border>
 
             <!-- Mientras se prepara el vídeo, la página entera está deshabilitada: dejar
                  tocar los controles con el material a medio cargar solo produce estados
@@ -128,27 +138,18 @@
                  avería, se vela la imagen y se dice por qué. Los pulsos de luz son el mismo
                  lenguaje que el fondo de la app —manchas radiales muy tenues— pero latiendo,
                  para que se lea como «trabajando» y no como «colgado». -->
-            <Border x:Name="capaExportando" Visibility="Collapsed" Background="#B21B1E2A">
+            <!-- Capa de exportación: el plasma vive detrás (fondo del reproductor), así que
+                 aquí solo va el mensaje. El fondo es un velo RADIAL —oscuro en el centro para
+                 que el texto se lea, transparente en los cantos para que el plasma brille—,
+                 no un velo plano que apagaría el gradiente. -->
+            <Border x:Name="capaExportando" Visibility="Collapsed">
+              <Border.Background>
+                <RadialGradientBrush GradientOrigin="0.5,0.5" Center="0.5,0.5" RadiusX="0.75" RadiusY="0.75">
+                  <GradientStop Color="#8C0C0E16" Offset="0"/>
+                  <GradientStop Color="#000C0E16" Offset="1"/>
+                </RadialGradientBrush>
+              </Border.Background>
               <Grid ClipToBounds="True">
-                <!-- La luz NACE EN LOS CANTOS y se apaga hacia el centro. Antes eran dos
-                     elipses flotando: una figura con borde propio, que se ve como una
-                     figura y compite con el mensaje. Una banda anclada al borde no tiene
-                     silueta que mirar — se lee como luz, no como forma.
-
-                     Cada banda lleva SU PROPIA caché. Con la caché en el padre, animar la
-                     opacidad de un hijo obliga a rehacer el mapa de bits del grupo entero;
-                     con una por elemento, el compositor solo mezcla un mapa ya pintado. Eso
-                     es lo que permite subir de 5 a 20 fps sin pagarlo: a 5 el latido se veía
-                     a saltos, que era la mitad de la sensación de «sin pulir». -->
-                <!-- El gradiente de plasma (shader de lightswind), calculado diminuto en un
-                     hilo de fondo por CPU y escalado aquí a la capa entera con interpolación
-                     bilineal —que al ampliar un mapa de bits pequeño lo desenfoca, que es
-                     justo el aspecto borroso que se busca—. Fant/HighQuality NO: bilinear
-                     (LowQuality) es el más barato y el que mejor difumina al ampliar. La
-                     Source la pone el código; empieza a 0 y entra con un fundido. -->
-                <Image x:Name="plasma" Stretch="Fill" Opacity="0"
-                       RenderOptions.BitmapScalingMode="LowQuality"/>
-
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
                   <!-- Triángulo de aviso, dibujado: nada de fuentes de iconos. -->
                   <Path HorizontalAlignment="Center" Stretch="Uniform" Width="34" Height="34"
