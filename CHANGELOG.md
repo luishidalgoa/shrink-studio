@@ -36,7 +36,11 @@ es un acuerdo de buena voluntad: está verificado.
   YA estaba bien nombrado (perdía un desempate alfabético) en vez de al aspirante. Lo «corregías»
   y volvía a aparecer en cada análisis. Ahora el **titular** —el fichero que ya lleva el nombre
   correcto— manda sobre su número y se queda en verde; el conflicto recae en el otro fichero,
-  que es el que de verdad hay que decidir.
+  que es el que de verdad hay que decidir. Y si son dos copias del MISMO fichero (el típico caso
+  de tener el vídeo en su carpeta de temporada y una copia en una subcarpeta de trabajo tipo
+  «Renombrar»), la que queda verde es siempre la de la **biblioteca** —la más superficial—, no la
+  de staging, sin depender del orden de escaneo. (La copia sobrante seguirá marcada como
+  duplicada: para que desaparezca del todo hay que borrar ese segundo fichero.)
 
 ### Añadido
 

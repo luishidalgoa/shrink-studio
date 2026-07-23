@@ -567,6 +567,14 @@ public static class ReindexEngine
                                  // lo «corregías» y reaparecía, porque el número seguía disputado.
                                  .ThenByDescending(r => r.Estado == ReindexEstado.Limpio)
                                  .ThenByDescending(r => r.Score)
+                                 // Entre copias por lo demás iguales (el caso típico: el MISMO
+                                 // fichero ya en su sitio y una copia en una subcarpeta de
+                                 // trabajo tipo «Renombrar»), gana la MÁS SUPERFICIAL: la de la
+                                 // biblioteca manda sobre la de staging. Sin esto, cuál caía en
+                                 // conflicto dependía del orden de escaneo, y a veces se marcaba
+                                 // la copia buena y ya colocada. El desempate por nombre queda al
+                                 // final, solo para que el resultado sea estable del todo.
+                                 .ThenBy(r => r.Archivo.Path.Count(c => c is '/' or '\\'))
                                  .ThenBy(r => r.Archivo.NombreArchivo, StringComparer.OrdinalIgnoreCase)
                                  .ToList();
             var ganador = ordenados[0];
