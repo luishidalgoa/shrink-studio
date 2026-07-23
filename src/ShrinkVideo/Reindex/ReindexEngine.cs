@@ -559,6 +559,13 @@ public static class ReindexEngine
             if (grupo.Count() < 2) continue;
 
             var ordenados = grupo.OrderByDescending(r => r.Confianza == ReindexConfianza.Alta)
+                                 // El TITULAR manda: un fichero que YA está correctamente
+                                 // nombrado (Limpio) es el dueño legítimo de su número y gana a
+                                 // cualquier aspirante que solo quiera renombrarse a él. Sin
+                                 // esto, un fichero perfecto perdía su propio número por el
+                                 // desempate alfabético y salía en «Conflicto» una y otra vez:
+                                 // lo «corregías» y reaparecía, porque el número seguía disputado.
+                                 .ThenByDescending(r => r.Estado == ReindexEstado.Limpio)
                                  .ThenByDescending(r => r.Score)
                                  .ThenBy(r => r.Archivo.NombreArchivo, StringComparer.OrdinalIgnoreCase)
                                  .ToList();
@@ -568,8 +575,11 @@ public static class ReindexEngine
             // fichero identificado por su título al 100 % coincida con otro que solo traía
             // un número dudoso no es una ambigüedad: es un número dudoso. Marcarlos a los
             // dos convertía casos obvios en trabajo manual — que es justo lo que sobra.
+            // Y si el ganador YA está correctamente nombrado (Limpio), no es pelea ninguna: es
+            // el titular, se queda verde y punto; el aspirante es el que tiene el problema.
             // Se mira ANTES de tocar a los perdedores, que en el bucle pierden su confianza.
-            bool peleaDeVerdad = ordenados[1].Confianza == ReindexConfianza.Alta;
+            bool peleaDeVerdad = ordenados[1].Confianza == ReindexConfianza.Alta
+                                 && ganador.Estado != ReindexEstado.Limpio;
 
             // Qué dice el catálogo que ES ese número. Sin esto el mensaje nombraba el
             // episodio en disputa pero no su título, y no había manera de juzgar quién de

@@ -404,6 +404,25 @@ public static class Program
         Eq(0, lote.Count(x => x.Estado == ReindexEstado.Conflicto),
             "«[10a]» y «[10b]» comparten número sin ser un duplicado");
 
+        // Un fichero YA correctamente nombrado no pierde su número contra un aspirante. El
+        // «Las galletas mágicas.mkv» suelto reclama el 12 por título (Corregido), y compite con
+        // uno que YA se llama «S2005E12 - Las galletas mágicas» (Limpio). El titular manda: sin
+        // esto, el fichero perfecto perdía el desempate y salía en «Conflicto» una y otra vez
+        // —el usuario lo «corregía» y volvía a aparecer— porque el número seguía en disputa.
+        var titular = ReindexEngine.Resolve(new[]
+        {
+            SignalExtractor.Extract(F("Las galletas mágicas.mkv")),                                  // aspirante → 12 (Corregido)
+            SignalExtractor.Extract(F("Serie de prueba - S2005E12 - Las galletas mágicas.mkv")),     // ya correcto → 12 (Limpio)
+        }, cat);
+        var yaCorrecto = titular.First(x => x.Archivo.NombreArchivo.Contains("S2005E12"));
+        var aspirante  = titular.First(x => !x.Archivo.NombreArchivo.Contains("S2005E12"));
+        Eq(ReindexEstado.Limpio, yaCorrecto.Estado,
+            "el fichero ya correctamente nombrado se queda LIMPIO, no en conflicto");
+        Eq(ReindexConfianza.Alta, yaCorrecto.Confianza,
+            "y no se degrada a revisar por culpa de un aspirante");
+        Eq(ReindexEstado.Conflicto, aspirante.Estado,
+            "el aspirante que reclama un número ya ocupado por su titular es el que entra en conflicto");
+
         // Regla 4 — un especial jamás cae en la numeración regular
         r = Uno(cat, F("[S1] Especial de Navidad.mkv"));
         Eq(ReindexEstado.Especial, r.Estado, "un especial se queda en estado especial");

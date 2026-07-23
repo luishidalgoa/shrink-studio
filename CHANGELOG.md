@@ -29,6 +29,15 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Un fichero ya correctamente nombrado deja de salir en «Conflicto» una y otra vez.** Cuando
+  otro fichero reclamaba el mismo número de episodio, la app podía marcar como conflicto al que
+  YA estaba bien nombrado (perdía un desempate alfabético) en vez de al aspirante. Lo «corregías»
+  y volvía a aparecer en cada análisis. Ahora el **titular** —el fichero que ya lleva el nombre
+  correcto— manda sobre su número y se queda en verde; el conflicto recae en el otro fichero,
+  que es el que de verdad hay que decidir.
+
 ### Añadido
 
 - **«Elegir otro episodio…» también cuando detecta dos episodios en un fichero.** Antes, si la
