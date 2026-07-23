@@ -52,6 +52,14 @@ es un acuerdo de buena voluntad: está verificado.
   ficheros en el disco: si la carpeta ya tenía un fichero del mismo nombre (de un intento
   anterior), el motor saca la salida con sufijo y la comprobación buscaba el nombre sin él.
   Ahora se cuenta lo que el motor dice que escribió, comprobado en disco.
+- **El tirón del final de la exportación, suavizado.** Al terminar, reabrir el vídeo en el
+  reproductor costaba 100-200 ms del hilo de interfaz justo encima del desmontaje de la capa
+  de aviso — era el único bloqueo medible de toda la exportación (durante la codificación el
+  hilo va limpio). Ahora se reabre un instante después, cuando la interfaz está ociosa. Y si
+  alguna vez la interfaz se queda parada más de 200 ms exportando, el Registro lo anota, para
+  poder distinguir un bloqueo de la app de uno del sistema.
+- **Las tarjetas de catálogo se refrescan al volver a la app:** si borras o mueves el JSON
+  desde el Explorador, la tarjeta desaparece al volver, sin reiniciar.
 - **La barra de «Descargando de la nube» ahora avanza de verdad.** OneDrive suele traer el
   fichero entero de una vez, así que contar lo leído dejaba la barra a cero hasta el final;
   ahora se mide por los bytes que ya hay en disco, que crecen según baja.

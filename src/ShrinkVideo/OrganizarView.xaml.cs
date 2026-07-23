@@ -175,7 +175,21 @@ public partial class OrganizarView : UserControl
             "Preparando la revisión");
         panelEtapas.Children.Add(_pasos.Raiz);
 
-        Loaded += (_, _) => { if (!_cargando) Recargar(); };
+        Loaded += (_, _) =>
+        {
+            if (!_cargando) Recargar();
+
+            // Al VOLVER a la app (alt-tab desde el Explorador, por ejemplo) se relee la
+            // lista de catálogos: si borraste o moviste un JSON fuera, la tarjeta se va
+            // sola en vez de quedarse enseñando algo que ya no existe. Solo en la pantalla
+            // de inicio — en plena revisión no se le mueve el suelo a nadie.
+            if (Window.GetWindow(this) is { } w)
+                w.Activated += (_, _) =>
+                {
+                    if (vistaInicio.Visibility == Visibility.Visible && !_cargando)
+                        CargarCatalogos();
+                };
+        };
     }
 
     // ─────────────────────────── arranque ───────────────────────────
