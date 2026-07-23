@@ -1211,6 +1211,42 @@ public partial class RecortesView : UserControl
         _pausado = !_pausado;
     }
 
+    /// <summary>
+    /// La página entra o sale de pantalla (cambio de pestaña). Un tab oculto ya no se dibuja
+    /// —de eso se encarga WPF con Visibility.Collapsed—, pero SÍ seguiría trabajando: el reloj
+    /// del cabezal late, los previsualizadores gotean fotogramas y, si dejaste el vídeo en
+    /// marcha, sigue decodificando y sonando. Al ocultarse se para todo eso; al volver se
+    /// reanuda lo que toque. El plasma solo corre durante el export, así que se pausa/reanuda
+    /// según siga o no exportándose.
+    /// </summary>
+    public void EnPantalla(bool visible)
+    {
+        if (visible)
+        {
+            // Siempre, no solo si ya hay vídeo: si entras a la página y cargas uno después,
+            // el reloj tiene que estar ya corriendo. Su tick se ignora solo cuando no hay
+            // vídeo, así que dejarlo activo no cuesta nada.
+            _reloj.Start();
+            if (_exportando) _plasma?.Reanudar();
+        }
+        else
+        {
+            _reloj.Stop();
+            _esperaPrevia.Stop();
+            _esperaPista.Stop();
+            _plasma?.Pausar();
+            // Un vídeo reproduciéndose en un tab que ya no miras solo gasta: se pausa (y el
+            // botón queda en «play», que es lo coherente al volver).
+            if (!_pausado && _fuente != null)
+            {
+                video.Pause();
+                glifoPlay.Data = Geometry.Parse("M6.5,3.5 L17,10 L6.5,16.5 Z");
+                glifoPlay.Fill = Brushes.White;
+                _pausado = true;
+            }
+        }
+    }
+
     private void Saltar(double s)
     {
         if (_fuente == null) return;

@@ -1156,6 +1156,10 @@ public partial class MainWindow : Window
 
         pageOrganizar.Visibility = pagina == Pagina.Organizar ? Visibility.Visible : Visibility.Collapsed;
         pageRecortes.Visibility = pagina == Pagina.Recortes ? Visibility.Visible : Visibility.Collapsed;
+        // Recortes deja de trabajar (reloj, previsualizadores, vídeo, plasma) cuando no está a
+        // la vista, y lo retoma al volver. Un tab oculto ya no se DIBUJA —WPF lo hace solo—,
+        // pero sin esto seguiría decodificando vídeo y goteando fotogramas en segundo plano.
+        pageRecortes.EnPantalla(pagina == Pagina.Recortes);
         ActualizarPildoraFondo();
     }
 

@@ -69,6 +69,10 @@ es un acuerdo de buena voluntad: está verificado.
   tela, lo anota en el Registro con el número. Si no sale nada y aun así lo notaste, el freno
   viene de fuera del proceso (el grabador de pantalla, que también codifica por GPU; la
   memoria llena; el compositor de Windows).
+- **Los tabs que no miras dejan de trabajar.** Al cambiar de pestaña, Recortes deja de mover
+  su reloj, de pedir fotogramas de previsualización y —si tenías el vídeo reproduciéndose— de
+  decodificarlo; lo retoma al volver. Un tab oculto ya no se DIBUJA (de eso se encarga
+  Windows), pero seguía trabajando en segundo plano sin que se viera.
 - **Las tarjetas de catálogo se refrescan al volver a la app:** si borras o mueves el JSON
   desde el Explorador, la tarjeta desaparece al volver, sin reiniciar.
 - **La barra de «Descargando de la nube» ahora avanza de verdad.** OneDrive suele traer el
