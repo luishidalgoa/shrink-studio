@@ -1036,6 +1036,37 @@ public partial class RecortesView : UserControl
     }
 
     /// <summary>La cara de «se está exportando»: la capa sobre el vídeo y los botones.</summary>
+    // ── chivato de bloqueos ──
+    // Si durante una exportación el hilo de interfaz se queda parado más de 200 ms, se
+    // anota en el Registro. Existe porque «la app va a tirones» es real para quien lo ve e
+    // invisible en un banco: con esto, la próxima vez el Registro dirá si el bloqueo es
+    // nuestro (saldrán líneas) o del sistema/GPU (no saldrá ninguna y habrá que mirar fuera).
+    private DispatcherTimer? _vigia;
+    private readonly System.Diagnostics.Stopwatch _vigiaCrono = new();
+
+    private void VigilarBloqueos(bool si)
+    {
+        if (si)
+        {
+            _vigia ??= CrearVigia();
+            _vigiaCrono.Restart();
+            _vigia.Start();
+        }
+        else _vigia?.Stop();
+    }
+
+    private DispatcherTimer CrearVigia()
+    {
+        var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+        t.Tick += (_, _) =>
+        {
+            var gap = _vigiaCrono.ElapsedMilliseconds;
+            if (gap > 200) Log?.Invoke($"Recortes: la interfaz estuvo bloqueada {gap} ms durante la exportación.");
+            _vigiaCrono.Restart();
+        };
+        return t;
+    }
+
     private void PintarExportando(bool si)
     {
         capaExportando.Visibility = si ? Visibility.Visible : Visibility.Collapsed;
@@ -1043,6 +1074,7 @@ public partial class RecortesView : UserControl
         btnPausarExp.IsEnabled = btnDetenerExp.IsEnabled = si;
         btnPausarExp.Content = "Pausar";
         if (si) LatirPulsos(); else PararPulsos();
+        VigilarBloqueos(si);
     }
 
     /// <summary>
@@ -1360,9 +1392,16 @@ public partial class RecortesView : UserControl
 
             if (!borrado)
             {
-                video.Source = fuente;      // vuelve la previsualización
-                video.Play();
-                video.Pause();
+                // En ApplicationIdle, no en el mismo fotograma: abrir el medio cuesta
+                // 100-200 ms de hilo de interfaz, y sumado al desmontaje de la capa era EL
+                // tirón medible del final del export (medido: bloqueos de 98-227 ms justo
+                // al terminar; durante la codificación el hilo va limpio, p99 = 31 ms).
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, () =>
+                {
+                    video.Source = fuente;      // vuelve la previsualización
+                    video.Play();
+                    video.Pause();
+                });
             }
             btnCortar.IsEnabled = true;
             RefrescarEstimacion();
