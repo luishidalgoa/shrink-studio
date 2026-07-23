@@ -140,35 +140,14 @@
                      con una por elemento, el compositor solo mezcla un mapa ya pintado. Eso
                      es lo que permite subir de 5 a 20 fps sin pagarlo: a 5 el latido se veía
                      a saltos, que era la mitad de la sensación de «sin pulir». -->
-                <Grid x:Name="pulsos">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="1.1*"/>
-                    <ColumnDefinition Width="*"/>
-                  </Grid.ColumnDefinitions>
-                  <Rectangle x:Name="pulso1" Grid.Column="0" Opacity="0">
-                    <Rectangle.CacheMode><BitmapCache/></Rectangle.CacheMode>
-                    <Rectangle.RenderTransform><TranslateTransform x:Name="asomaIzq" X="-26"/></Rectangle.RenderTransform>
-                    <Rectangle.Fill>
-                      <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                        <GradientStop Color="#3DFFFFFF" Offset="0"/>
-                        <GradientStop Color="#14FFFFFF" Offset="0.45"/>
-                        <GradientStop Color="#00FFFFFF" Offset="1"/>
-                      </LinearGradientBrush>
-                    </Rectangle.Fill>
-                  </Rectangle>
-                  <Rectangle x:Name="pulso2" Grid.Column="2" Opacity="0">
-                    <Rectangle.CacheMode><BitmapCache/></Rectangle.CacheMode>
-                    <Rectangle.RenderTransform><TranslateTransform x:Name="asomaDer" X="26"/></Rectangle.RenderTransform>
-                    <Rectangle.Fill>
-                      <LinearGradientBrush StartPoint="1,0.5" EndPoint="0,0.5">
-                        <GradientStop Color="#38CFC7FF" Offset="0"/>
-                        <GradientStop Color="#12CFC7FF" Offset="0.45"/>
-                        <GradientStop Color="#00CFC7FF" Offset="1"/>
-                      </LinearGradientBrush>
-                    </Rectangle.Fill>
-                  </Rectangle>
-                </Grid>
+                <!-- El gradiente de plasma (shader de lightswind), calculado diminuto en un
+                     hilo de fondo por CPU y escalado aquí a la capa entera con interpolación
+                     bilineal —que al ampliar un mapa de bits pequeño lo desenfoca, que es
+                     justo el aspecto borroso que se busca—. Fant/HighQuality NO: bilinear
+                     (LowQuality) es el más barato y el que mejor difumina al ampliar. La
+                     Source la pone el código; empieza a 0 y entra con un fundido. -->
+                <Image x:Name="plasma" Stretch="Fill" Opacity="0"
+                       RenderOptions.BitmapScalingMode="LowQuality"/>
 
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
                   <!-- Triángulo de aviso, dibujado: nada de fuentes de iconos. -->
