@@ -55,9 +55,14 @@ es un acuerdo de buena voluntad: está verificado.
 - **El tirón del final de la exportación, suavizado.** Al terminar, reabrir el vídeo en el
   reproductor costaba 100-200 ms del hilo de interfaz justo encima del desmontaje de la capa
   de aviso — era el único bloqueo medible de toda la exportación (durante la codificación el
-  hilo va limpio). Ahora se reabre un instante después, cuando la interfaz está ociosa. Y si
-  alguna vez la interfaz se queda parada más de 200 ms exportando, el Registro lo anota, para
-  poder distinguir un bloqueo de la app de uno del sistema.
+  hilo va limpio). Ahora se reabre un instante después, cuando la interfaz está ociosa.
+- **Medidor de fluidez durante la exportación.** «La app va a tirones al exportar» no se pudo
+  reproducir en el banco ni reproduciendo el arrastre de la ventana (arrastrar sin exportar y
+  arrastrar exportando dan lo mismo, y el encoder por hardware sale incluso más fluido que el
+  de software). Así que la app mide en tu máquina los dos hilos que pueden causar un tirón —la
+  entrada y el render— y, si de verdad hubo tirones, lo anota en el Registro con el número. Si
+  no sale nada y aun así lo notaste, el freno viene de fuera del proceso (el grabador de
+  pantalla, que también codifica por GPU; la memoria; el compositor de Windows).
 - **Las tarjetas de catálogo se refrescan al volver a la app:** si borras o mueves el JSON
   desde el Explorador, la tarjeta desaparece al volver, sin reiniciar.
 - **La barra de «Descargando de la nube» ahora avanza de verdad.** OneDrive suele traer el
