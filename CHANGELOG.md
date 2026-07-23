@@ -29,6 +29,15 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Añadido
+
+- **«Elegir otro episodio…» también cuando detecta dos episodios en un fichero.** Antes, si la
+  app veía que un fichero traía dos capítulos, solo dejaba «Partirlo en dos» o «Dejarlo como
+  está» y escondía el selector de episodio. Ahora la opción de asignar un episodio a mano está
+  siempre disponible: si la detección de «dos episodios» fue un falso positivo, puedes corregirlo
+  eligiendo el episodio correcto — y la fila deja de recomendar partir y pasa a un renombrado
+  normal. «Partirlo en dos» sigue siendo la acción destacada cuando de verdad son dos.
+
 ### Corregido
 
 - **Recortes ya no se vuelve más lento cuanto más exportas.** Había una fuga de recursos: cada

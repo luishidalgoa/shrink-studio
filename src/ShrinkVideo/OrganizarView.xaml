@@ -634,9 +634,12 @@
                             Padding="12,4" Margin="16,0,0,0" Click="OnPartirEnDos"
                             Visibility="{Binding VerRecortar}"
                             ToolTip="Lo abre en Recortes con un corte ya puesto, listo para ajustarlo"/>
+                    <!-- Visible SIEMPRE, también cuando la app recomienda partir: aunque
+                         detecte «dos episodios», el usuario puede querer asignar uno a mano
+                         (p. ej. si la detección fue un falso positivo). Es la vía de escape.
+                         Va en estilo discreto para no competir con «Partirlo en dos…». -->
                     <Button Content="Elegir otro episodio…" Style="{StaticResource BtnGhost}" FontSize="12"
-                            Margin="16,0,0,0" Click="OnElegirAMano"
-                            Visibility="{Binding VerSelector}"/>
+                            Margin="16,0,0,0" Click="OnElegirAMano"/>
                     <Button Content="Dejarlo como está" Style="{StaticResource BtnGhost}" FontSize="12"
                             Margin="8,0,0,0" Click="OnDejarComoEsta"/>
                   </StackPanel>
