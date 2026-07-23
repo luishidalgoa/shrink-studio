@@ -786,27 +786,62 @@ public static class Program
             Eq(1, guardado.Especiales, "cuenta los especiales");
             Assert(guardado.Advertencias.Count > 0, "arrastra las advertencias a la tarjeta");
             Eq(1, ReindexStore.ListarCatalogos().Count, "el catálogo importado aparece en la lista");
-            Eq("entrada.json", guardado.Origen, "recuerda de qué fichero salió");
+
+            // La app REFERENCIA el original en su sitio, no lo copia. Con copia, editar el
+            // original dejaba a la app trabajando con una versión vieja sin forma de notarlo.
+            Eq(origen, guardado.Ruta, "la ruta ES la del original: sin copia");
+            Assert(guardado.Disponible, "el original está donde se dijo");
+            Eq(0, Directory.Exists(ReindexStore.DirCatalogos)
+                    ? Directory.GetFiles(ReindexStore.DirCatalogos).Length : 0,
+                "no se dejó ninguna copia en la carpeta de la app");
+
+            // Editar el original se nota SOLO: es toda la razón de referenciar
+            File.WriteAllText(origen, CatalogoDePrueba.Replace("\"num\": 12,", "\"num\": 90,"),
+                System.Text.Encoding.UTF8);
+            Eq(6, ReindexStore.ListarCatalogos()[0].Episodios, "relee el original en cada listado");
+
+            // Mover el original NO lo hace desaparecer en silencio: la tarjeta lo dice
+            var movido = Path.Combine(temporal, "entrada-movida.json");
+            File.Move(origen, movido);
+            var perdida = ReindexStore.ListarCatalogos();
+            Eq(1, perdida.Count, "el catálogo movido sigue listado — desaparecer sin decir nada sería peor");
+            Assert(!perdida[0].Disponible, "pero avisa de que el fichero ya no está donde estaba");
+            File.Move(movido, origen);
+            Assert(ReindexStore.ListarCatalogos()[0].Disponible, "al volver el fichero, vuelve a estar disponible");
 
             // — la última serie elegida sobrevive al cierre —
             Eq(null, ReindexStore.CargarUltimoCatalogo(), "de entrada no hay ninguna elegida");
             ReindexStore.GuardarUltimoCatalogo(guardado.Ruta);
             Eq(guardado.Ruta, ReindexStore.CargarUltimoCatalogo(), "se recuerda la elegida");
 
-            // Un JSON inválido no debe dejar rastro en la carpeta de catálogos
+            // Un JSON inválido no se registra
             var malo = Path.Combine(temporal, "malo.json");
             File.WriteAllText(malo, "{ no soy un catalogo ");
             Lanza<ReindexCatalogException>(() => ReindexStore.ImportarCatalogo(malo),
                 "rechaza importar un JSON inválido");
-            Eq(1, ReindexStore.ListarCatalogos().Count, "el JSON inválido no se copió");
+            Eq(1, ReindexStore.ListarCatalogos().Count, "el JSON inválido no se registró");
 
-            // — borrar —
-            Assert(ReindexStore.BorrarCatalogo(guardado.Ruta), "borra el catálogo");
+            // — quitar —
+            Assert(ReindexStore.BorrarCatalogo(guardado.Ruta), "quita el catálogo de la app");
             Eq(0, ReindexStore.ListarCatalogos().Count, "y desaparece de la lista");
             Eq(null, ReindexStore.CargarUltimoCatalogo(),
-                "al borrar el elegido deja de estarlo: si no, arrancaría apuntando a un fichero que ya no está");
-            Assert(!ReindexStore.BorrarCatalogo(guardado.Ruta), "borrar dos veces no revienta");
-            Assert(File.Exists(origen), "el JSON del que se importó NO se toca: es del usuario");
+                "al quitar el elegido deja de estarlo: si no, arrancaría apuntando a un fichero que ya no está");
+            Assert(!ReindexStore.BorrarCatalogo(guardado.Ruta), "quitar dos veces no revienta");
+            Assert(File.Exists(origen), "el JSON del usuario NO se toca jamás");
+
+            // — migración: una copia de las de antes, cuyo original sigue existiendo,
+            //   pasa a referencia sola y la copia se retira —
+            Directory.CreateDirectory(ReindexStore.DirCatalogos);
+            var copiaVieja = Path.Combine(ReindexStore.DirCatalogos, "Serie de prueba.reindex.json");
+            File.Copy(origen, copiaVieja);
+            File.WriteAllText(Path.Combine(ReindexStore.Raiz, "procedencia.json"),
+                $$"""{ "Serie de prueba.reindex.json": "{{origen.Replace("\\", "\\\\")}}|21/07/2026" }""",
+                System.Text.Encoding.UTF8);
+            var migrados = ReindexStore.ListarCatalogos();
+            Eq(1, migrados.Count, "la copia vieja aparece una sola vez");
+            Eq(origen, migrados[0].Ruta, "migrada a referencia: apunta al original");
+            Assert(!File.Exists(copiaVieja), "y la copia interna se retiró");
+            Assert(ReindexStore.BorrarCatalogo(origen), "se limpia el registro para lo que sigue");
 
             // — memoria de decisiones —
             Eq(0, ReindexStore.CargarDecisiones().Count, "sin decisiones al principio");

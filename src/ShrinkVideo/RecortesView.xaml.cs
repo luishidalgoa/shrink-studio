@@ -1307,14 +1307,22 @@ public partial class RecortesView : UserControl
                 // comprimir — se está cortando, así que hay que procesarlo igual.
                 opt.Force = true;
 
-                await _engine.CompressAsync(new[] { _fuente.Path }, opt, rep, _cancelar.Token);
+                // Task.Run: el motor es async, pero sus trozos SÍNCRONOS (abrir el fichero
+                // para el candado, sondearlo, mirar el espacio…) corrían en el hilo de
+                // interfaz — y sobre OneDrive cada uno es un viaje de red. Era la razón de
+                // que la ventana fuera a tirones al exportar con la CPU libre.
+                var tk = _cancelar.Token;
+                var salidos = await Task.Run(
+                    () => _engine.CompressAsync(new[] { _fuente.Path }, opt, rep, tk), tk);
 
-                // Se comprueba el fichero EN DISCO, no que la llamada volviera: el motor
-                // puede saltarse un fichero y devolver lista vacía. Dar eso por bueno fue
-                // justo el fallo — decía «2 ficheros creados» sin haber creado ninguno.
-                var esperado = Path.Combine(destino,
-                    LibraryTemplate.LimpiarNombre(t.Nombre) + Engine.OutputExtension(opt));
-                if (File.Exists(esperado)) hechos.Add(Path.GetFileName(esperado));
+                // El nombre real lo dice EL MOTOR, no se recalcula: si la carpeta ya tenía
+                // un fichero igual (de un intento anterior), el motor saca la salida con
+                // sufijo y el nombre recalculado no existía — contaba «1 de 2 sin salir»
+                // con los dos tramos en el disco. Y se sigue comprobando en disco, porque
+                // el motor puede saltarse un fichero y devolver lista vacía.
+                var salida = salidos.FirstOrDefault();
+                if (salida is { Ok: true } && File.Exists(salida.OutputPath))
+                    hechos.Add(Path.GetFileName(salida.OutputPath));
                 else fallidos.Add(t.Nombre);
             }
 

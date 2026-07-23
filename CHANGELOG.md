@@ -29,6 +29,29 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Cambiado
+
+- **Los catálogos ya no se copian: se leen de donde están.** Al importar, la app referencia
+  tu JSON en su sitio — si lo editas, cuenta al momento; ya no existe la copia interna que
+  se quedaba vieja en silencio. La tarjeta enseña **la ruta del fichero** (pulsable: abre la
+  carpeta con él seleccionado) y el clic derecho ofrece abrir la ubicación o copiar la ruta.
+  Si mueves o borras el JSON, la tarjeta **lo dice** en vez de seguir mostrando datos viejos.
+  Las copias de versiones anteriores se migran solas: si su original sigue existiendo se
+  referencia ese; si no, la copia queda registrada con su ruta real a la vista.
+- **«Simular» pasa a llamarse «Analizar».** Analizar la carpeta es lo que hace; «simular»
+  sugería un ensayo de mentira.
+
+### Corregido
+
+- **La ventana ya no va a tirones mientras se exporta o comprime.** El motor es asíncrono,
+  pero sus tramos síncronos (candados, sondeos, espacio en disco) corrían en el hilo de la
+  interfaz — y sobre OneDrive cada uno es un viaje de red. Ahora todo el trabajo del motor
+  corre en un hilo aparte, también el escaneo de la carpeta al pulsar «Analizar».
+- **El conteo de tramos exportados ya no miente.** Decía «1 de 2 sin salir» con los dos
+  ficheros en el disco: si la carpeta ya tenía un fichero del mismo nombre (de un intento
+  anterior), el motor saca la salida con sufijo y la comprobación buscaba el nombre sin él.
+  Ahora se cuenta lo que el motor dice que escribió, comprobado en disco.
+
 ## [0.14.4] - 2026-07-23
 
 ### Corregido

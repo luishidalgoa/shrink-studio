@@ -250,8 +250,31 @@ public partial class OrganizarView : UserControl
 
     private void OnUsarCatalogo(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement fe && fe.Tag is string ruta)
-            ElegirCatalogo(_catalogos.FirstOrDefault(c => c.Ruta == ruta));
+        if (sender is not FrameworkElement fe || fe.Tag is not string ruta) return;
+        var cat = _catalogos.FirstOrDefault(c => c.Ruta == ruta);
+        // Elegir un catálogo cuyo fichero ya no está solo puede acabar en un aviso de error
+        // al leerlo: mejor decir el problema real, que es que el fichero se movió.
+        if (cat is { Disponible: false })
+        {
+            Aviso($"El fichero de este catálogo ya no está en:{Environment.NewLine}{cat.Ruta}" +
+                  $"{Environment.NewLine}{Environment.NewLine}" +
+                  "Si lo has movido, vuelve a importarlo desde su sitio nuevo.");
+            return;
+        }
+        ElegirCatalogo(cat);
+    }
+
+    /// <summary>Abre la carpeta del JSON del catálogo con el fichero seleccionado.</summary>
+    private void OnUbicacionCatalogo(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is string ruta) AbrirCarpetaDe(ruta);
+    }
+
+    private void OnCopiarRutaCatalogo(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not string ruta) return;
+        try { Clipboard.SetText(ruta); Escribir("Ruta copiada al portapapeles."); }
+        catch { /* el portapapeles puede estar cogido por otra app; no es grave */ }
     }
 
     /// <summary>
@@ -506,7 +529,9 @@ public partial class OrganizarView : UserControl
         // existen, y simular sobre ella re-resolvía el pasado — la tabla enseñaba los
         // mismos «Corregido» de antes como si aplicar no hubiera hecho nada.
         var carpetaActual = txtCarpeta.Text?.Trim() ?? "";
-        try { _ficheros = LibraryScan.Escanear(carpetaActual, Engine.VideoExtensions); }
+        // En un hilo aparte: enumerar cientos de ficheros sobre OneDrive es un viaje de red
+        // por carpeta, y hecho en el hilo de interfaz congelaba el clic de «Analizar».
+        try { _ficheros = await Task.Run(() => LibraryScan.Escanear(carpetaActual, Engine.VideoExtensions)); }
         catch { /* la carpeta puede haber desaparecido; el guard de abajo lo dice */ }
 
         if (_catalogoCargado == null || _ficheros.Length == 0) return;
@@ -648,10 +673,10 @@ public partial class OrganizarView : UserControl
 
             MostrarRevision();
             ActualizarContadores();
-            Escribir($"Simulación: {_filas.Count} ficheros contra «{catalogo.Serie}»" +
+            Escribir($"Análisis: {_filas.Count} ficheros contra «{catalogo.Serie}»" +
                      (temporadas > 0 ? $", repartidos en {temporadas} temporadas." : "."));
         }
-        catch (Exception ex) { Aviso($"La simulación falló: {ex.Message}"); }
+        catch (Exception ex) { Aviso($"El análisis falló: {ex.Message}"); }
         finally
         {
             if (animar)
@@ -1018,7 +1043,7 @@ public partial class OrganizarView : UserControl
                 Detalle = fila != null
                     ? $"{fila.EstadoTexto} · {Path.GetFileName(Path.GetDirectoryName(a.Ruta)) ?? ""}"
                     : (File.Exists(a.Ruta)
-                        ? "no está en esta simulación — pulsa para abrir su carpeta"
+                        ? "no está en este análisis — pulsa para abrir su carpeta"
                         : "ya no está en el disco"),
             };
         }).ToList();
@@ -1490,7 +1515,7 @@ public partial class OrganizarView : UserControl
         {
             (null, _) => "Importa un catálogo para empezar",
             (_, 0) => "Elige una carpeta con vídeos",
-            var (c, n) => $"Catálogo {c!.Serie} · {n} ficheros listos para simular",
+            var (c, n) => $"Catálogo {c!.Serie} · {n} ficheros listos para analizar",
         };
     }
 
