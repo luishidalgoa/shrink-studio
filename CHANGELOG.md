@@ -29,6 +29,23 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Un fichero con dos episodios distintos ahora recomienda partirlo, no elegir uno.** Cuando
+  las dos historias de un vídeo casan cada una con un episodio distinto del catálogo (el
+  trozo A con el 588, el B con el 589), la app lo trataba como un empate de «elige 588 o 589»
+  — cuando ponerle el número de uno pierde el otro para siempre. Ahora lo detecta también en
+  ese caso (antes solo si venía con número seguro), lo dice claro («trae dos episodios: el
+  588 y el 589») y ofrece **partirlo en dos**, ocultando el selector de episodio que llevaba
+  al error.
+
+### Cambiado
+
+- **Nombres de estado más claros en Organizar.** «Limpios» pasa a **«Correctos»** (el nombre
+  ya está bien) y «Corregidos» a **«Con cambios»** (había un cambio propuesto que aún no se
+  ha aplicado — «corregido» daba a entender que ya estaba hecho). Los ficheros que hay que
+  partir se marcan aparte, con «✂ Partir en 2».
+
 ## [0.14.3] - 2026-07-23
 
 ### Corregido

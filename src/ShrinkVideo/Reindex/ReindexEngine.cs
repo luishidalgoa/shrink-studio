@@ -511,7 +511,15 @@ public static class ReindexEngine
     {
         foreach (var r in resoluciones)
         {
-            if (r.Confianza != ReindexConfianza.Alta || r.Episodio == null) continue;
+            if (r.Episodio == null) continue;
+            // Antes solo miraba las filas de confianza ALTA, y así se le escapaba el caso más
+            // claro de todos: el fichero cuyo trozo A casa al 100 % con un episodio y el trozo
+            // B con OTRO. Eso no llega como fila verde — llega como EMPATE (Revisar), porque
+            // dos episodios distintos puntúan igual de alto, y la app lo tomaba por una
+            // ambigüedad de «elige uno». Pero justo ahí no se puede elegir uno: hay que
+            // partir. Se incluye Revisar. Ninguna no, porque sin un episodio de referencia
+            // fiable no hay contra qué medir los trozos.
+            if (r.Confianza is not (ReindexConfianza.Alta or ReindexConfianza.Revisar)) continue;
             // Si ya se decidió que el fichero es UNA historia, no hay nada que perder.
             if (r.Archivo.SubSegmento != null) continue;
             if (r.Archivo.Segmentos.Count < 2) continue;
