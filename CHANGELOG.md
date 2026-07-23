@@ -29,6 +29,8 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-07-23
+
 ### Corregido
 
 - **Recortes ya no se queda «SALTADO: Descargando» hasta reiniciar la app.** La comprobación

@@ -18,7 +18,7 @@
     <PublishTrimmed>true</PublishTrimmed>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
 
-    <Version>0.14.2</Version>
+    <Version>0.14.3</Version>
     <Product>ShrinkStudio CLI</Product>
     <Company>luishidalgoa</Company>
     <Authors>luishidalgoa</Authors>
