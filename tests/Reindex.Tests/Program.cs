@@ -441,6 +441,21 @@ public static class Program
                 "la copia en la subcarpeta de trabajo es la que cae en conflicto");
         }
 
+        // La TEMPORADA se lee también del propio nombre «S2012E455», no solo de la carpeta. Un
+        // fichero ya perfecto en una subcarpeta sin año (p. ej. «Renombrar») no debe perder su
+        // temporada y confundirse con un REMAKE del mismo título en otro año. Caso real: «El aro
+        // de la gratitud» (ep 574, 2020) que se confundía con el 88 (2007) al quedarse sin
+        // temporada, y salía en conflicto en cada reanálisis.
+        var enStagingSinAño = SignalExtractor.Extract(
+            Path.Combine("Renombrar", "Serie de prueba - S2012E455 - El interruptor del despotismo.mkv"), "Renombrar");
+        Eq(2012, enStagingSinAño.Temporada,
+            "la temporada se extrae del «S2012» del nombre aunque la carpeta no la diga");
+        var rRemake = ReindexEngine.Resolve(new[] { enStagingSinAño }, cat)[0];
+        Eq(455, rRemake.Episodio?.Num,
+            "con su temporada, gana su propio episodio 455 y no el remake (ep 10) del mismo título");
+        Eq(ReindexEstado.Limpio, rRemake.Estado,
+            "y como ya está bien nombrado, queda limpio en vez de en conflicto");
+
         // Regla 4 — un especial jamás cae en la numeración regular
         r = Uno(cat, F("[S1] Especial de Navidad.mkv"));
         Eq(ReindexEstado.Especial, r.Estado, "un especial se queda en estado especial");

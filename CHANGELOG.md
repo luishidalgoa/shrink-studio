@@ -31,6 +31,15 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Corregido
 
+- **Un fichero bien nombrado ya no se confunde con un «remake» del mismo título al estar en una
+  subcarpeta.** La temporada se leía solo del nombre de la carpeta; un fichero como
+  «…S2020E574 - El aro de la gratitud.mkv» metido en una subcarpeta de trabajo (p. ej.
+  «Renombrar», sin año) perdía su temporada, y como en Doraemon hay historias que se repiten
+  años después con el mismo título, el motor lo tomaba por el episodio equivocado (el 88 de 2007
+  en vez del 574 de 2020) y lo dejaba en conflicto una y otra vez. Ahora la temporada también se
+  lee del propio nombre («S2020E…»), así que identifica el episodio correcto aunque el fichero no
+  esté en su carpeta de temporada.
+
 - **Un fichero ya correctamente nombrado deja de salir en «Conflicto» una y otra vez.** Cuando
   otro fichero reclamaba el mismo número de episodio, la app podía marcar como conflicto al que
   YA estaba bien nombrado (perdía un desempate alfabético) en vez de al aspirante. Lo «corregías»
