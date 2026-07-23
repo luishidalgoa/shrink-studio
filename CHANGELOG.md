@@ -29,6 +29,24 @@ es un acuerdo de buena voluntad: está verificado.
 
 ## [Unreleased]
 
+### Corregido
+
+- **Recortes ya no se queda «SALTADO: Descargando» hasta reiniciar la app.** La comprobación
+  de «¿este fichero aún se está descargando?» abría el vídeo en exclusiva, así que saltaba
+  con cualquier LECTOR: OneDrive hidratando, el indexador o el propio reproductor de la
+  página, que suelta el fichero con retraso. Y tras cada intento fallido la app reabría el
+  vídeo, con lo que el siguiente intento volvía a encontrarlo cogido — de ese bucle solo se
+  salía reiniciando. Ahora solo salta si alguien lo tiene abierto para ESCRIBIR, que es lo
+  que de verdad delata una descarga a medias.
+- **Los vídeos que están solo en la nube se descargan enteros al abrirlos en Recortes,**
+  con barra de progreso y Esc para cancelar. Trabajar sobre el marcador a medias era la
+  otra mitad de la lentitud: las miniaturas y la codificación iban a velocidad de red y la
+  app parecía ahogada sin decir por qué. Ahora la descarga se paga una vez, al principio y
+  a la vista; si el sistema vuelve a soltar el fichero («liberar espacio»), exportar lo
+  baja de nuevo con el mismo progreso.
+- **Durante la exportación se paran las miniaturas de la pista:** goteaban lecturas sobre
+  el mismo fichero que se estaba codificando.
+
 ## [0.14.2] - 2026-07-23
 
 ### Cambiado
