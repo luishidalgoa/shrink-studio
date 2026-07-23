@@ -423,6 +423,24 @@ public static class Program
         Eq(ReindexEstado.Conflicto, aspirante.Estado,
             "el aspirante que reclama un número ya ocupado por su titular es el que entra en conflicto");
 
+        // Duplicado real (mismo fichero en su sitio Y una copia en una subcarpeta de trabajo):
+        // gana la copia de la BIBLIOTECA (más superficial), no la de staging, y da igual el
+        // orden de escaneo. Es el caso «Season 2005/x.mkv» vs «Season 2005/Renombrar/x.mkv».
+        var biblioteca = SignalExtractor.Extract(
+            Path.Combine("Season 2005", "Serie de prueba - S2005E12 - Las galletas mágicas.mkv"), "Season 2005");
+        var staging = SignalExtractor.Extract(
+            Path.Combine("Season 2005", "Renombrar", "Serie de prueba - S2005E12 - Las galletas mágicas.mkv"), "Renombrar");
+        foreach (var orden in new[] { new[] { biblioteca, staging }, new[] { staging, biblioteca } })
+        {
+            var dup = ReindexEngine.Resolve(orden, cat);
+            var enBib = dup.First(x => x.Archivo.Carpeta == "Season 2005");
+            var enStaging = dup.First(x => x.Archivo.Carpeta == "Renombrar");
+            Eq(ReindexEstado.Limpio, enBib.Estado,
+                "la copia de la biblioteca (más superficial) se queda limpia, sea cual sea el orden de escaneo");
+            Eq(ReindexEstado.Conflicto, enStaging.Estado,
+                "la copia en la subcarpeta de trabajo es la que cae en conflicto");
+        }
+
         // Regla 4 — un especial jamás cae en la numeración regular
         r = Uno(cat, F("[S1] Especial de Navidad.mkv"));
         Eq(ReindexEstado.Especial, r.Estado, "un especial se queda en estado especial");
