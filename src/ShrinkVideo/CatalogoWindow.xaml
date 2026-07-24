@@ -134,7 +134,7 @@
             <TextBlock x:Name="lblHistoriaTitulo" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
             <TextBlock Margin="0,6,0,12" FontSize="12" Foreground="{StaticResource Neutral500}"
                        TextWrapping="Wrap" LineHeight="18"
-                       Text="Si el fichero trae el episodio entero, elige «Completo». Si es solo una de sus historias, di cuál: la letra irá pegada al número (E413b) y el título será el de esa historia."/>
+                       Text="Si trae el episodio entero, elige «El episodio completo». Si trae solo algunas de sus historias, márcalas: las letras van pegadas al número (E413b, o E413ac si son varias) y el título será el de esas historias."/>
             <StackPanel x:Name="panelHistorias"/>
           </StackPanel>
         </Border>

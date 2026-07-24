@@ -789,6 +789,19 @@ public static class Program
             "una letra sin historia correspondiente deja el título completo");
         Eq(null, fB.ConSegmento(null).SubSegmento, "quitar el segmento también funciona");
 
+        // ── VARIAS historias, pero no todas: un fichero con la «a» y la «c» de tres ──
+        // El diálogo permite marcar varias; las letras van pegadas (E12ac) y se juntan SOLO
+        // esos títulos. Y —clave— el nombre que se escribe se relee con las mismas letras.
+        var catTres = ReindexCatalog.Parse(CatalogoDePrueba.Replace(
+            "\"es\": [\"Las galletas mágicas\"]", "\"es\": [\"Uno\", \"Dos\", \"Tres\"]"));
+        var fAC = f.ConSegmento("ac");
+        Eq("Serie de prueba - S2005E12ac - Uno + Tres.mkv",
+            plantilla.Render(catTres, catTres.PorNum(12)!, fAC),
+            "dos historias sueltas: las letras pegadas (E12ac) y solo esos dos títulos");
+        var releidoAC = SignalExtractor.Extract(F("Serie de prueba - S2005E12ac - Uno + Tres.mkv"));
+        Eq(12, releidoAC.Indice, "el nombre multi-historia se relee con su número de episodio");
+        Eq("ac", releidoAC.SubSegmento, "y con el mismo sub-segmento «ac» (round-trip intacto)");
+
         // Patrón a medida
         Eq("S2005E12.mkv", new LibraryTemplate("S<temp>E<num>").Render(cat, ep, f), "acepta un patrón propio");
         Eq("Serie de prueba - S2005E12 - Las galletas mágicas.mkv",

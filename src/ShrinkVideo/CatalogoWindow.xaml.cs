@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using ShrinkVideo.Reindex;
 
 namespace ShrinkVideo;
@@ -201,7 +202,8 @@ public partial class CatalogoWindow : Window
         // ser el episodio entero o solo uno de sus trozos.
         if (v.Ep.TitulosSalida.Count <= 1) { Terminar(v.Ep, null); return; }
 
-        lblHistoriaTitulo.Text = $"El episodio {v.Ep.Num} tiene {v.Ep.TitulosSalida.Count} historias. ¿Qué trae este fichero?";
+        int n = v.Ep.TitulosSalida.Count;
+        lblHistoriaTitulo.Text = $"El episodio {v.Ep.Num} tiene {n} historias. ¿Cuáles trae este fichero?";
         panelHistorias.Children.Clear();
 
         Button Boton(string texto, Action accion)
@@ -220,14 +222,45 @@ public partial class CatalogoWindow : Window
             return b;
         }
 
+        // El caso más común, destacado: el episodio entero.
         panelHistorias.Children.Add(Boton("El episodio completo", () => Terminar(v.Ep, null)));
-        for (int i = 0; i < v.Ep.TitulosSalida.Count && i < 6; i++)
+
+        // O SOLO ALGUNAS: un checkbox por historia. Se pueden marcar varias (p. ej. la a y la c
+        // de tres), no solo una. Las letras de las marcadas van pegadas al número (E413ac).
+        panelHistorias.Children.Add(new TextBlock
+        {
+            Text = "O marca solo las historias que trae:",
+            FontSize = 11.5, Foreground = (Brush)FindResource("Neutral500"),
+            Margin = new Thickness(2, 6, 0, 6),
+        });
+
+        var casillas = new List<CheckBox>();
+        for (int i = 0; i < n && i < 6; i++)
         {
             char letra = (char)('a' + i);
-            var titulo = v.Ep.TitulosSalida[i];
-            panelHistorias.Children.Add(Boton($"Solo «{titulo}»  →  E{v.Ep.Num}{letra}",
-                () => Terminar(v.Ep, letra.ToString())));
+            var chk = new CheckBox
+            {
+                Content = $"«{v.Ep.TitulosSalida[i]}»  →  E{v.Ep.Num}{letra}",
+                Foreground = (Brush)FindResource("Text"),
+                FontSize = 12.5,
+                Margin = new Thickness(2, 0, 0, 7),
+            };
+            casillas.Add(chk);
+            panelHistorias.Children.Add(chk);
         }
+
+        var aceptar = Boton("Usar las historias marcadas", () =>
+        {
+            var letras = new string(Enumerable.Range(0, casillas.Count)
+                .Where(i => casillas[i].IsChecked == true)
+                .Select(i => (char)('a' + i))
+                .ToArray());
+            if (letras.Length == 0) return;                          // nada marcado: no hace nada
+            Terminar(v.Ep, letras.Length == n ? null : letras);      // todas marcadas = el completo
+        });
+        aceptar.Style = (Style)FindResource("BtnPrimary");
+        panelHistorias.Children.Add(aceptar);
+
         var cancelar = Boton("Cancelar", () => overlayHistoria.Visibility = Visibility.Collapsed);
         cancelar.Style = (Style)FindResource("BtnGhostMuted");
         panelHistorias.Children.Add(cancelar);

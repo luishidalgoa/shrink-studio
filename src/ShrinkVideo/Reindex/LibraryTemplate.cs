@@ -108,11 +108,16 @@ public sealed class LibraryTemplate
     private static string TituloPara(CatalogEpisode episodio, FileSignals archivo, string? separador)
     {
         var seg = archivo.SubSegmento;
-        if (!string.IsNullOrEmpty(seg) && seg.Length == 1)
+        if (!string.IsNullOrEmpty(seg))
         {
-            int i = char.ToLowerInvariant(seg[0]) - 'a';
-            if (i >= 0 && i < episodio.TitulosSalida.Count)
-                return episodio.TitulosSalida[i];
+            // Cada letra del sub-segmento es una historia: «b» = la 2.ª, «ac» = la 1.ª y la 3.ª.
+            // Se juntan SOLO esas, en su orden, con el mismo separador que el título completo.
+            var elegidos = seg
+                .Select(c => char.ToLowerInvariant(c) - 'a')
+                .Where(i => i >= 0 && i < episodio.TitulosSalida.Count)
+                .Select(i => episodio.TitulosSalida[i])
+                .ToList();
+            if (elegidos.Count > 0) return string.Join(separador ?? " + ", elegidos);
         }
         return separador != null
             ? string.Join(separador, episodio.TitulosSalida)

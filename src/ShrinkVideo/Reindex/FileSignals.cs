@@ -72,19 +72,22 @@ public static partial class SignalExtractor
     [GeneratedRegex(@"\[\s*S\s*(\d*)\s*\]", RegexOptions.IgnoreCase)]
     private static partial Regex RxEspecial();
 
-    // «[438]» o «[438a]» (sub-segmento)
-    [GeneratedRegex(@"\[\s*(\d{1,4})\s*([a-z])?\s*\]", RegexOptions.IgnoreCase)]
+    // «[438]», «[438a]» (una historia) o «[438ac]» (varias): las letras son el sub-segmento.
+    // Hasta 3 letras: un episodio no trae tantas historias, y limitarlo evita leer una palabra
+    // pegada al número («E02best») como si fueran segmentos.
+    [GeneratedRegex(@"\[\s*(\d{1,4})\s*([a-z]{0,3})\s*\]", RegexOptions.IgnoreCase)]
     private static partial Regex RxIndiceCorchetes();
 
-    // «S03E12» / «s03e12», y «S2017E487b»: la letra pegada al número es la historia suelta.
-    // Es el formato que ESCRIBE la propia app al marcar «esto es solo la historia b», así
-    // que tiene que saber releerlo: si no, cada pasada deshace la decisión de la anterior.
-    // La letra va sola («b», no «best»): el \b de después lo garantiza.
-    [GeneratedRegex(@"\bS(\d{1,4})E(\d{1,4})([a-z])?\b", RegexOptions.IgnoreCase)]
+    // «S03E12» / «s03e12», «S2017E487b» (una historia) y «S2017E487ac» (varias). Las letras
+    // pegadas al número son las historias que trae. Es el formato que ESCRIBE la propia app al
+    // marcar «esto es solo la historia b» (o «la a y la c»), así que tiene que saber releerlo:
+    // si no, cada pasada deshace la decisión de la anterior. Máximo 3 letras y el \b de después
+    // las cierra: así una palabra como «best» pegada al número no se confunde con segmentos.
+    [GeneratedRegex(@"\bS(\d{1,4})E(\d{1,4})([a-z]{0,3})\b", RegexOptions.IgnoreCase)]
     private static partial Regex RxSxxExx();
 
-    // «E72» suelto, con su letra opcional igual que arriba
-    [GeneratedRegex(@"\bE(\d{1,4})([a-z])?\b", RegexOptions.IgnoreCase)]
+    // «E72» suelto, con sus letras opcionales igual que arriba
+    [GeneratedRegex(@"\bE(\d{1,4})([a-z]{0,3})\b", RegexOptions.IgnoreCase)]
     private static partial Regex RxEpisodioE();
 
     // «72 Título» — número al principio seguido de separador
@@ -161,7 +164,7 @@ public static partial class SignalExtractor
         {
             indice = int.Parse(mSE.Groups[2].Value);
             if (int.TryParse(mSE.Groups[1].Value, out var tNom)) temporadaNombre = tNom;
-            if (mSE.Groups[3].Success) subSegmento = mSE.Groups[3].Value.ToLowerInvariant();
+            if (mSE.Groups[3].Value.Length > 0) subSegmento = mSE.Groups[3].Value.ToLowerInvariant();
             resto = TrasElMarcador(resto, mSE.Index, mSE.Length);
         }
         else
@@ -170,7 +173,7 @@ public static partial class SignalExtractor
             if (mCor.Success)
             {
                 indice = int.Parse(mCor.Groups[1].Value);
-                if (mCor.Groups[2].Success) subSegmento = mCor.Groups[2].Value.ToLowerInvariant();
+                if (mCor.Groups[2].Value.Length > 0) subSegmento = mCor.Groups[2].Value.ToLowerInvariant();
                 resto = resto.Remove(mCor.Index, mCor.Length);
             }
             else
@@ -179,7 +182,7 @@ public static partial class SignalExtractor
                 if (mE.Success)
                 {
                     indice = int.Parse(mE.Groups[1].Value);
-                    if (mE.Groups[2].Success) subSegmento = mE.Groups[2].Value.ToLowerInvariant();
+                    if (mE.Groups[2].Value.Length > 0) subSegmento = mE.Groups[2].Value.ToLowerInvariant();
                     resto = TrasElMarcador(resto, mE.Index, mE.Length);
                 }
                 else
