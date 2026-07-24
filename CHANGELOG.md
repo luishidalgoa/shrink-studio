@@ -53,6 +53,12 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Al elegir historia en un episodio multi-historia, puedes marcar VARIAS (no solo una).** El
+  diálogo «¿Cuáles trae este fichero?» ahora usa casillas: si un fichero trae dos de las tres
+  historias de un episodio (la «a» y la «c», pongamos), márcalas las dos y el nombre queda como
+  «E413ac» con los dos títulos juntos. Marcar todas equivale a «el episodio completo». El nombre
+  se relee igual, así que renombrar y volver a analizar sigue dando lo mismo.
+
 - **«Elegir otro episodio…» también cuando detecta dos episodios en un fichero.** Antes, si la
   app veía que un fichero traía dos capítulos, solo dejaba «Partirlo en dos» o «Dejarlo como
   está» y escondía el selector de episodio. Ahora la opción de asignar un episodio a mano está
