@@ -443,7 +443,7 @@
           <DataGrid.ContextMenu>
             <ContextMenu x:Name="menuFila">
               <MenuItem x:Name="miReproducir" Header="Reproducir"/>
-              <MenuItem x:Name="miRecortar" Header="Cortar este vídeo…"/>
+              <MenuItem x:Name="miRecortar" Header="Enviar a Recortes…"/>
               <MenuItem x:Name="miUbicacion" Header="Abrir la ubicación del fichero"/>
               <Separator/>
               <!-- Encontrar un fichero problemático cuesta más que arreglarlo: esto lo
