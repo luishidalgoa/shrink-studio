@@ -127,6 +127,14 @@ public partial class RecortesView : UserControl
         }
 
         btnElegir.Click += (_, _) => ElegirVideo();
+        btnVaciar.Click += (_, _) =>
+        {
+            if (_exportando) return;
+            if (_tramos.Count > 1 && !DialogWindow.Confirmar(Window.GetWindow(this), "Vaciar Recortes",
+                    $"Tienes {_tramos.Count} tramos preparados. Vaciar los descarta y suelta el vídeo. ¿Seguir?"))
+                return;
+            VaciarRecortes();
+        };
         btnPlay.Click += (_, _) => Alternar();
         btnAtras.Click += (_, _) => Saltar(-10);
         btnAdelante.Click += (_, _) => Saltar(10);
@@ -453,6 +461,7 @@ public partial class RecortesView : UserControl
 
         Ocupado(false);
         btnCortar.IsEnabled = true;
+        btnVaciar.Visibility = Visibility.Visible;   // ya hay algo cargado que se puede vaciar
         RefrescarEstimacion();
     }
 
@@ -1347,18 +1356,57 @@ public partial class RecortesView : UserControl
 
         // Sin fichero no hay proyecto: dejar la línea de tiempo con los cortes de un vídeo
         // que ya no existe solo lleva a exportar de nuevo y no entender por qué falla.
+        VaciarRecortes();
+        return true;
+    }
+
+    /// <summary>
+    /// Deja Recortes como recién abierto: suelta el vídeo, borra los tramos y el historial,
+    /// libera las miniaturas y devuelve la memoria. Es la acción «Vaciar» que pidió el usuario
+    /// —liberar recursos sin cerrar la app— y también el reseteo tras borrar el original.
+    /// </summary>
+    internal void VaciarRecortes()
+    {
+        if (_exportando) return;   // exportando no se toca; primero se detiene
+
+        // Soltar el reproductor con Source=null (NO Close(): en WPF Close() filtra handles).
+        // Esto libera el fichero y la memoria de decodificación del vídeo.
+        _pausado = true;
+        try { video.Stop(); } catch { }
+        video.Source = null;
+        glifoPlay.Data = Geometry.Parse("M6.5,3.5 L17,10 L6.5,16.5 Z");
+        glifoPlay.Fill = Brushes.White;
+
         _fuente = null;
         _tramos.Clear();
         _duracion = 0;
-        LiberarMiniaturas();
-        lblVideo.Text = "";
-        lblVideoDet.Text = "";
-        lblSinVideo.Text = "Elige un vídeo para empezar a cortarlo";
-        chipSinVideo.Visibility = Visibility.Visible;
+        _zoom = 1;
+        LiberarMiniaturas();          // suelta las BitmapImage y borra el temporal
+        _esperaPrevia.Stop();
+        _esperaPista.Stop();
         _atras.Clear();
         _adelante.Clear();
+
+        lblVideo.Text = "Ningún vídeo cargado";
+        lblVideoDet.Text = "Arrastra un vídeo aquí, o ábrelo desde Organizar con el botón derecho.";
+        lblDuracionTotal.Text = "";
+        lblDur.Text = "0:00";
+        lblPos.Text = "0:00";
+        lblZoom.Text = "";
+        lblSinVideo.Text = "Elige un vídeo para empezar a cortarlo";
+        chipSinVideo.Visibility = Visibility.Visible;
+        cabezal.Visibility = Visibility.Collapsed;
+        btnCortar.Visibility = Visibility.Collapsed;
+        btnCortar.IsEnabled = false;
+        btnVaciar.Visibility = Visibility.Collapsed;
+
         PintarPista();
-        return true;
+        RefrescarEstimacion();
+
+        // Se pidió expresamente «liberar recursos»: al vaciar a mano, se le devuelve al SO la
+        // memoria que tenían las miniaturas y el vídeo, en vez de esperar a la próxima GC.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
     }
 
     private async Task ExportarAsync()

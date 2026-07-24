@@ -53,6 +53,11 @@ es un acuerdo de buena voluntad: está verificado.
 
 ### Añadido
 
+- **Botón «Vaciar» en Recortes para soltar el vídeo y liberar la memoria.** Deja la página como
+  recién abierta —sin vídeo, sin cortes, sin historial— y devuelve al sistema la memoria que
+  ocupaban el vídeo y las miniaturas, sin cerrar la app. Aparece en la cabecera cuando hay algo
+  cargado; si tienes cortes preparados, pregunta antes de descartarlos.
+
 - **Al elegir historia en un episodio multi-historia, puedes marcar VARIAS (no solo una).** El
   diálogo «¿Cuáles trae este fichero?» ahora usa casillas: si un fichero trae dos de las tres
   historias de un episodio (la «a» y la «c», pongamos), márcalas las dos y el nombre queda como
